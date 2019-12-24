@@ -1,0 +1,204 @@
+#####
+##### `Dataset`
+#####
+
+struct Dataset{C}
+    path::String
+    header::Header
+    recordings::Dict{UUID,Recording{C}}
+end
+
+"""
+    Dataset(path, custom_type=Any; create=false, strict=())
+
+Return a `Dataset` instance that contains all metadata necessary to read and
+write to the Onda dataset stored at `path`. Note that this constuctor loads all
+the `Recording` objects contained in `path/recordings.msgpack.zst`.
+
+`custom_type` is the `typeof` of the `custom` value found in each `Recording`
+object in the dataset.
+
+If `create` is `true`, then an empty Onda dataset will be created at `path`.
+
+The `strict` keyword argument is forwarded to `MsgPack.unpack` when that
+function is called while parsing `path/recordings.msgpack.zst` (see the
+MsgPack documentation for details regarding `strict`).
+"""
+function Dataset(path, custom_type::Type{C}=Any;
+                 create::Bool=false, strict=()) where {C}
+    path = rstrip(abspath(path), '/')
+    samples_path = joinpath(path, "samples")
+    if create
+        @assert endswith(path, ".onda")
+        @assert !isdir(path)
+        mkdir(path)
+        mkdir(samples_path)
+        initial_header = Header(ONDA_FORMAT_VERSION, true)
+        initial_recordings = Dict{UUID,Recording{C}}()
+        write_recordings_file(path, initial_header, initial_recordings)
+    end
+    @assert isdir(path) && isdir(samples_path)
+    header, recordings = read_recordings_file(path, C, strict)
+    return Dataset{C}(path, header, recordings)
+end
+
+"""
+    save_recordings_file(dataset::Dataset)
+
+Overwrite `joinpath(dataset.path, "recordings.msgpack.zst")` with the contents
+of `dataset.recordings`.
+"""
+function save_recordings_file(dataset::Dataset)
+    return write_recordings_file(dataset.path, dataset.header, dataset.recordings)
+end
+
+Base.@deprecate overwrite_recordings(dataset) save_recordings_file(dataset)
+
+#####
+##### `merge!`
+#####
+
+"""
+    merge!(destination::Dataset, datasets::Dataset...; only_recordings::Bool=false)
+
+Write all filesystem content and the `recordings` field of each `Dataset` in
+`datasets` to `destination`.
+
+If any filesystem content has a name that conflicts with existing filesystem
+content in `destination`, this function will throw an error. An error will also
+be thrown if this function encounters multiple recordings with the same UUID.
+
+If `only_recordings` is `true`, then only the `recordings` field of each `Dataset`
+is merged, such that no filesystem content is read or written.
+
+NOTE: This function is currently only implemented when `only_recordings = true`.
+"""
+function Base.merge!(destination::Dataset, datasets::Dataset...; only_recordings::Bool=false)
+    @assert only_recordings "`merge!(datasets::Dataset...; only_recordings = false)` is not yet implemented"
+    for dataset in datasets
+        @assert all(!haskey(destination.recordings, key) for key in keys(dataset.recordings))
+        merge!(destination.recordings, dataset.recordings)
+    end
+    return destination
+end
+
+#####
+##### `path_to_samples`
+#####
+
+path_to_samples(dataset::Dataset, uuid::UUID) = joinpath(dataset.path, "samples", string(uuid))
+
+function path_to_samples(dataset::Dataset, uuid::UUID, name::Symbol, signal::Signal)
+    file_name = string(name, ".", signal.file_extension)
+    return joinpath(path_to_samples(dataset, uuid), file_name)
+end
+
+#####
+##### `create_recording!`
+#####
+
+"""
+    create_recording!(dataset::Dataset{C}, duration::Nanosecond, custom=nothing)
+
+Create `uuid::UUID => recording::Recording` where `recording` is constructed
+via the provided `duration` and `custom` fields, add the pair to
+`dataset.recordings`, and return the pair.
+
+The `custom` argument is passed along to the `Recording{C}` constructor, such
+that `custom isa C` must hold true.
+"""
+function create_recording!(dataset::Dataset{C}, duration::Nanosecond,
+                           custom=nothing) where {C}
+    uuid = uuid4()
+    recording = Recording{C}(duration, Dict{Symbol,Signal}(), Set{Annotation}(), custom)
+    dataset.recordings[uuid] = recording
+    mkpath(path_to_samples(dataset, uuid))
+    return uuid => recording
+end
+
+#####
+##### `load`
+#####
+
+"""
+    load(dataset::Dataset, uuid::UUID, name::Symbol[, span::AbstractTimeSpan])
+
+Load and return the `Samples` object corresponding to the signal named `name`
+in the recording specified by `uuid`.
+
+If `span` is provided, this function returns the equivalent of
+`load(dataset, uuid, name)[:, span]`, but potentially avoids loading the entire
+signal's worth of sample data if the underlying signal file format supports
+partial access/random seeks.
+
+See also: [`deserialize_lpcm`](@ref)
+"""
+function load(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan...)
+    signal = dataset.recordings[uuid].signals[name]
+    samples_path = path_to_samples(dataset, uuid, name, signal)
+    return load_samples(samples_path, signal, span...)
+end
+
+"""
+    load(dataset::Dataset, uuid::UUID, names[, span::AbstractTimeSpan])
+
+Return `Dict(name => load(dataset, uuid, name[, span]) for name in names)`.
+"""
+function load(dataset::Dataset, uuid::UUID, names, span::AbstractTimeSpan...)
+    return Dict(name => load(dataset, uuid, name, span...) for name in names)
+end
+
+"""
+    load(dataset::Dataset, uuid::UUID[, span::AbstractTimeSpan])
+
+Return `load(dataset, uuid, names[, span])` where `names` is a list of all
+signal names in the recording specified by `uuid`.
+"""
+function load(dataset::Dataset, uuid::UUID, span::AbstractTimeSpan...)
+    return load(dataset, uuid, keys(dataset.recordings[uuid].signals), span...)
+end
+
+#####
+##### `store!`
+#####
+
+"""
+    store!(dataset::Dataset, uuid::UUID, name::Symbol, samples::Samples;
+           overwrite::Bool=true)
+
+Add `name => samples.signal` to `dataset.recordings[uuid].signals` and serialize
+`samples.data` to the proper file location within `dataset.path`.
+
+If `overwrite` is `false`, an error is thrown if `samples` already exists
+in `recording`/`dataset`. Otherwise, existing entries matching `samples.signal`
+will be deleted and replaced with `samples`.
+"""
+function store!(dataset::Dataset, uuid::UUID, name::Symbol,
+                samples::Samples; overwrite::Bool=true)
+    recording, signal = dataset.recordings[uuid], samples.signal
+    if haskey(recording.signals, name)
+        @assert overwrite "$name already exists in $uuid and `overwrite` is `false`"
+    end
+    @assert is_valid(signal) && is_lower_snake_case_alphanumeric(string(name))
+    recording.signals[name] = signal
+    store_samples!(path_to_samples(dataset, uuid, name, signal),
+                   samples; overwrite=overwrite)
+    return recording
+end
+
+#####
+##### `delete!`
+#####
+
+"""
+    delete!(dataset::Dataset, uuid::UUID)
+
+Delete the recording whose UUID matches `uuid` from `dataset`. This function
+removes the matching `Recording` object from `dataset.recordings`, as well as
+deletes the corresponding subdirectory in the `dataset`'s `recordings` directory.
+"""
+function Base.delete!(dataset::Dataset, uuid::UUID)
+    delete!(dataset.recordings, uuid)
+    rm(path_to_samples(dataset, uuid); recursive=true, force=true)
+    return dataset
+end
