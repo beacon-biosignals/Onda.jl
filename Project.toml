@@ -1,6 +1,6 @@
 name = "Onda"
 uuid = "e853f5be-6863-11e9-128d-476edb89bfb5"
-authors = ["Jarrett Revels <jarrettrevels@gmail.com>"]
+authors = ["Beacon Biosignals, Inc."]
 version = "0.7.1"
 
 [deps]
