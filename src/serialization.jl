@@ -13,11 +13,11 @@ A type whose subtypes support:
 All definitions of subtypes of the form `S<:AbstractLPCMSerializer` must also
 support a constructor of the form `S(::Signal)`.
 
-Authors should additionally call [`register_file_extension_for_serializer`](@ref)
+Authors should additionally call `register_file_extension_for_serializer`
 to register their new serializer with Onda's internal global file extension ->
 serializer type map.
 
-See also: [`serializer`](@ref), [`LPCM`](@ref), [`LPCMZst`](@ref), [`FLAC`](@ref)
+See also: [`serializer`](@ref), [`LPCM`](@ref), [`LPCMZst`](@ref)
 """
 abstract type AbstractLPCMSerializer end
 
@@ -37,7 +37,7 @@ end
 
 Return `S(signal)` where `S` is the `AbstractLPCMSerializer` that corresponds
 to `signal.file_extension` (as determined by the serializer author via
-[`register_file_extension_for_serializer`](@ref)).
+`register_file_extension_for_serializer`).
 
 See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
 """
@@ -197,8 +197,6 @@ The `level` keyword argument sets the same compression level parameter as the
 corresponding flag documented by the `zstd` command line utility.
 
 See https://facebook.github.io/zstd/ for details about `zstd`.
-
-See also: [`FLAC`](@ref)
 """
 struct LPCMZst{S} <: AbstractLPCMSerializer
     lpcm::LPCM{S}
