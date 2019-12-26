@@ -228,7 +228,8 @@ function read_recordings_file(path, ::Type{C}, additional_strict_args) where {C}
     file_path = joinpath(path, "recordings.msgpack.zst")
     bytes = zstd_decompress(read(file_path))
     io = IOBuffer(bytes)
-    @assert read(io, UInt8) == 0x92 # MessagePack byte prefix for 2-element array
+    # `0x92` is the MessagePack byte prefix for 2-element array
+    read(io, UInt8) == 0x92 || error("recordings.msgpack.zst has bad byte prefix")
     header = MsgPack.unpack(io, Header)
     if !is_supported_onda_format_version(header.onda_format_version)
         @warn("attempting to load `Dataset` with unsupported Onda version",
