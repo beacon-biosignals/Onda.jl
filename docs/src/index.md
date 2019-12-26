@@ -12,6 +12,7 @@ Note that Onda.jl's API follows a specific philosophy with respect to property a
 
 ```@docs
 Dataset
+samples_path
 create_recording!
 load
 store!

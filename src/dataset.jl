@@ -83,14 +83,27 @@ function Base.merge!(destination::Dataset, datasets::Dataset...; only_recordings
 end
 
 #####
-##### `path_to_samples`
+##### `samples_path`
 #####
 
-path_to_samples(dataset::Dataset, uuid::UUID) = joinpath(dataset.path, "samples", string(uuid))
+"""
+    samples_path(dataset::Dataset, uuid::UUID)
 
-function path_to_samples(dataset::Dataset, uuid::UUID, name::Symbol, signal::Signal)
-    file_name = string(name, ".", signal.file_extension)
-    return joinpath(path_to_samples(dataset, uuid), file_name)
+Return the samples subdirectory path corresponding to the recording specified by `uuid`.
+"""
+samples_path(dataset::Dataset, uuid::UUID) = joinpath(dataset.path, "samples", string(uuid))
+
+"""
+    samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
+                 file_extension=dataset.recordings[uuid].signals[name].file_extension)
+
+Return the samples file path corresponding to the signal named `name` within the
+recording specified by `uuid`.
+"""
+function samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
+                      file_extension=dataset.recordings[uuid].signals[name].file_extension)
+    file_name = string(name, ".", file_extension)
+    return joinpath(samples_path(dataset, uuid), file_name)
 end
 
 #####
@@ -112,7 +125,7 @@ function create_recording!(dataset::Dataset{C}, duration::Nanosecond,
     uuid = uuid4()
     recording = Recording{C}(duration, Dict{Symbol,Signal}(), Set{Annotation}(), custom)
     dataset.recordings[uuid] = recording
-    mkpath(path_to_samples(dataset, uuid))
+    mkpath(samples_path(dataset, uuid))
     return uuid => recording
 end
 
@@ -135,8 +148,8 @@ See also: [`deserialize_lpcm`](@ref)
 """
 function load(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan...)
     signal = dataset.recordings[uuid].signals[name]
-    samples_path = path_to_samples(dataset, uuid, name, signal)
-    return load_samples(samples_path, signal, span...)
+    path = samples_path(dataset, uuid, name, signal.file_extension)
+    return load_samples(path, signal, span...)
 end
 
 """
@@ -181,7 +194,7 @@ function store!(dataset::Dataset, uuid::UUID, name::Symbol,
     end
     @assert is_valid(signal) && is_lower_snake_case_alphanumeric(string(name))
     recording.signals[name] = signal
-    store_samples!(path_to_samples(dataset, uuid, name, signal),
+    store_samples!(samples_path(dataset, uuid, name, signal.file_extension),
                    samples; overwrite=overwrite)
     return recording
 end
@@ -199,6 +212,6 @@ deletes the corresponding subdirectory in the `dataset`'s `recordings` directory
 """
 function Base.delete!(dataset::Dataset, uuid::UUID)
     delete!(dataset.recordings, uuid)
-    rm(path_to_samples(dataset, uuid); recursive=true, force=true)
+    rm(samples_path(dataset, uuid); recursive=true, force=true)
     return dataset
 end
