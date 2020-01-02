@@ -3,9 +3,8 @@ using Test, Onda, Dates, Random, UUIDs
 @testset "pretty printing" begin
     @test repr(TimeSpan(6149872364198, 123412345678910)) == "TimeSpan(01:42:29.872364198, 34:16:52.345678910)"
 
-    signal = Signal([:a, :b, Symbol("c-d")], :unit, 0.25, Int16, 50, :lpcm, Dict(:level => 4))
+    signal = Signal([:a, :b, Symbol("c-d")], :unit, 0.25, Int16, 50, Symbol("lpcm.zst"), nothing)
     @test sprint(show, signal, context=(:compact => true)) == "Signal([:a, :b, Symbol(\"c-d\")])"
-    level = VERSION >= v"1.2" ? ":level => 4" : ":level=>4"
     @test sprint(show, signal) == """
                                   Signal:
                                     channel_names: [:a, :b, Symbol(\"c-d\")]
@@ -13,8 +12,8 @@ using Test, Onda, Dates, Random, UUIDs
                                     sample_resolution_in_unit: 0.25
                                     sample_type: Int16
                                     sample_rate: 50 Hz
-                                    file_extension: :lpcm
-                                    file_options: Dict{Symbol,Any}($level)"""
+                                    file_extension: Symbol(\"lpcm.zst\")
+                                    file_options: nothing"""
 
     samples = Samples(signal, true, rand(Random.MersenneTwister(0), signal.sample_type, 3, 5))
     @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 Array{Int16,2})"
@@ -25,8 +24,8 @@ using Test, Onda, Dates, Random, UUIDs
                                      signal.sample_resolution_in_unit: 0.25
                                      signal.sample_type: Int16
                                      signal.sample_rate: 50 Hz
-                                     signal.file_extension: :lpcm
-                                     signal.file_options: Dict{Symbol,Any}($level)
+                                     signal.file_extension: Symbol(\"lpcm.zst\")
+                                     signal.file_options: nothing
                                      encoded: true
                                      data:
                                    3×5 Array{Int16,2}:

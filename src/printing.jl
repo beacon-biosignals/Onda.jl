@@ -34,11 +34,11 @@ function Base.show(io::IO, signal::Signal)
     else
         println(io, "Signal:")
         println(io, "  channel_names: ", channel_names_string(signal.channel_names))
-        println(io, "  sample_unit: :", signal.sample_unit)
+        println(io, "  sample_unit: ", repr(signal.sample_unit))
         println(io, "  sample_resolution_in_unit: ", signal.sample_resolution_in_unit)
         println(io, "  sample_type: ", signal.sample_type)
         println(io, "  sample_rate: ", signal.sample_rate, " Hz")
-        println(io, "  file_extension: :", signal.file_extension)
+        println(io, "  file_extension: ", repr(signal.file_extension))
         print(io,   "  file_options: ", repr(signal.file_options))
     end
 end
