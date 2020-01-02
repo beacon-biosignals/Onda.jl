@@ -33,15 +33,15 @@ function register_file_extension_for_serializer(extension::Symbol, T::Type{<:Abs
 end
 
 """
-    serializer(signal::Signal)
+    serializer(signal::Signal; kwargs...)
 
-Return `S(signal)` where `S` is the `AbstractLPCMSerializer` that corresponds
-to `signal.file_extension` (as determined by the serializer author via
-`register_file_extension_for_serializer`).
+Return `S(signal; kwargs...)` where `S` is the `AbstractLPCMSerializer` that
+corresponds to `signal.file_extension` (as determined by the serializer author
+via `register_file_extension_for_serializer`).
 
 See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
 """
-serializer(signal::Signal) = (FILE_EXTENSIONS[signal.file_extension])(signal)
+serializer(signal::Signal; kwargs...) = (FILE_EXTENSIONS[signal.file_extension])(signal; kwargs...)
 
 """
     deserialize_lpcm(bytes, serializer::AbstractLPCMSerializer)
@@ -187,7 +187,7 @@ end
 
 """
     LPCMZst(lpcm::LPCM; level=3)
-    LPCMZst(signal::Signal)
+    LPCMZst(signal::Signal; level=3)
 
 Return a `LPCMZst<:AbstractLPCMSerializer` instance that corresponds to
 Onda's default interleaved LPCM format compressed by `zstd`. This serializer
@@ -204,7 +204,7 @@ struct LPCMZst{S} <: AbstractLPCMSerializer
     LPCMZst(lpcm::LPCM{S}; level=3) where {S} = new{S}(lpcm, level)
 end
 
-LPCMZst(signal::Signal) = LPCMZst(LPCM(signal); level=file_option(signal, :level, 3))
+LPCMZst(signal::Signal; kwargs...) = LPCMZst(LPCM(signal); kwargs...)
 
 register_file_extension_for_serializer(Symbol("lpcm.zst"), LPCMZst)
 

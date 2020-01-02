@@ -10,7 +10,7 @@ using Onda, Test, Random
 
 """
      FLAC(lpcm::LPCM; sample_rate, level=5)
-     FLAC(signal::Signal)
+     FLAC(signal::Signal; level=5)
 
 Return a `FLAC<:AbstractLPCMSerializer` instance that represents the
 FLAC format assumed for signal files with the ".flac" extension.
@@ -37,8 +37,8 @@ struct FLAC{S} <: Onda.AbstractLPCMSerializer
     end
 end
 
-FLAC(signal::Signal) = FLAC(LPCM(signal); sample_rate=signal.sample_rate,
-                            level=Onda.file_option(signal, :level, 5))
+FLAC(signal::Signal; kwargs...) = FLAC(LPCM(signal); sample_rate=signal.sample_rate,
+                                       kwargs...)
 
 Onda.register_file_extension_for_serializer(:flac, FLAC)
 
