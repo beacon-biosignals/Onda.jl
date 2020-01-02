@@ -29,15 +29,16 @@ function Dataset(path, custom_type::Type{C}=Any;
     path = rstrip(abspath(path), '/')
     samples_path = joinpath(path, "samples")
     if create
-        @assert endswith(path, ".onda")
-        @assert !isdir(path)
+        endswith(path, ".onda") || throw(ArgumentError("cannot create dataset at $path: path does not end with .onda"))
+        isdir(path) && throw(ArgumentError("cannot create dataset at $path: directory exists"))
         mkdir(path)
         mkdir(samples_path)
         initial_header = Header(ONDA_FORMAT_VERSION, true)
         initial_recordings = Dict{UUID,Recording{C}}()
         write_recordings_file(path, initial_header, initial_recordings)
+    elseif !(isdir(path) && isdir(samples_path))
+        throw(ArgumentError("$path is not a valid Onda dataset"))
     end
-    @assert isdir(path) && isdir(samples_path)
     header, recordings = read_recordings_file(path, C, strict)
     return Dataset{C}(path, header, recordings)
 end
@@ -74,9 +75,13 @@ is merged, such that no filesystem content is read or written.
 NOTE: This function is currently only implemented when `only_recordings = true`.
 """
 function Base.merge!(destination::Dataset, datasets::Dataset...; only_recordings::Bool=false)
-    @assert only_recordings "`merge!(datasets::Dataset...; only_recordings = false)` is not yet implemented"
+    only_recordings || error("`merge!(datasets::Dataset...; only_recordings=false)` is not yet implemented")
     for dataset in datasets
-        @assert all(!haskey(destination.recordings, key) for key in keys(dataset.recordings))
+        for uuid in keys(dataset.recordings)
+            if haskey(destination.recordings, uuid)
+                throw(ArgumentError("recording $uuid already exists in the destination dataset"))
+            end
+        end
         merge!(destination.recordings, dataset.recordings)
     end
     return destination
@@ -189,10 +194,12 @@ will be deleted and replaced with `samples`.
 function store!(dataset::Dataset, uuid::UUID, name::Symbol,
                 samples::Samples; overwrite::Bool=true)
     recording, signal = dataset.recordings[uuid], samples.signal
-    if haskey(recording.signals, name)
-        @assert overwrite "$name already exists in $uuid and `overwrite` is `false`"
+    if haskey(recording.signals, name) && !overwrite
+        throw(ArgumentError("$name already exists in $uuid and `overwrite` is `false`"))
     end
-    @assert is_valid(signal) && is_lower_snake_case_alphanumeric(string(name))
+    if !is_lower_snake_case_alphanumeric(string(name))
+        throw(ArgumentError("$name is not lower snake case and alphanumeric"))
+    end
     recording.signals[name] = signal
     store_samples!(samples_path(dataset, uuid, name, signal.file_extension),
                    samples; overwrite=overwrite)

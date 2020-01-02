@@ -34,7 +34,7 @@ struct TimeSpan <: AbstractTimeSpan
     first::Nanosecond
     last::Nanosecond
     function TimeSpan(first::Nanosecond, last::Nanosecond)
-        @assert first <= last
+        first <= last || throw(ArgumentError("start of time span should precede end, got $first and $last"))
         return new(first, last)
     end
     TimeSpan(first, last) = TimeSpan(Nanosecond(first), Nanosecond(last))
