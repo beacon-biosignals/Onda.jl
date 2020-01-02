@@ -342,20 +342,24 @@ end
 ##### load/store
 #####
 
-function load_samples(file_path::AbstractString, signal::Signal)
-    return Samples(signal, true, deserialize_lpcm(read(file_path), serializer(signal)))
+function load_samples(file_path::AbstractString, signal::Signal;
+                      serializer=serializer(signal))
+    return Samples(signal, true, deserialize_lpcm(read(file_path), serializer))
 end
 
-function load_samples(file_path::AbstractString, signal::Signal, span::AbstractTimeSpan)
+function load_samples(file_path::AbstractString, signal::Signal, span::AbstractTimeSpan;
+                      serializer=serializer(signal))
     sample_range = index_from_time(signal.sample_rate, span)
     offset, n = first(sample_range) - 1, length(sample_range)
-    data = open(io -> deserialize_lpcm(io, serializer(signal), offset, n), file_path, "r")
+    data = open(io -> deserialize_lpcm(io, serializer, offset, n), file_path, "r")
     return Samples(signal, true, data)
 end
 
-function store_samples!(file_path::AbstractString, samples::Samples; overwrite::Bool=true)
+function store_samples!(file_path::AbstractString, samples::Samples;
+                        overwrite::Bool=true,
+                        serializer=serializer(samples.signal))
     overwrite || (isfile(file_path) && error("overwrite disabled but file path already exists: $(file_path)"))
     samples = encode(samples)
-    open(io -> serialize_lpcm(io, samples.data, serializer(samples.signal)), file_path, "w")
+    open(io -> serialize_lpcm(io, samples.data, serializer), file_path, "w")
     return file_path
 end
