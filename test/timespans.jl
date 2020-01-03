@@ -10,6 +10,7 @@ using Test, Onda, Dates
     @test shortest_timespan_containing((t,t,t)) == t
     @test duration(t) == Nanosecond(0)
     @test duration(first(t)) == first(t)
+    @test_throws ArgumentError TimeSpan(4, 2)
 end
 
 @testset "contains(::TimeSpan...)" begin

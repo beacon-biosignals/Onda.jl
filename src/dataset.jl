@@ -197,6 +197,7 @@ function store!(dataset::Dataset, uuid::UUID, name::Symbol,
     if haskey(recording.signals, name) && !overwrite
         throw(ArgumentError("$name already exists in $uuid and `overwrite` is `false`"))
     end
+    is_valid(signal) || throw(ArgumentError("signal in `samples` is invalid"))
     if !is_lower_snake_case_alphanumeric(string(name))
         throw(ArgumentError("$name is not lower snake case and alphanumeric"))
     end

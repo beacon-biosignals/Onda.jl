@@ -146,3 +146,32 @@ using Test, Onda, Dates, MsgPack
         @test !isdir(joinpath(dataset.path, "samples", string(old_uuid)))
     end
 end
+
+@testset "Error conditions" begin
+    mktempdir() do root
+        @test_throws ArgumentError Dataset(joinpath(root, "doesnt_end_with_onda"); create=true)
+        mkdir(joinpath(root, "i_exist.onda"))
+        @test_throws ArgumentError Dataset(joinpath(root, "i_exist.onda"); create=true)
+        mkdir(joinpath(root, "no_samples_dir.onda"))
+        @test_throws ArgumentError Dataset(joinpath(root, "no_samples_dir.onda"); create=false)
+
+        dataset = Dataset(joinpath(root, "okay.onda"); create=true)
+        duration = Nanosecond(Second(10))
+        uuid, recording = create_recording!(dataset, duration)
+        signal = Signal([:a], :mv, 0.25, Int8, 100, Symbol("lpcm.zst"), nothing)
+        @test_throws DimensionMismatch Samples(signal, true, rand(Int8, 2, 10))
+        @test_throws ArgumentError Samples(signal, true, rand(Float32, 1, 10))
+        samples = Samples(signal, true, rand(Int8, 1, 10 * 100))
+        @test_throws ArgumentError store!(dataset, uuid, Symbol("***HI***"), samples)
+        store!(dataset, uuid, :name_okay, samples)
+        @test_throws ArgumentError store!(dataset, uuid, :name_okay, samples; overwrite=false)
+
+        other = Dataset(joinpath(root, "other.onda"); create=true)
+        other.recordings[uuid] = Recording{Any}(duration, Dict{Symbol,Signal}(),
+                                                Set{Annotation}(), nothing)
+        mkpath(samples_path(other, uuid))
+        store!(other, uuid, :cool_stuff, samples)
+        @test_throws ErrorException merge!(dataset, other; only_recordings=false)
+        @test_throws ArgumentError merge!(dataset, other; only_recordings=true)
+    end
+end
