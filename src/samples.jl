@@ -81,8 +81,16 @@ struct Samples{D<:AbstractMatrix}
     encoded::Bool
     data::D
     function Samples(signal::Signal, encoded::Bool, data::AbstractMatrix)
-        @assert length(signal.channel_names) == size(data, 1)
-        encoded && @assert eltype(data) <: signal.sample_type
+        n_channels = channel_count(signal)
+        n_rows = size(data, 1)
+        if n_channels != n_rows
+            throw(DimensionMismatch("number of channels in signal ($n_channels) " *
+                                    "does not match number of rows in data matrix " *
+                                    "($n_rows)"))
+        end
+        if encoded && !(eltype(data) <: signal.sample_type)
+            throw(ArgumentError("signal and encoded data matrix have mismatched element types"))
+        end
         return new{typeof(data)}(signal, encoded, data)
     end
 end
@@ -234,8 +242,11 @@ function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, samples,
     if dither_storage isa Nothing
         broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit, samples)
     else
-        dither_storage = dither_storage isa Missing ? similar(samples) : dither_storage
-        @assert size(dither_storage) == size(samples)
+        if dither_storage isa Missing
+            dither_storage = similar(samples)
+        elseif size(dither_storage) != size(samples)
+            throw(DimensionMismatch("dithering storage container does not match shape of samples"))
+        end
         dither_noise!(dither_storage, sample_resolution_in_unit)
         broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit, samples, dither_storage)
     end
