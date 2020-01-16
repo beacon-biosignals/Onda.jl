@@ -116,18 +116,22 @@ end
 #####
 
 """
-    create_recording!(dataset::Dataset{C}, duration::Nanosecond, custom=nothing)
+    create_recording!(dataset::Dataset{C}, duration::Nanosecond,
+                      custom=nothing, uuid::UUID=uuid4())
 
 Create `uuid::UUID => recording::Recording` where `recording` is constructed
-via the provided `duration` and `custom` fields, add the pair to
-`dataset.recordings`, and return the pair.
+via the provided `duration` and `custom` arguments, `uuid` is the provided UUID
+(which is computed if not provided), add the pair to `dataset.recordings`, and
+return the pair.
 
 The `custom` argument is passed along to the `Recording{C}` constructor, such
 that `custom isa C` must hold true.
 """
 function create_recording!(dataset::Dataset{C}, duration::Nanosecond,
-                           custom=nothing) where {C}
-    uuid = uuid4()
+                           custom=nothing, uuid::UUID=uuid4()) where {C}
+    if haskey(dataset.recordings, uuid)
+        throw(ArgumentError("recording with UUID $uuid already exists in dataset"))
+    end
     recording = Recording{C}(duration, Dict{Symbol,Signal}(), Set{Annotation}(), custom)
     dataset.recordings[uuid] = recording
     mkpath(samples_path(dataset, uuid))

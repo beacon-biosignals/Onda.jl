@@ -167,9 +167,8 @@ end
         @test_throws ArgumentError store!(dataset, uuid, :name_okay, samples; overwrite=false)
 
         other = Dataset(joinpath(root, "other.onda"); create=true)
-        other.recordings[uuid] = Recording{Any}(duration, Dict{Symbol,Signal}(),
-                                                Set{Annotation}(), nothing)
-        mkpath(samples_path(other, uuid))
+        create_recording!(other, duration, nothing, uuid)
+        @test_throws ArgumentError create_recording!(other, duration, nothing, uuid)
         store!(other, uuid, :cool_stuff, samples)
         @test_throws ErrorException merge!(dataset, other; only_recordings=false)
         @test_throws ArgumentError merge!(dataset, other; only_recordings=true)
