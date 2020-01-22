@@ -1,7 +1,7 @@
 name = "Onda"
 uuid = "e853f5be-6863-11e9-128d-476edb89bfb5"
 authors = ["Beacon Biosignals, Inc."]
-version = "0.7.4"
+version = "0.7.5"
 
 [deps]
 CodecZstd = "6b39b394-51ab-5f42-8807-6242bab2b4c2"
