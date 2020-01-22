@@ -66,7 +66,8 @@ include("samples.jl")
 export Samples, encode, encode!, decode, decode!, channel, channel_count, sample_count
 
 include("dataset.jl")
-export Dataset, samples_path, create_recording!, load, store!, delete!, save_recordings_file
+export Dataset, samples_path, create_recording!, set_duration!, load, store!, delete!,
+       save_recordings_file
 
 include("printing.jl")
 
