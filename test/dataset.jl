@@ -130,6 +130,15 @@ using Test, Onda, Dates, MsgPack
         @test r1.annotations == r2.annotations
         @test r1.custom == r2.custom
 
+        new_duration = r2.duration_in_nanoseconds + Nanosecond(1)
+        r3 = set_duration!(dataset, uuid, new_duration)
+        @test r3.signals === r2.signals
+        @test r3.annotations === r2.annotations
+        @test r3.custom === r2.custom
+        @test r3.duration_in_nanoseconds === new_duration
+        @test dataset.recordings[uuid] === r3
+        set_duration!(dataset, uuid, r2.duration_in_nanoseconds)
+
         # read back everything, but without assuming an order on the metadata
         dataset = Dataset(joinpath(root, "test.onda"))
         Onda.write_recordings_file(dataset.path,

@@ -139,6 +139,24 @@ function create_recording!(dataset::Dataset{C}, duration::Nanosecond,
 end
 
 #####
+##### `set_duration!`
+#####
+
+"""
+    set_duration!(dataset::Dataset{C}, uuid::UUID, duration::Nanosecond) where {C}
+
+Replace `dataset.recordings[uuid]` with a `Recording` instance that is the exact
+same as the existing recording, but with the `duration_in_nanoseconds` field set
+to the provided `duration`. Returns the newly constructed `Recording` instance.
+"""
+function set_duration!(dataset::Dataset{C}, uuid::UUID, duration::Nanosecond) where {C}
+    r = dataset.recordings[uuid]
+    r = Recording{C}(duration, r.signals, r.annotations, r.custom)
+    dataset.recordings[uuid] = r
+    return r
+end
+
+#####
 ##### `load`
 #####
 

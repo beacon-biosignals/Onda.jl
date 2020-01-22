@@ -14,6 +14,7 @@ Note that Onda.jl's API follows a specific philosophy with respect to property a
 Dataset
 samples_path
 create_recording!
+set_duration!
 load
 store!
 delete!
