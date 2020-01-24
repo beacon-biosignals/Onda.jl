@@ -70,12 +70,11 @@ content in `destination`, this function will throw an error. An error will also
 be thrown if this function encounters multiple recordings with the same UUID.
 
 If `only_recordings` is `true`, then only the `recordings` field of each `Dataset`
-is merged, such that no filesystem content is read or written.
-
-NOTE: This function is currently only implemented when `only_recordings = true`.
+is merged, such that no filesystem content is read or written. If `only_recordings`
+is `false`, the samples stored on the filesystem for each dataset are `mv`'d to
+the corresponding location in the destination.
 """
 function Base.merge!(destination::Dataset, datasets::Dataset...; only_recordings::Bool=false)
-    only_recordings || error("`merge!(datasets::Dataset...; only_recordings=false)` is not yet implemented")
     for dataset in datasets
         for uuid in keys(dataset.recordings)
             if haskey(destination.recordings, uuid)
@@ -83,6 +82,11 @@ function Base.merge!(destination::Dataset, datasets::Dataset...; only_recordings
             end
         end
         merge!(destination.recordings, dataset.recordings)
+        if !only_recordings
+            for uuid in keys(dataset.recordings)
+                mv(samples_path(dataset, uuid), samples_path(destination, uuid))
+            end
+        end
     end
     return destination
 end

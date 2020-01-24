@@ -181,7 +181,13 @@ end
         create_recording!(other, duration, nothing, uuid)
         @test_throws ArgumentError create_recording!(other, duration, nothing, uuid)
         store!(other, uuid, :cool_stuff, samples)
-        @test_throws ErrorException merge!(dataset, other; only_recordings=false)
         @test_throws ArgumentError merge!(dataset, other; only_recordings=true)
+        delete!(other, uuid)
+        new_uuid, _ = create_recording!(other, duration)
+        store!(other, new_uuid, :cool_stuff, samples)
+        @test !isempty(readdir(samples_path(other, new_uuid)))
+        merge!(dataset, other; only_recordings=false)
+        @test !isempty(readdir(samples_path(dataset, new_uuid)))
+        @test isempty(readdir(samples_path(other, new_uuid)))
     end
 end
