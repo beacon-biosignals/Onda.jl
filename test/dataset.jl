@@ -175,6 +175,8 @@ end
         store!(dataset, uuid, :name_okay, samples)
         @test_throws ArgumentError store!(dataset, uuid, :name_okay, samples; overwrite=false)
 
+        @test_throws ArgumentError Annotation("hi", "there", Nanosecond(20), Nanosecond(4))
+
         other = Dataset(joinpath(root, "other.onda"); create=true)
         create_recording!(other, duration, nothing, uuid)
         @test_throws ArgumentError create_recording!(other, duration, nothing, uuid)
