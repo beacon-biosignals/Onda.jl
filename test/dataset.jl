@@ -188,6 +188,6 @@ end
         @test !isempty(readdir(samples_path(other, new_uuid)))
         merge!(dataset, other; only_recordings=false)
         @test !isempty(readdir(samples_path(dataset, new_uuid)))
-        @test isempty(readdir(samples_path(other, new_uuid)))
+        @test !isdir(samples_path(other, new_uuid))
     end
 end
