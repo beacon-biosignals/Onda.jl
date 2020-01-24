@@ -19,6 +19,13 @@ Base.first(t::Period) = convert(Nanosecond, t)
 
 Base.last(t::Period) = convert(Nanosecond, t)
 
+function _validate_timespan(first::Nanosecond, last::Nanosecond)
+    if first > last
+        throw(ArgumentError("start of time span should precede end, got $first and $last"))
+    end
+    return nothing
+end
+
 #####
 ##### `TimeSpan`
 #####
@@ -34,7 +41,7 @@ struct TimeSpan <: AbstractTimeSpan
     first::Nanosecond
     last::Nanosecond
     function TimeSpan(first::Nanosecond, last::Nanosecond)
-        first <= last || throw(ArgumentError("start of time span should precede end, got $first and $last"))
+        _validate_timespan(first, last)
         return new(first, last)
     end
     TimeSpan(first, last) = TimeSpan(Nanosecond(first), Nanosecond(last))

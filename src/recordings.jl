@@ -66,6 +66,11 @@ struct Annotation <: AbstractTimeSpan
     value::String
     start_nanosecond::Nanosecond
     stop_nanosecond::Nanosecond
+    function Annotation(key::AbstractString, value::AbstractString,
+                        start::Nanosecond, stop::Nanosecond)
+        _validate_timespan(start, stop)
+        return new(key, value, start, stop)
+    end
 end
 
 MsgPack.msgpack_type(::Type{Annotation}) = MsgPack.StructType()
