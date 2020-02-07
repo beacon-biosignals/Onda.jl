@@ -238,10 +238,24 @@ end
 
 Delete the recording whose UUID matches `uuid` from `dataset`. This function
 removes the matching `Recording` object from `dataset.recordings`, as well as
-deletes the corresponding subdirectory in the `dataset`'s `recordings` directory.
+deletes the corresponding subdirectory in the `dataset`'s `samples` directory.
 """
 function Base.delete!(dataset::Dataset, uuid::UUID)
     delete!(dataset.recordings, uuid)
     rm(samples_path(dataset, uuid); recursive=true, force=true)
+    return dataset
+end
+
+"""
+    delete!(dataset::Dataset, uuid::UUID, name::Symbol)
+
+Delete the signal whose name matches `name` from the recording whose UUID matches
+`uuid` in `dataset`. This function removes the matching `Signal` object from
+`dataset.recordings[uuid]`, as well as deletes the corresponding sample data in
+the `dataset`'s `samples` directory.
+"""
+function Base.delete!(dataset::Dataset, uuid::UUID, name::Symbol)
+    rm(samples_path(dataset, uuid, name); force=true)
+    delete!(dataset.recordings[uuid].signals, name)
     return dataset
 end

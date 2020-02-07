@@ -139,6 +139,18 @@ using Test, Onda, Dates, MsgPack
         @test dataset.recordings[uuid] === r3
         set_duration!(dataset, uuid, r2.duration_in_nanoseconds)
 
+        r = dataset.recordings[uuid]
+        original_signals_length = length(r.signals)
+        signal_name, signal = first(r.signals)
+        signal_samples = load(dataset, uuid, signal_name)
+        signal_samples_path = samples_path(dataset, uuid, signal_name)
+        delete!(dataset, uuid, signal_name)
+        @test r === dataset.recordings[uuid]
+        @test length(r.signals) == (original_signals_length - 1)
+        @test !haskey(r.signals, signal_name)
+        @test !isfile(signal_samples_path)
+        store!(dataset, uuid, signal_name, signal_samples)
+
         # read back everything, but without assuming an order on the metadata
         dataset = Dataset(joinpath(root, "test.onda"))
         Onda.write_recordings_file(dataset.path,
