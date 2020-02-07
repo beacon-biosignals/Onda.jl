@@ -59,6 +59,7 @@ duration
 
 ```@docs
 AbstractLPCMSerializer
+Onda.serializer_constructor_for_file_extension
 serializer
 deserialize_lpcm
 serialize_lpcm
