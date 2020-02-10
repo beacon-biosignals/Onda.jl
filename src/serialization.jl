@@ -10,26 +10,31 @@ A type whose subtypes support:
 - [`deserialize_lpcm`](@ref)
 - [`serialize_lpcm`](@ref)
 
-All definitions of subtypes of the form `S<:AbstractLPCMSerializer` must also
-support a constructor of the form `S(::Signal)`.
-
-Authors should additionally call `register_file_extension_for_serializer`
-to register their new serializer with Onda's internal global file extension ->
-serializer type map.
+All definitions of subtypes of the form `S<:AbstractLPCMSerializer` must also support
+a constructor of the form `S(::Signal)` and overload `Onda.serializer_constructor_for_file_extension`
+with the appropriate file extension.
 
 See also: [`serializer`](@ref), [`LPCM`](@ref), [`LPCMZst`](@ref)
 """
 abstract type AbstractLPCMSerializer end
 
-const FILE_EXTENSIONS = Dict{Symbol,Type{<:AbstractLPCMSerializer}}()
+"""
+    Onda.serializer_constructor_for_file_extension(::Val{:extension_symbol})
+
+Return a constructor of the form `S(::Signal)::AbstractLPCMSerializer`
+corresponding to the provided extension.
+
+This function should be overloaded for new `AbstractLPCMSerializer` subtypes.
+"""
+function serializer_constructor_for_file_extension(::Val{unknown}) where {unknown}
+    throw(ArgumentError("unknown file extension: $unknown"))
+end
 
 function register_file_extension_for_serializer(extension::Symbol, T::Type{<:AbstractLPCMSerializer})
-    if haskey(FILE_EXTENSIONS, extension)
-        S = FILE_EXTENSIONS[extension]
-        T == S || throw(ArgumentError("$(repr(extension)) has already been registered to $S"))
-    end
-    FILE_EXTENSIONS[extension] = T
-    return nothing
+    error("""
+          `Onda.register_file_extension_for_serializer(ext, T)` is deprecated; instead, `AbstractLPCMSerializer`
+          authors should define `Onda.serializer_constructor_for_file_extension(::Val{ext}) = T`.
+          """)
 end
 
 """
@@ -37,11 +42,14 @@ end
 
 Return `S(signal; kwargs...)` where `S` is the `AbstractLPCMSerializer` that
 corresponds to `signal.file_extension` (as determined by the serializer author
-via `register_file_extension_for_serializer`).
+via `serializer_constructor_for_file_extension`).
 
 See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
 """
-serializer(signal::Signal; kwargs...) = (FILE_EXTENSIONS[signal.file_extension])(signal; kwargs...)
+function serializer(signal::Signal; kwargs...)
+    T = serializer_constructor_for_file_extension(Val(signal.file_extension))
+    return T(signal; kwargs...)
+end
 
 """
     deserialize_lpcm(bytes, serializer::AbstractLPCMSerializer)
@@ -145,7 +153,7 @@ end
 
 LPCM(signal::Signal) = LPCM{signal.sample_type}(length(signal.channel_names))
 
-register_file_extension_for_serializer(:lpcm, LPCM)
+serializer_constructor_for_file_extension(::Val{:lpcm}) = LPCM
 
 function deserialize_lpcm(bytes, serializer::LPCM{S}) where {S}
     sample_count = Int(length(bytes) / sizeof(S) / serializer.channel_count)
@@ -206,7 +214,7 @@ end
 
 LPCMZst(signal::Signal; kwargs...) = LPCMZst(LPCM(signal); kwargs...)
 
-register_file_extension_for_serializer(Symbol("lpcm.zst"), LPCMZst)
+serializer_constructor_for_file_extension(::Val{Symbol("lpcm.zst")}) = LPCMZst
 
 function deserialize_lpcm(bytes, serializer::LPCMZst, args...)
     bytes = unsafe_vec_uint8(bytes)

@@ -12,3 +12,6 @@ using Test, Onda, Random
     io = IOBuffer(); serialize_lpcm(io, samples, s); seekstart(io)
     @test take!(io) == bytes
 end
+
+@test_throws ArgumentError Onda.serializer_constructor_for_file_extension(Val(:extension))
+@test_throws ErrorException Onda.register_file_extension_for_serializer(:extension, LPCM)
