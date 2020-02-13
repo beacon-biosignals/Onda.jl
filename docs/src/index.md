@@ -53,6 +53,8 @@ contains
 overlaps
 shortest_timespan_containing
 duration
+time_from_index
+index_from_time
 ```
 
 ## Serialization
