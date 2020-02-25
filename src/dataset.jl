@@ -30,8 +30,11 @@ function Dataset(path, custom_type::Type{C}=Any;
     samples_path = joinpath(path, "samples")
     if create
         endswith(path, ".onda") || throw(ArgumentError("cannot create dataset at $path: path does not end with .onda"))
-        isdir(path) && throw(ArgumentError("cannot create dataset at $path: directory exists"))
-        mkdir(path)
+        if isdir(path)
+            isempty(readdir(path)) || throw(ArgumentError("cannot create dataset at $path: directory exists and is nonempty"))
+        else
+            mkdir(path)
+        end
         mkdir(samples_path)
         initial_header = Header(ONDA_FORMAT_VERSION, true)
         initial_recordings = Dict{UUID,Recording{C}}()
