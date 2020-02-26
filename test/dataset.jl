@@ -172,6 +172,7 @@ end
     mktempdir() do root
         @test_throws ArgumentError Dataset(joinpath(root, "doesnt_end_with_onda"); create=true)
         mkdir(joinpath(root, "i_exist.onda"))
+        touch(joinpath(root, "i_exist.onda", "memes"))
         @test_throws ArgumentError Dataset(joinpath(root, "i_exist.onda"); create=true)
         mkdir(joinpath(root, "no_samples_dir.onda"))
         @test_throws ArgumentError Dataset(joinpath(root, "no_samples_dir.onda"); create=false)
@@ -189,7 +190,8 @@ end
 
         @test_throws ArgumentError Annotation("hi", "there", Nanosecond(20), Nanosecond(4))
 
-        other = Dataset(joinpath(root, "other.onda"); create=true)
+        mkdir(joinpath(root, "other.onda"))
+        other = Dataset(joinpath(root, "other.onda"); create=true)  # Using existing empty directory
         create_recording!(other, duration, nothing, uuid)
         @test_throws ArgumentError create_recording!(other, duration, nothing, uuid)
         store!(other, uuid, :cool_stuff, samples)
