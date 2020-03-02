@@ -5,7 +5,7 @@ using MsgPack
 using TranscodingStreams
 using CodecZstd
 
-const ONDA_FORMAT_VERSION = v"0.2"
+const ONDA_FORMAT_VERSION = v"0.3"
 
 #####
 ##### utilities
@@ -56,7 +56,7 @@ export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_contain
        index_from_time, time_from_index, duration
 
 include("recordings.jl")
-export Recording, Signal, signal_from_template, Annotation, annotate!
+export Recording, Signal, signal_from_template, Annotation, annotate!, span
 
 include("serialization.jl")
 export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,
@@ -66,9 +66,15 @@ include("samples.jl")
 export Samples, encode, encode!, decode, decode!, channel, channel_count, sample_count
 
 include("dataset.jl")
-export Dataset, samples_path, create_recording!, set_duration!, load, store!, delete!,
+export Dataset, samples_path, create_recording!, set_span!, load, store!, delete!,
        save_recordings_file
 
 include("printing.jl")
+
+#####
+##### upgrades/deprecations
+#####
+
+@deprecate set_duration!(dataset, uuid, duration) set_span!(dataset, uuid, TimeSpan(Nanosecond(0), duration))
 
 end # module

@@ -14,7 +14,7 @@ Note that Onda.jl's API follows a specific philosophy with respect to property a
 Dataset
 samples_path
 create_recording!
-set_duration!
+set_span!
 load
 store!
 delete!
@@ -26,6 +26,7 @@ save_recordings_file
 ```@docs
 Signal
 signal_from_template
+span
 Annotation
 Recording
 annotate!

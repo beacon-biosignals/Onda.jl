@@ -2,34 +2,25 @@
 ##### `Dataset`
 #####
 
-struct Dataset{C}
+struct Dataset
     path::String
     header::Header
-    recordings::Dict{UUID,Recording{C}}
+    recordings::Dict{UUID,Recording}
 end
 
 """
-    Dataset(path, custom_type=Any; create=false, strict=())
+    Dataset(path; create=false)
 
 Return a `Dataset` instance that contains all metadata necessary to read and
 write to the Onda dataset stored at `path`. Note that this constuctor loads all
 the `Recording` objects contained in `path/recordings.msgpack.zst`.
 
-`custom_type` is the `typeof` of the `custom` value found in each `Recording`
-object in the dataset.
-
 If `create` is `true`, then an empty Onda dataset will be created at `path`.
-
-The `strict` keyword argument is forwarded to `MsgPack.unpack` when that
-function is called while parsing `path/recordings.msgpack.zst` (see the
-MsgPack documentation for details regarding `strict`).
 """
-function Dataset(path, custom_type::Type{C}=Any;
-                 create::Bool=false, strict=()) where {C}
+function Dataset(path; create::Bool=false)
     path = rstrip(abspath(path), '/')
     samples_path = joinpath(path, "samples")
     if create
-        endswith(path, ".onda") || throw(ArgumentError("cannot create dataset at $path: path does not end with .onda"))
         if isdir(path)
             isempty(readdir(path)) || throw(ArgumentError("cannot create dataset at $path: directory exists and is nonempty"))
         else
@@ -37,13 +28,13 @@ function Dataset(path, custom_type::Type{C}=Any;
         end
         mkdir(samples_path)
         initial_header = Header(ONDA_FORMAT_VERSION, true)
-        initial_recordings = Dict{UUID,Recording{C}}()
+        initial_recordings = Dict{UUID,Recording}()
         write_recordings_file(path, initial_header, initial_recordings)
     elseif !(isdir(path) && isdir(samples_path))
         throw(ArgumentError("$path is not a valid Onda dataset"))
     end
-    header, recordings = read_recordings_file(path, C, strict)
-    return Dataset{C}(path, header, recordings)
+    header, recordings = read_recordings_file(path)
+    return Dataset(path, header, recordings)
 end
 
 """
@@ -55,8 +46,6 @@ of `dataset.recordings`.
 function save_recordings_file(dataset::Dataset)
     return write_recordings_file(dataset.path, dataset.header, dataset.recordings)
 end
-
-Base.@deprecate overwrite_recordings(dataset) save_recordings_file(dataset)
 
 #####
 ##### `merge!`
@@ -119,44 +108,50 @@ end
 #####
 
 """
-    create_recording!(dataset::Dataset{C}, duration::Nanosecond,
-                      custom=nothing, uuid::UUID=uuid4())
+    create_recording!(dataset::Dataset, uuid::UUID=uuid4())
 
-Create `uuid::UUID => recording::Recording` where `recording` is constructed
-via the provided `duration` and `custom` arguments, `uuid` is the provided UUID
-(which is computed if not provided), add the pair to `dataset.recordings`, and
-return the pair.
-
-The `custom` argument is passed along to the `Recording{C}` constructor, such
-that `custom isa C` must hold true.
+Create `uuid::UUID => recording::Recording`, add the pair to `dataset.recordings`,
+and return the pair.
 """
-function create_recording!(dataset::Dataset{C}, duration::Nanosecond,
-                           custom=nothing, uuid::UUID=uuid4()) where {C}
+function create_recording!(dataset::Dataset, uuid::UUID=uuid4())
     if haskey(dataset.recordings, uuid)
         throw(ArgumentError("recording with UUID $uuid already exists in dataset"))
     end
-    recording = Recording{C}(duration, Dict{Symbol,Signal}(), Set{Annotation}(), custom)
+    recording = Recording(Dict{Symbol,Signal}(), Set{Annotation}())
     dataset.recordings[uuid] = recording
     mkpath(samples_path(dataset, uuid))
     return uuid => recording
 end
 
 #####
-##### `set_duration!`
+##### `set_span!`
 #####
 
 """
-    set_duration!(dataset::Dataset{C}, uuid::UUID, duration::Nanosecond) where {C}
+    set_span!(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan)
 
-Replace `dataset.recordings[uuid]` with a `Recording` instance that is the exact
-same as the existing recording, but with the `duration_in_nanoseconds` field set
-to the provided `duration`. Returns the newly constructed `Recording` instance.
+Replace `dataset.recordings[uuid].signals[name]` with a copy that has the
+`start_nanosecond` and `start_nanosecond` fields set to match the provided
+`span`. Returns the newly constructed `Signal` instance.
 """
-function set_duration!(dataset::Dataset{C}, uuid::UUID, duration::Nanosecond) where {C}
-    r = dataset.recordings[uuid]
-    r = Recording{C}(duration, r.signals, r.annotations, r.custom)
-    dataset.recordings[uuid] = r
-    return r
+function set_span!(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan)
+    recording = dataset.recordings[uuid]
+    signal = signal_from_template(recording.signals[name];
+                                  start_nanosecond=first(span),
+                                  stop_nanosecond=last(span))
+    recording.signals[name] = signal
+    return signal
+end
+
+"""
+    set_span!(dataset::Dataset, uuid::UUID, span::TimeSpan)
+
+Return the `Vector{Signal}` that results from calling `set_span!(dataset, uuid, name, span)`
+for each signal `name` in `dataset.recordings[uuid].signals`.
+"""
+function set_span!(dataset::Dataset, uuid::UUID, span::AbstractTimeSpan)
+    signals = dataset.recordings[uuid].signals
+    return [set_span!(dataset, uuid, name, span) for name in signals]
 end
 
 #####
