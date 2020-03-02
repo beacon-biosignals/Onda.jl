@@ -22,10 +22,11 @@ indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
 values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
 
-Note also that `duration(span(signal))` is generally not equivalent to the
-`duration` of the returned `Samples`; the former is the duration of the original
+Note also that `duration(signal)` is not generally equivalent to the `duration`
+of the returned `Samples` instance; the former is the duration of the original
 signal in the context of its parent recording, whereas the latter is the actual
-duration of the provided `data` given `signal.sample_rate`.
+duration of the provided `data` given `signal.sample_rate`. This is similarly
+true for the `sample_count` function for the same reason.
 
 See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """

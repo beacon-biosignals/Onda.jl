@@ -66,7 +66,7 @@ struct Annotation <: AbstractTimeSpan
     stop_nanosecond::Nanosecond
     function Annotation(value::AbstractString, start::Nanosecond, stop::Nanosecond)
         _validate_timespan(start, stop)
-        return new(key, value, start, stop)
+        return new(value, start, stop)
     end
 end
 
@@ -198,7 +198,20 @@ Return `TimeSpan(signal.start_nanosecond, signal.stop_nanosecond)`.
 """
 span(signal::Signal) = TimeSpan(signal.start_nanosecond, signal.stop_nanosecond)
 
+"""
+    duration(signal::Signal)
+
+Return `duration(span(signal))`.
+"""
 duration(signal::Signal) = duration(span(signal))
+
+"""
+    sample_count(signal::Signal)
+
+Return the number of multichannel samples that fit within `duration(signal)`
+given `signal.sample_rate`.
+"""
+sample_count(signal::Signal) = index_from_time(signal.sample_rate, duration(signal)) - 1
 
 #####
 ##### recordings
@@ -234,9 +247,13 @@ annotate!(recording::Recording, annotation::Annotation) = push!(recording.annota
 """
     duration(recording::Recording)
 
-Returns `maximum(s -> s.stop_nanosecond, values(recording.signals))`.
+Returns `maximum(s -> s.stop_nanosecond, values(recording.signals))`; throws an
+`ArgumentError` if `recording.signals` is empty.
 """
-duration(recording::Recording) = maximum(s -> s.stop_nanosecond, values(recording.signals))
+function duration(recording::Recording)
+    isempty(recording.signals) && throw(ArgumentError("`duration(recording)` is not defined if `isempty(recording.signals)`"))
+    return maximum(s -> s.stop_nanosecond, values(recording.signals))
+end
 
 #####
 ##### reading/writing `recordings.msgpack.zst`

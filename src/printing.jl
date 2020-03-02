@@ -51,13 +51,16 @@ end
 
 function Base.show(io::IO, recording::Recording)
     if get(io, :compact, false)
-        duration_string = format_duration(duration(recording))
+        duration_string = isempty(recording.signals) ? "<no signals>" : format_duration(duration(recording))
         print(io, "Recording(", duration_string, ')')
     else
-        duration_in_seconds = duration(recording).value / 1_000_000_000
-        duration_string = string('(', format_duration(duration(recording)),
-                                 "; ", duration_in_seconds, " seconds)")
-        println(io, "Recording ", duration_string)
+        if isempty(recording.signals)
+            duration_string = "<no signals>"
+        else
+            duration_string = string(format_duration(duration(recording)), "; ",
+                                     duration(recording).value / 1_000_000_000, " seconds")
+        end
+        println(io, "Recording (", duration_string, ')')
         println(io, "  signals:")
         compact_io = IOContext(io, :compact => true)
         for (name, signal) in recording.signals
