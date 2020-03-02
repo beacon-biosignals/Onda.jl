@@ -69,7 +69,7 @@ end
 
 if VERSION >= v"1.1.0"
     @testset "FLAC example" begin
-        signal = Signal([:a, :b, :c], :unit, 0.25, Int16, 50, :flac, Dict(:level => 2))
+        signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, 0.0, Int16, 50.0, :flac, Dict(:level => 2))
         samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, 50 * 10))).data
         s = serializer(signal)
         bytes = serialize_lpcm(samples, s)
