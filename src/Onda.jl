@@ -92,9 +92,9 @@ is preserved at `path/old.recordings.msgpack.zst.backup`.
 A couple of the Onda v0.2 -> v0.3 changes require some special handling:
 
 - The `custom` field was removed from recording objects. This function thus writes out
-  a file at `path/recordings_customs.msgpack.zst` that contains a map of UUIDs to
+  a file at `path/recordings_custom.msgpack.zst` that contains a map of UUIDs to
   corresponding recordings' `custom` values before deleting the `custom` field. This
-  file can be deserialized via `MsgPack.unpack(Onda.zstd_decompress(read("recordings_customs.msgpack.zst")))`.
+  file can be deserialized via `MsgPack.unpack(Onda.zstd_decompress(read("recordings_custom.msgpack.zst")))`.
 
 - Annotations no longer have a `key` field. Thus, each annotation's existing `key` and `value`
   fields are combined into the single new `value` field via the provided callback
@@ -110,7 +110,7 @@ function upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_val
     v"0.2" <= header.onda_format_version < v"0.3" || error("unsupported original onda_format_version: $(header.onda_format_version)")
     recordings = MsgPack.unpack(io, Dict{UUID,Any})
     customs = Dict{UUID,Any}(uuid => recording["custom"] for (uuid, recording) in recordings)
-    write(joinpath(path, "recordings_customs.msgpack.zst"), zstd_compress(MsgPack.pack(customs)))
+    write(joinpath(path, "recordings_custom.msgpack.zst"), zstd_compress(MsgPack.pack(customs)))
     for (uuid, recording) in recordings
         signal_stop_nanosecond = recording["duration_in_nanoseconds"]
         for signal in values(recording["signals"])

@@ -209,7 +209,7 @@ end
         @test dataset.header.onda_format_version == v"0.3.0"
         @test dataset.header.ordered_keys
         old_recordings = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(old_path, "recordings.msgpack.zst"))))[2]
-        new_customs = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(new_path, "recordings_customs.msgpack.zst"))))
+        new_customs = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(new_path, "recordings_custom.msgpack.zst"))))
         @test length(dataset.recordings) == 1
         @test length(new_customs) == 1
         uuid = first(keys(dataset.recordings))
