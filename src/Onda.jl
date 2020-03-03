@@ -75,6 +75,10 @@ include("printing.jl")
 ##### upgrades/deprecations
 #####
 
-@deprecate set_duration!(dataset, uuid, duration) set_span!(dataset, uuid, TimeSpan(Nanosecond(0), duration))
+@deprecate set_duration!(dataset, uuid, duration) begin
+    r = dataset.recordings[uuid]
+    set_span!(r, TimeSpan(Nanosecond(0), duration))
+    r
+end
 
 end # module

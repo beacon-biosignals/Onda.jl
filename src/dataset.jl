@@ -26,13 +26,13 @@ function Dataset(path; create::Bool=false)
         else
             mkdir(path)
         end
-        mkdir(samples_path)
         initial_header = Header(ONDA_FORMAT_VERSION, true)
         initial_recordings = Dict{UUID,Recording}()
         write_recordings_file(path, initial_header, initial_recordings)
-    elseif !(isdir(path) && isdir(samples_path))
+    elseif !isdir(path)
         throw(ArgumentError("$path is not a valid Onda dataset"))
     end
+    !isdir(samples_path) && mkdir(samples_path)
     header, recordings = read_recordings_file(path)
     return Dataset(path, header, recordings)
 end
@@ -121,37 +121,6 @@ function create_recording!(dataset::Dataset, uuid::UUID=uuid4())
     dataset.recordings[uuid] = recording
     mkpath(samples_path(dataset, uuid))
     return uuid => recording
-end
-
-#####
-##### `set_span!`
-#####
-
-"""
-    set_span!(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan)
-
-Replace `dataset.recordings[uuid].signals[name]` with a copy that has the
-`start_nanosecond` and `start_nanosecond` fields set to match the provided
-`span`. Returns the newly constructed `Signal` instance.
-"""
-function set_span!(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan)
-    recording = dataset.recordings[uuid]
-    signal = signal_from_template(recording.signals[name];
-                                  start_nanosecond=first(span),
-                                  stop_nanosecond=last(span))
-    recording.signals[name] = signal
-    return signal
-end
-
-"""
-    set_span!(dataset::Dataset, uuid::UUID, span::TimeSpan)
-
-Return the `Vector{Signal}` that results from calling `set_span!(dataset, uuid, name, span)`
-for each signal `name` in `dataset.recordings[uuid].signals`.
-"""
-function set_span!(dataset::Dataset, uuid::UUID, span::AbstractTimeSpan)
-    signals = dataset.recordings[uuid].signals
-    return [set_span!(dataset, uuid, name, span) for name in signals]
 end
 
 #####

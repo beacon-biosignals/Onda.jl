@@ -255,6 +255,30 @@ function duration(recording::Recording)
     return maximum(s -> s.stop_nanosecond, values(recording.signals))
 end
 
+"""
+    set_span!(recording::Recording, name::Symbol, span::AbstractTimeSpan)
+
+Replace `recording.signals[name]` with a copy that has the `start_nanosecond`
+and `start_nanosecond` fields set to match the provided `span`. Returns the
+newly constructed `Signal` instance.
+"""
+function set_span!(recording::Recording, name::Symbol, span::AbstractTimeSpan)
+    signal = signal_from_template(recording.signals[name];
+                                  start_nanosecond=first(span),
+                                  stop_nanosecond=last(span))
+    recording.signals[name] = signal
+    return signal
+end
+
+"""
+    set_span!(recording::Recording, span::TimeSpan)
+
+Return `Dict(name => set_span!(recording, name, span) for name in keys(recording.signals))`
+"""
+function set_span!(recording::Recording, span::AbstractTimeSpan)
+    return Dict(name => set_span!(recording, name, span) for name in keys(recording.signals))
+end
+
 #####
 ##### reading/writing `recordings.msgpack.zst`
 #####

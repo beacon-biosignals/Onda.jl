@@ -66,7 +66,7 @@ function Base.show(io::IO, recording::Recording)
         for (name, signal) in recording.signals
             println(compact_io, "    :", name, " => ", signal)
         end
-        println(io, "  annotations: (", length(recording.annotations), " total)")
+        print(io, "  annotations: (", length(recording.annotations), " total)")
     end
 end
 

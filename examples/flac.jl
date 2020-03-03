@@ -2,7 +2,7 @@
 # that it's a naive implementation - it just shells out and assumes you have
 # the `flac` command line utility installed and available on your system.
 
-using Onda, Test, Random
+using Onda, Test, Random, Dates
 
 #####
 ##### FLAC

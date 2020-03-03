@@ -3,17 +3,18 @@ using Test, Onda, Dates, MsgPack
 @testset "round trip" begin
     mktempdir() do root
         # generate a test dataset
-        dataset = Dataset(joinpath(root, "test.onda"); create=true)
+        dataset = Dataset(joinpath(root, "test"); create=true)
         @test dataset isa Dataset
         @test isdir(dataset.path)
         @test isdir(joinpath(dataset.path, "samples"))
         duration_in_seconds = Second(10)
         duration_in_nanoseconds = Nanosecond(duration_in_seconds)
-        uuid, recording = create_recording!(dataset, duration_in_nanoseconds)
+        uuid, recording = create_recording!(dataset)
         Ts = (UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64)
         signals = Dict(Symbol(:x, i) => Signal(Symbol.([:a, :b, :c], i),
-                                               Symbol(:unit, i), 0.25, T,
-                                               100, Symbol("lpcm.zst"), nothing)
+                                               Nanosecond(0), duration_in_nanoseconds,
+                                               Symbol(:unit, i), 0.25, i, T, 100,
+                                               Symbol("lpcm.zst"), nothing)
                        for (i, T) in enumerate(Ts))
         samples = Dict(k => Samples(v, true, rand(v.sample_type, 3, 100 * 10))
                        for (k, v) in signals)
@@ -34,9 +35,9 @@ using Test, Onda, Dates, MsgPack
             decode!(tmp, s)
             @test tmp == d.data
             tmp = similar(d.data)
-            decode!(tmp, s.signal.sample_resolution_in_unit, s.data)
+            decode!(tmp, s.signal.sample_resolution_in_unit, s.signal.sample_offset_in_unit, s.data)
             @test tmp == d.data
-            @test d.data == (s.data .* s.signal.sample_resolution_in_unit)
+            @test d.data == (s.data .* s.signal.sample_resolution_in_unit .+ s.signal.sample_offset_in_unit)
             if sizeof(s.signal.sample_type) >= 8
                 # decoding from 64-bit to floating point is fairly lossy
                 tmp = similar(s.data)
@@ -84,7 +85,7 @@ using Test, Onda, Dates, MsgPack
 
         # read back in the test dataset, add some annotations
         old_dataset = dataset
-        dataset = Dataset(joinpath(root, "test.onda"))
+        dataset = Dataset(joinpath(root, "test"))
         @test length(dataset.recordings) == 1
         uuid, recording = first(dataset.recordings)
         x1 = load(dataset, uuid, :x1)
@@ -103,7 +104,7 @@ using Test, Onda, Dates, MsgPack
             @test xi[:, span].data == xs_span[name].data
         end
         for i in 1:3
-            annotate!(recording, Annotation("key_$i", "value_$i", Nanosecond(i), Nanosecond(i + rand(1:1000000))))
+            annotate!(recording, Annotation("value_$i", Nanosecond(i), Nanosecond(i + rand(1:1000000))))
         end
         save_recordings_file(dataset)
 
@@ -111,11 +112,11 @@ using Test, Onda, Dates, MsgPack
         old_uuid = uuid
         old_recording = recording
         old_dataset = dataset
-        dataset = Dataset(joinpath(root, "test.onda"))
+        dataset = Dataset(joinpath(root, "test"))
         uuid, recording = first(dataset.recordings)
         @test old_recording == recording
         delete!(dataset.recordings, uuid)
-        uuid, recording = create_recording!(dataset, old_recording.duration_in_nanoseconds)
+        uuid, recording = create_recording!(dataset)
         foreach(x -> annotate!(recording, x), old_recording.annotations)
         foreach(x -> store!(dataset, uuid, x, load(old_dataset, old_uuid, x)), keys(old_recording.signals))
         merge!(dataset, old_dataset, only_recordings=true)
@@ -125,19 +126,15 @@ using Test, Onda, Dates, MsgPack
         r2 = dataset.recordings[uuid]
         @test r2 == recording
         @test old_uuid != uuid
-        @test r1.duration_in_nanoseconds == r2.duration_in_nanoseconds
         @test r1.signals == r2.signals
         @test r1.annotations == r2.annotations
-        @test r1.custom == r2.custom
 
-        new_duration = r2.duration_in_nanoseconds + Nanosecond(1)
-        r3 = set_duration!(dataset, uuid, new_duration)
-        @test r3.signals === r2.signals
-        @test r3.annotations === r2.annotations
-        @test r3.custom === r2.custom
-        @test r3.duration_in_nanoseconds === new_duration
-        @test dataset.recordings[uuid] === r3
-        set_duration!(dataset, uuid, r2.duration_in_nanoseconds)
+        old_duration = duration(r2)
+        new_duration = old_duration + Nanosecond(1)
+        r2signals = set_span!(r2, TimeSpan(Nanosecond(0), new_duration))
+        @test keys(r2signals) == keys(r2.signals)
+        @test all(duration.(values(r2signals)) .== new_duration)
+        set_span!(r2, TimeSpan(Nanosecond(0), old_duration))
 
         r = dataset.recordings[uuid]
         original_signals_length = length(r.signals)
@@ -152,35 +149,38 @@ using Test, Onda, Dates, MsgPack
         store!(dataset, uuid, signal_name, signal_samples)
 
         # read back everything, but without assuming an order on the metadata
-        dataset = Dataset(joinpath(root, "test.onda"))
+        dataset = Dataset(joinpath(root, "test"))
         Onda.write_recordings_file(dataset.path,
                                    Onda.Header(dataset.header.onda_format_version, false),
                                    dataset.recordings)
-        dataset = Dataset(joinpath(root, "test.onda"))
+        dataset = Dataset(joinpath(root, "test"))
         @test Dict(old_uuid => old_recording) == dataset.recordings
         delete!(dataset, old_uuid)
         save_recordings_file(dataset)
 
         # read back the dataset that should now be empty
-        dataset = Dataset(joinpath(root, "test.onda"))
+        dataset = Dataset(joinpath(root, "test"))
         @test isempty(dataset.recordings)
         @test !isdir(joinpath(dataset.path, "samples", string(old_uuid)))
+
+        # make sure samples directory is appropriately created if not present
+        no_samples_path = joinpath(root, "no_samples_dir.onda")
+        mkdir(no_samples_path)
+        cp(joinpath(dataset.path, "recordings.msgpack.zst"), joinpath(no_samples_path, "recordings.msgpack.zst"))
+        Dataset(no_samples_path; create=false)
+        @test isdir(joinpath(no_samples_path, "samples"))
     end
 end
 
 @testset "Error conditions" begin
     mktempdir() do root
-        @test_throws ArgumentError Dataset(joinpath(root, "doesnt_end_with_onda"); create=true)
         mkdir(joinpath(root, "i_exist.onda"))
         touch(joinpath(root, "i_exist.onda", "memes"))
         @test_throws ArgumentError Dataset(joinpath(root, "i_exist.onda"); create=true)
-        mkdir(joinpath(root, "no_samples_dir.onda"))
-        @test_throws ArgumentError Dataset(joinpath(root, "no_samples_dir.onda"); create=false)
 
         dataset = Dataset(joinpath(root, "okay.onda"); create=true)
-        duration = Nanosecond(Second(10))
-        uuid, recording = create_recording!(dataset, duration)
-        signal = Signal([:a], :mv, 0.25, Int8, 100, Symbol("lpcm.zst"), nothing)
+        uuid, recording = create_recording!(dataset)
+        signal = Signal([:a], Nanosecond(0), Nanosecond(Second(10)), :mv, 0.25, 0.0, Int8, 100, Symbol("lpcm.zst"), nothing)
         @test_throws DimensionMismatch Samples(signal, true, rand(Int8, 2, 10))
         @test_throws ArgumentError Samples(signal, true, rand(Float32, 1, 10))
         samples = Samples(signal, true, rand(Int8, 1, 10 * 100))
@@ -188,12 +188,12 @@ end
         store!(dataset, uuid, :name_okay, samples)
         @test_throws ArgumentError store!(dataset, uuid, :name_okay, samples; overwrite=false)
 
-        @test_throws ArgumentError Annotation("hi", "there", Nanosecond(20), Nanosecond(4))
+        @test_throws ArgumentError Annotation("hi", Nanosecond(20), Nanosecond(4))
 
         mkdir(joinpath(root, "other.onda"))
         other = Dataset(joinpath(root, "other.onda"); create=true)  # Using existing empty directory
-        create_recording!(other, duration, nothing, uuid)
-        @test_throws ArgumentError create_recording!(other, duration, nothing, uuid)
+        create_recording!(other, uuid)
+        @test_throws ArgumentError create_recording!(other, uuid)
         store!(other, uuid, :cool_stuff, samples)
         @test_throws ErrorException merge!(dataset, other; only_recordings=false)
         @test_throws ArgumentError merge!(dataset, other; only_recordings=true)
