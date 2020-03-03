@@ -22,12 +22,6 @@ indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
 values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
 
-Note also that `duration(signal)` is not generally equivalent to the `duration`
-of the returned `Samples` instance; the former is the duration of the original
-signal in the context of its parent recording, whereas the latter is the actual
-duration of the provided `data` given `signal.sample_rate`. This is similarly
-true for the `sample_count` function for the same reason.
-
 See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
 struct Samples{D<:AbstractMatrix}
@@ -101,6 +95,12 @@ channel(samples::Samples, i::Integer) = channel(samples.signal, i)
     duration(samples::Samples)
 
 Returns the `Nanosecond` value for which `samples[TimeSpan(0, duration(samples))] == samples.data`.
+
+!!! warning
+    `duration(samples)` is not generally equivalent to `duration(samples.signal)`;
+    the former is the duration of the entire original signal in the context of its
+    parent recording, whereas the latter is the actual duration of `samples.data`
+    given `samples.signal.sample_rate`.
 """
 duration(samples::Samples) = time_from_index(samples.signal.sample_rate, size(samples.data, 2) + 1)
 
@@ -115,6 +115,11 @@ channel_count(samples::Samples) = channel_count(samples.signal)
     sample_count(samples::Samples)
 
 Return the number of multichannel samples in `samples` (i.e. `size(samples.data, 2)`)
+
+!!! warning
+    `sample_count(samples)` is not generally equivalent to `sample_count(samples.signal)`;
+    the former is the sample count of the entire original signal in the context of its parent
+    recording, whereas the latter is actual number of multichannel samples in `samples.data`.
 """
 sample_count(samples::Samples) = size(samples.data, 2)
 
