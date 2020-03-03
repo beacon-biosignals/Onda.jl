@@ -127,7 +127,7 @@ function upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_val
         delete!(recording, "custom")
     end
     fixed_recordings = MsgPack.unpack(MsgPack.pack(recordings), Dict{UUID,Recording})
-    dataset = Dataset(path, Onda.Header(v"0.3.0", true), fixed_recordings)
+    dataset = Dataset(path, Header(v"0.3.0", true), fixed_recordings)
     save_recordings_file(dataset)
     return dataset
 end
