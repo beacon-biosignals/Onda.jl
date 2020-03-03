@@ -81,4 +81,53 @@ include("printing.jl")
     r
 end
 
+"""
+    upgrade_onda_format_v0_2_to_onda_format_v0_3(path, combine_annotation_key_value)
+
+Upgrade the Onda v0.2 dataset at `path` to a Onda v0.3 dataset. This upgrade process
+overwrites `path/recordings.msgpack.zst` with a v0.3-compliant version of this file;
+for safety's sake, the old version is preserved at `path/old.recordings.msgpack.zst.backup`.
+
+A couple of the Onda v0.2 -> v0.3 changes require some special handling:
+
+- The `custom` field was removed from recording objects. This function thus writes out
+  a file at `path/recordings_customs.msgpack.zst` that contains a map of UUIDs to
+  corresponding recordings' `custom` values before deleting the `custom` field. This
+  file can be deserialized via `MsgPack.unpack(Onda.zstd_decompress(read("recordings_customs.msgpack.zst")))`.
+
+- Annotations no longer have a `key` field. Thus, each annotation's existing `key` and `value`
+  fields are combined into the single new `value` field via the provided callback
+  `combine_annotation_key_value(annotation_key, annotation_value)`.
+"""
+function upgrade_onda_format_v0_2_to_onda_format_v0_3(path, combine_annotation_key_value)
+    file_path = joinpath(path, "recordings.msgpack.zst")
+    bytes = zstd_decompress(read(file_path))
+    mv(file_path, joinpath(path, "old.recordings.msgpack.zst.backup"))
+    io = IOBuffer(bytes)
+    read(io, UInt8) == 0x92 || error("corrupt recordings.msgpack.zst")
+    header = MsgPack.unpack(io, Header)
+    v"0.2" <= header.onda_format_version < v"0.3" || error("unsupported original onda_format_version: $(header.onda_format_version)")
+    recordings = MsgPack.unpack(io, Dict{UUID,Any})
+    customs = Dict{UUID,Any}(uuid => recording["custom"] for (uuid, recording) in recordings)
+    write(joinpath(path, "recordings_customs.msgpack.zst"), zstd_compress(MsgPack.pack(customs)))
+    for (uuid, recording) in recordings
+        signal_stop_nanosecond = recording["duration_in_nanoseconds"]
+        for signal in values(recording["signals"])
+            signal["start_nanosecond"] = 0
+            signal["stop_nanosecond"] = signal_stop_nanosecond
+            signal["sample_offset_in_unit"] = 0.0
+            signal["sample_rate"] = float(signal["sample_rate"])
+        end
+        for annotation in recording["annotations"]
+            annotation["value"] = combine_annotation_key_value(annotation["key"], annotation["value"])
+            delete!(annotation, "key")
+        end
+        delete!(recording, "duration_in_nanoseconds")
+        delete!(recording, "custom")
+    end
+    fixed_recordings = MsgPack.unpack(MsgPack.pack(recordings), Dict{UUID,Recording})
+    dataset = Dataset(path, Onda.Header(v"0.3.0", true), fixed_recordings)
+    save_recordings_file(dataset)
+end
+
 end # module
