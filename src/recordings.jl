@@ -300,7 +300,7 @@ function read_recordings_file(path)
     if !is_supported_onda_format_version(header.onda_format_version)
         @warn("attempting to load `Dataset` with unsupported Onda version",
               supported=ONDA_FORMAT_VERSION, attempting=header.onda_format_version)
-        @warn("consider upgrading old datasets via `Onda.upgrade_onda_format_from_v0_2_to_v0_3`")
+        @warn("consider upgrading old datasets via `Onda.upgrade_onda_format_from_v0_2_to_v0_3!`")
     end
     strict = header.ordered_keys ? (Recording,) : ()
     recordings = MsgPack.unpack(io, Dict{UUID,Recording}; strict=strict)

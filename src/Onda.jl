@@ -82,11 +82,12 @@ include("printing.jl")
 end
 
 """
-    upgrade_onda_format_from_v0_2_to_v0_3(path, combine_annotation_key_value)
+    Onda.upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_value)
 
-Upgrade the Onda v0.2 dataset at `path` to a Onda v0.3 dataset. This upgrade process
-overwrites `path/recordings.msgpack.zst` with a v0.3-compliant version of this file;
-for safety's sake, the old version is preserved at `path/old.recordings.msgpack.zst.backup`.
+Upgrade the Onda v0.2 dataset at `path` to a Onda v0.3 dataset, returning the
+upgraded `Dataset`. This upgrade process overwrites `path/recordings.msgpack.zst`
+with a v0.3-compliant version of this file; for safety's sake, the old v0.2 file
+is preserved at `path/old.recordings.msgpack.zst.backup`.
 
 A couple of the Onda v0.2 -> v0.3 changes require some special handling:
 
@@ -99,7 +100,7 @@ A couple of the Onda v0.2 -> v0.3 changes require some special handling:
   fields are combined into the single new `value` field via the provided callback
   `combine_annotation_key_value(annotation_key, annotation_value)`.
 """
-function upgrade_onda_format_from_v0_2_to_v0_3(path, combine_annotation_key_value)
+function upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_value)
     file_path = joinpath(path, "recordings.msgpack.zst")
     bytes = zstd_decompress(read(file_path))
     mv(file_path, joinpath(path, "old.recordings.msgpack.zst.backup"))
@@ -128,6 +129,7 @@ function upgrade_onda_format_from_v0_2_to_v0_3(path, combine_annotation_key_valu
     fixed_recordings = MsgPack.unpack(MsgPack.pack(recordings), Dict{UUID,Recording})
     dataset = Dataset(path, Onda.Header(v"0.3.0", true), fixed_recordings)
     save_recordings_file(dataset)
+    return dataset
 end
 
 end # module

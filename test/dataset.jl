@@ -199,3 +199,46 @@ end
         @test_throws ArgumentError merge!(dataset, other; only_recordings=true)
     end
 end
+
+@testset "upgrade_onda_format_from_v0_2_to_v0_3!" begin
+    mktempdir() do new_path
+        old_path = joinpath(@__DIR__, "old_test_v0_2.onda")
+        cp(old_path, new_path; force=true)
+        dataset = Onda.upgrade_onda_format_from_v0_2_to_v0_3!(new_path, (k, v) -> string(k, '.', v))
+        @test dataset.path == new_path
+        @test dataset.header.onda_format_version == v"0.3.0"
+        @test dataset.header.ordered_keys
+        old_recordings = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(old_path, "recordings.msgpack.zst"))))[2]
+        new_customs = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(new_path, "recordings_customs.msgpack.zst"))))
+        @test length(dataset.recordings) == 1
+        @test length(new_customs) == 1
+        uuid = first(keys(dataset.recordings))
+        recording = first(values(dataset.recordings))
+        old_recording = first(values(old_recordings))
+        @test string(uuid) == first(keys(new_customs)) == first(keys(old_recordings))
+        @test first(values(new_customs)) == old_recording["custom"]
+        sorted_annotations = sort(collect(recording.annotations); by=first)
+        sorted_old_annotations = sort(old_recording["annotations"]; by=(x -> x["start_nanosecond"]))
+        @test length(sorted_annotations) == length(sorted_old_annotations)
+        for (ann, old_ann) in zip(sorted_annotations, sorted_old_annotations)
+            @test ann.value == string(old_ann["key"], '.', old_ann["value"])
+            @test ann.start_nanosecond.value == old_ann["start_nanosecond"]
+            @test ann.stop_nanosecond.value == old_ann["stop_nanosecond"]
+        end
+        old_signals = old_recording["signals"]
+        @test keys(recording.signals) == Set(Symbol.(keys(old_signals)))
+        for (signal_name, signal) in recording.signals
+            old_signal = old_signals[string(signal_name)]
+            @test signal.channel_names == Symbol.(old_signal["channel_names"])
+            @test signal.start_nanosecond == Nanosecond(0)
+            @test signal.stop_nanosecond == Nanosecond(old_recording["duration_in_nanoseconds"])
+            @test signal.sample_unit == Symbol(old_signal["sample_unit"])
+            @test signal.sample_resolution_in_unit == old_signal["sample_resolution_in_unit"]
+            @test signal.sample_offset_in_unit == 0.0
+            @test signal.sample_type == Onda.julia_type_from_onda_sample_type(old_signal["sample_type"])
+            @test signal.sample_rate == old_signal["sample_rate"]
+            @test signal.file_extension == Symbol(old_signal["file_extension"])
+            @test signal.file_options == old_signal["file_options"]
+        end
+    end
+end

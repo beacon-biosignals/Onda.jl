@@ -73,5 +73,5 @@ LPCMZst
 ## Upgrading Older Datasets to Newer Datasets
 
 ```
-Onda.upgrade_onda_format_from_v0_2_to_v0_3
+Onda.upgrade_onda_format_from_v0_2_to_v0_3!
 ```
