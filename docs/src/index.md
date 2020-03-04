@@ -14,7 +14,6 @@ Note that Onda.jl's API follows a specific philosophy with respect to property a
 Dataset
 samples_path
 create_recording!
-set_duration!
 load
 store!
 delete!
@@ -26,8 +25,10 @@ save_recordings_file
 ```@docs
 Signal
 signal_from_template
+span
 Annotation
 Recording
+set_span!
 annotate!
 ```
 
@@ -67,4 +68,10 @@ deserialize_lpcm
 serialize_lpcm
 LPCM
 LPCMZst
+```
+
+## Upgrading Older Datasets to Newer Datasets
+
+```@docs
+Onda.upgrade_onda_format_from_v0_2_to_v0_3!
 ```

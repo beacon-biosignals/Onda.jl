@@ -16,8 +16,11 @@ function Base.show(io::IO, samples::Samples)
         duration_in_nanoseconds = round(Int, duration_in_seconds * 1_000_000_000)
         println(io, "Samples (", format_duration(duration_in_nanoseconds), "):")
         println(io, "  signal.channel_names: ", channel_names_string(samples.signal.channel_names))
+        println(io, "  signal.start_nanosecond: ", samples.signal.start_nanosecond, " (", format_duration(samples.signal.start_nanosecond), ")")
+        println(io, "  signal.stop_nanosecond: ", samples.signal.stop_nanosecond, " (", format_duration(samples.signal.stop_nanosecond), ")")
         println(io, "  signal.sample_unit: ", repr(samples.signal.sample_unit))
         println(io, "  signal.sample_resolution_in_unit: ", samples.signal.sample_resolution_in_unit)
+        println(io, "  signal.sample_offset_in_unit: ", samples.signal.sample_offset_in_unit)
         println(io, "  signal.sample_type: ", samples.signal.sample_type)
         println(io, "  signal.sample_rate: ", samples.signal.sample_rate, " Hz")
         println(io, "  signal.file_extension: ", repr(samples.signal.file_extension))
@@ -34,8 +37,11 @@ function Base.show(io::IO, signal::Signal)
     else
         println(io, "Signal:")
         println(io, "  channel_names: ", channel_names_string(signal.channel_names))
+        println(io, "  start_nanosecond: ", signal.start_nanosecond, " (", format_duration(signal.start_nanosecond), ")")
+        println(io, "  stop_nanosecond: ", signal.stop_nanosecond, " (", format_duration(signal.stop_nanosecond), ")")
         println(io, "  sample_unit: ", repr(signal.sample_unit))
         println(io, "  sample_resolution_in_unit: ", signal.sample_resolution_in_unit)
+        println(io, "  sample_offset_in_unit: ", signal.sample_offset_in_unit)
         println(io, "  sample_type: ", signal.sample_type)
         println(io, "  sample_rate: ", signal.sample_rate, " Hz")
         println(io, "  file_extension: ", repr(signal.file_extension))
@@ -45,41 +51,22 @@ end
 
 function Base.show(io::IO, recording::Recording)
     if get(io, :compact, false)
-        duration_string = format_duration(recording.duration_in_nanoseconds)
+        duration_string = isempty(recording.signals) ? "<no signals>" : format_duration(duration(recording))
         print(io, "Recording(", duration_string, ')')
     else
-        duration_in_seconds = recording.duration_in_nanoseconds.value / 1_000_000_000
-        duration_string = string('(', format_duration(recording.duration_in_nanoseconds),
-                                 "; ", duration_in_seconds, " seconds)")
-        println(io, "Recording:")
-        println(io, "  duration_in_nanoseconds: ", recording.duration_in_nanoseconds, " ", duration_string)
+        if isempty(recording.signals)
+            duration_string = "<no signals>"
+        else
+            duration_string = string(format_duration(duration(recording)), "; ",
+                                     duration(recording).value / 1_000_000_000, " seconds")
+        end
+        println(io, "Recording (", duration_string, ')')
         println(io, "  signals:")
         compact_io = IOContext(io, :compact => true)
         for (name, signal) in recording.signals
             println(compact_io, "    :", name, " => ", signal)
         end
-        println(io, "  annotations (", length(recording.annotations), " total):")
-        annotation_counts = Dict()
-        for ann in recording.annotations
-            annotation_counts[ann.key] = get(annotation_counts, ann.key, 0) + 1
-        end
-        k = 1
-        annotation_counts = sort(collect(annotation_counts), by=(p -> p[2]), lt=(>))
-        for (x, n) in annotation_counts
-            println(io, "    ", n, " instance(s) of ", x)
-            k += 1
-            if k > 5
-                println(io, "    ...and ", length(annotation_counts) - 5, " more.")
-                break
-            end
-        end
-        print(io, "  custom:")
-        if recording.custom isa Nothing
-            print(io, " nothing")
-        else
-            println(io)
-            show(io, "text/plain", recording.custom)
-        end
+        print(io, "  annotations: (", length(recording.annotations), " total)")
     end
 end
 
@@ -104,7 +91,7 @@ function nanosecond_to_periods(ns::Integer)
     return (hr, m, s, ms, μs, ns)
 end
 
-format_duration(t::Period) =  format_duration(convert(Nanosecond, t).value)
+format_duration(t::Period) = format_duration(convert(Nanosecond, t).value)
 
 function format_duration(ns::Integer)
     hr, m, s, ms, μs, ns = nanosecond_to_periods(ns)

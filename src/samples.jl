@@ -19,60 +19,8 @@ Return a `Samples` instance with the following fields:
 
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
 indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
-values for column indices:
-
-```
-julia> eeg
-Samples (00:43:11.062500000):
-  signal.channel_names: [:fp1, :f3, :c3, :p3, :f7, :t3, :t5, :o1, :fz, :cz,
-                         :pz, :fp2, :f4, :c4, :p4, :f8, :t4, :t6, :o2]
-  signal.sample_unit: :microvolt
-  signal.sample_resolution_in_unit: 0.25
-  signal.sample_type: Int16
-  signal.sample_rate: 128 Hz
-  signal.file_extension: :zst
-  signal.file_options: nothing
-  encoded: true
-  data:
-19×331656 Array{Int16,2}:
- -421  -416    51  -229  …   -164   -318   -644
- -866  -860  -401  -684     -1665  -1805  -2139
- -809  -776  -320  -641     -1402  -1571  -1892
- -698  -642  -191  -522     -1391  -1585  -1891
- -801  -778  -307  -622     -1275  -1452  -1771
- -340  -297   168  -160  …  -1012  -1202  -1514
- -594  -544   -86  -410      -802   -982  -1298
- -254  -180   270   -68        68   -141   -435
- -567  -547   -86  -396     -1439  -1602  -1924
- -620  -584  -129  -450     -1486  -1664  -1970
- -595  -807  -187  -341  …  -1672  -1441  -2113
- -407  -386    71  -216      -993  -1146  -1466
- -490  -475   -17  -310      -861  -1011  -1332
- -540  -555   -79  -359     -1077   -973  -1508
- -437  -394    60  -263     -1051  -1232  -1541
- -721  -692  -239  -536  …  -1681  -1838  -2151
- -646  -597  -145  -460     -1119  -1298  -1602
- -468  -411    32  -295      -224   -411   -695
- -855  -792  -354  -686     -1584  -1782  -2065
-
-julia> eeg[[:fp1, 2, :fz, :o1, :cz], TimeSpan(Minute(20), duration(eeg))]
-Samples (00:23:11.062500000):
-  signal.channel_names: [:fp1, :f3, :fz, :o1, :cz]
-  signal.sample_unit: :microvolt
-  signal.sample_resolution_in_unit: 0.25
-  signal.sample_type: Int16
-  signal.sample_rate: 128 Hz
-  signal.file_extension: :zst
-  signal.file_options: nothing
-  encoded: true
-  data:
-5×178056 Array{Int16,2}:
- -326    69   154  -281   …   -164   -318   -644
- -596  -204  -109  -543      -1665  -1805  -2139
- -472   -59    19  -422      -1439  -1602  -1924
- -453   -17    31  -418         68   -141   -435
- -797  -373  -306  -748      -1486  -1664  -1970
-```
+values for column indices; see `Onda/examples/tour.jl` for a comprehensive
+set of indexing examples.
 
 See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
@@ -147,6 +95,12 @@ channel(samples::Samples, i::Integer) = channel(samples.signal, i)
     duration(samples::Samples)
 
 Returns the `Nanosecond` value for which `samples[TimeSpan(0, duration(samples))] == samples.data`.
+
+!!! warning
+    `duration(samples)` is not generally equivalent to `duration(samples.signal)`;
+    the former is the duration of the entire original signal in the context of its
+    parent recording, whereas the latter is the actual duration of `samples.data`
+    given `samples.signal.sample_rate`.
 """
 duration(samples::Samples) = time_from_index(samples.signal.sample_rate, size(samples.data, 2) + 1)
 
@@ -161,6 +115,11 @@ channel_count(samples::Samples) = channel_count(samples.signal)
     sample_count(samples::Samples)
 
 Return the number of multichannel samples in `samples` (i.e. `size(samples.data, 2)`)
+
+!!! warning
+    `sample_count(samples)` is not generally equivalent to `sample_count(samples.signal)`;
+    the former is the sample count of the entire original signal in the context of its parent
+    recording, whereas the latter is actual number of multichannel samples in `samples.data`.
 """
 sample_count(samples::Samples) = size(samples.data, 2)
 
@@ -170,12 +129,12 @@ sample_count(samples::Samples) = size(samples.data, 2)
 
 const VALID_SAMPLE_TYPE_UNION = Union{Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64}
 
-function encode_sample(::Type{S}, resolution_in_unit, sample_in_units,
-                       noise=zero(sample_in_units)) where {S<:VALID_SAMPLE_TYPE_UNION}
-    sample_in_units += noise
-    isnan(sample_in_units) && return typemax(S)
-    from_units = clamp(sample_in_units / resolution_in_unit, typemin(S), typemax(S))
-    return round(S, from_units)
+function encode_sample(::Type{S}, resolution_in_unit, offset_in_unit, sample_in_unit,
+                       noise=zero(sample_in_unit)) where {S<:VALID_SAMPLE_TYPE_UNION}
+    sample_in_unit += noise
+    isnan(sample_in_unit) && return typemax(S)
+    from_unit = clamp((sample_in_unit - offset_in_unit) / resolution_in_unit, typemin(S), typemax(S))
+    return round(S, from_unit)
 end
 
 function dither_noise!(rng::AbstractRNG, storage, step)
@@ -200,13 +159,14 @@ end
 #####
 
 """
-    encode(sample_type::DataType, sample_resolution_in_unit, samples, dither_storage=nothing)
+    encode(sample_type::DataType, sample_resolution_in_unit, sample_offset_in_unit,
+           samples, dither_storage=nothing)
 
-Return a copy of `samples` quantized according to `sample_type` and `sample_resolution_in_unit`.
-`sample_type` must be a concrete subtype of `Onda.VALID_SAMPLE_TYPE_UNION`. Quantization of an
-individual sample `s` is performed via:
+Return a copy of `samples` quantized according to `sample_type`, `sample_resolution_in_unit`,
+and `sample_offset_in_unit`. `sample_type` must be a concrete subtype of `Onda.VALID_SAMPLE_TYPE_UNION`.
+Quantization of an individual sample `s` is performed via:
 
-    round(S, s / sample_resolution_in_unit)
+    round(S, (s - sample_offset_in_unit) / sample_resolution_in_unit)
 
 with additional special casing to clip values exceeding the encoding's dynamic range.
 
@@ -219,28 +179,34 @@ Otherwise, `dither_storage` must be a container of similar shape and type to
 `samples`. This container is then used to store the random noise needed for the
 triangular dithering process, which is applied to the signal prior to quantization.
 """
-function encode(::Type{S}, sample_resolution_in_unit, samples, dither_storage=nothing) where {S}
-    return encode!(similar(samples, S), S, sample_resolution_in_unit, samples, dither_storage)
+function encode(::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
+                samples, dither_storage=nothing) where {S}
+    return encode!(similar(samples, S), S, sample_resolution_in_unit, sample_offset_in_unit,
+                   samples, dither_storage)
 end
 
 """
-    encode!(result_storage, sample_type::DataType, sample_resolution_in_unit, samples, dither_storage=nothing)
-    encode!(result_storage, sample_resolution_in_unit, samples, dither_storage=nothing)
+    encode!(result_storage, sample_type::DataType, sample_resolution_in_unit,
+            sample_offset_in_unit, samples, dither_storage=nothing)
+    encode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit,
+            samples, dither_storage=nothing)
 
-Similar to `encode(sample_type, sample_resolution_in_unit, samples, dither_storage)`,
+Similar to `encode(sample_type, sample_resolution_in_unit, sample_offset_in_unit, samples, dither_storage)`,
 but write encoded values to `result_storage` rather than allocating new storage.
 
 `sample_type` defaults to `eltype(result_storage)` if it is not provided.
 """
-function encode!(result_storage, sample_resolution_in_unit, samples, dither_storage=nothing)
+function encode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit,
+                 samples, dither_storage=nothing)
     return encode!(result_storage, eltype(result_storage), sample_resolution_in_unit,
-                   samples, dither_storage=nothing)
+                   sample_offset_in_unit, samples, dither_storage=nothing)
 end
 
-function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, samples,
-                 dither_storage=nothing) where {S}
+function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
+                 samples, dither_storage=nothing) where {S}
     if dither_storage isa Nothing
-        broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit, samples)
+        broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit,
+                   sample_offset_in_unit, samples)
     else
         if dither_storage isa Missing
             dither_storage = similar(samples)
@@ -248,7 +214,8 @@ function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, samples,
             throw(DimensionMismatch("dithering storage container does not match shape of samples"))
         end
         dither_noise!(dither_storage, sample_resolution_in_unit)
-        broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit, samples, dither_storage)
+        broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit, sample_offset_in_unit,
+                   samples, dither_storage)
     end
     return result_storage
 end
@@ -260,6 +227,7 @@ If `samples.encoded` is `false`, return a `Samples` instance that wraps:
 
     encode(samples.signal.sample_type,
            samples.signal.sample_resolution_in_unit,
+           samples.signal.sample_offset_in_unit,
            samples.data, dither_storage)
 
 If `samples.encoded` is `true`, this function is the identity.
@@ -268,6 +236,7 @@ function encode(samples::Samples, dither_storage=nothing)
     samples.encoded && return samples
     data = encode(samples.signal.sample_type,
                   samples.signal.sample_resolution_in_unit,
+                  samples.signal.sample_offset_in_unit,
                   samples.data, dither_storage)
     return Samples(samples.signal, true, data)
 end
@@ -280,6 +249,7 @@ If `samples.encoded` is `false`, return a `Samples` instance that wraps:
     encode!(result_storage,
             samples.signal.sample_type,
             samples.signal.sample_resolution_in_unit,
+            samples.signal.sample_offset_in_unit,
             samples.data, dither_storage)`.
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
@@ -292,6 +262,7 @@ function encode!(result_storage, samples::Samples, dither_storage=nothing)
     end
     encode!(result_storage, samples.signal.sample_type,
             samples.signal.sample_resolution_in_unit,
+            samples.signal.sample_offset_in_unit,
             samples.data, dither_storage)
     return Samples(samples.signal, true, result_storage)
 end
@@ -301,33 +272,38 @@ end
 #####
 
 """
-    decode(sample_resolution_in_unit, samples)
+    decode(sample_resolution_in_unit, sample_offset_in_unit, samples)
 
-Return `sample_resolution_in_unit .* samples`
+Return `sample_resolution_in_unit .* samples .+ sample_offset_in_unit`
 """
-decode(sample_resolution_in_unit, samples) = sample_resolution_in_unit .* samples
+function decode(sample_resolution_in_unit, sample_offset_in_unit, samples)
+    return sample_resolution_in_unit .* samples .+ sample_offset_in_unit
+end
 
 """
-    decode!(result_storage, sample_resolution_in_unit, samples)
+    decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, samples)
 
-Similar to `decode(sample_resolution_in_unit, samples)`, but write decoded values
-to `result_storage` rather than allocating new storage.
+Similar to `decode(sample_resolution_in_unit, sample_offset_in_unit, samples)`, but
+write decoded values to `result_storage` rather than allocating new storage.
 """
-function decode!(result_storage, sample_resolution_in_unit, samples)
-    return broadcast!(*, result_storage, sample_resolution_in_unit, samples)
+function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, samples)
+    f = x -> sample_resolution_in_unit * x + sample_offset_in_unit
+    return broadcast!(f, result_storage, samples)
 end
 
 """
     decode(samples::Samples)
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
-`decode(samples.signal.sample_resolution_in_unit, samples.data)`.
+`decode(samples.signal.sample_resolution_in_unit, samples.signal.sample_offset_in_unit, samples.data)`.
 
 If `samples.encoded` is `false`, this function is the identity.
 """
 function decode(samples::Samples)
     samples.encoded || return samples
-    data = decode(samples.signal.sample_resolution_in_unit, samples.data)
+    data = decode(samples.signal.sample_resolution_in_unit,
+                  samples.signal.sample_offset_in_unit,
+                  samples.data)
     return Samples(samples.signal, false, data)
 end
 
@@ -335,14 +311,15 @@ end
     decode!(result_storage, samples::Samples)
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
-`decode!(result_storage, samples.signal.sample_resolution_in_unit, samples.data)`.
+`decode!(result_storage, samples.signal.sample_resolution_in_unit, samples.signal.sample_offset_in_unit, samples.data)`.
 
 If `samples.encoded` is `false`, return a `Samples` instance that wraps
 `copyto!(result_storage, samples.data)`.
 """
 function decode!(result_storage, samples::Samples)
     if samples.encoded
-        broadcast!(*, result_storage, samples.signal.sample_resolution_in_unit, samples.data)
+        decode!(result_storage, samples.signal.sample_resolution_in_unit,
+                samples.signal.sample_offset_in_unit, samples.data)
         return Samples(samples.signal, false, result_storage)
     end
     copyto!(result_storage, samples.data)
