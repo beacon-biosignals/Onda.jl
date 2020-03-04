@@ -114,7 +114,7 @@ For `span::Period`, this function is the identity.
 duration(t::AbstractTimeSpan) = last(t) - first(t)
 duration(t::Period) = t
 
-nanoseconds_per_sample(sample_rate) = floor(Int, inv(sample_rate) * 1_000_000_000)
+nanoseconds_per_sample(sample_rate) = inv(sample_rate) * 1_000_000_000
 
 """
     index_from_time(sample_rate, sample_time)
@@ -193,7 +193,7 @@ julia> time_from_index(100, 101)
 """
 function time_from_index(sample_rate, index)
     index > 0 || throw(ArgumentError("`index` must be > 0"))
-    return Nanosecond((index - 1) * nanoseconds_per_sample(sample_rate))
+    return Nanosecond(ceil(Int, (index - 1) * nanoseconds_per_sample(sample_rate)))
 end
 
 """

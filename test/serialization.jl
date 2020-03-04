@@ -2,8 +2,8 @@ using Test, Onda, Random, Dates
 
 @testset "$(repr(name)) serializer" for (name, options) in [(:lpcm, nothing),
                                                         (Symbol("lpcm.zst"), Dict(:level => 2))]
-    signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50, name, options)
-    samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, 50 * 10))).data
+    signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50.5, name, options)
+    samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50.5 * 10)))).data
     s = serializer(signal)
     bytes = serialize_lpcm(samples, s)
     name == :lpcm && @test bytes == reinterpret(UInt8, vec(samples))

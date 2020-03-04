@@ -57,4 +57,12 @@ end
     @test index_from_time(100, Nanosecond(0)) == 1
     @test index_from_time(100, TimeSpan(Second(3), Second(6))) == 301:600
     @test index_from_time(100, TimeSpan(Second(1), Second(1))) == 101:101
+    # test non-integer sample rates
+    rate = 100.66
+    ns_per_sample = Onda.nanoseconds_per_sample(rate)
+    for i in 1:1000
+        t = Nanosecond(ceil(Int, (i - 1) * ns_per_sample))
+        @test index_from_time(rate, t) == i
+        @test time_from_index(rate, i) == t
+    end
 end
