@@ -26,6 +26,7 @@ save_recordings_file
 Signal
 signal_from_template
 span
+sizeof_samples
 Annotation
 Recording
 set_span!

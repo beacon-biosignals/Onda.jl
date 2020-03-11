@@ -213,6 +213,16 @@ given `signal.sample_rate`.
 """
 sample_count(signal::Signal) = index_from_time(signal.sample_rate, duration(signal)) - 1
 
+"""
+    sizeof_samples(signal::Signal)
+
+Returns the expected size (in bytes) of the encoded `Samples` object corresponding
+to the entirety of `signal`:
+
+    sample_count(signal) * channel_count(signal) * sizeof(signal.sample_type)
+"""
+sizeof_samples(signal::Signal) = sample_count(signal) * channel_count(signal) * sizeof(signal.sample_type)
+
 #####
 ##### recordings
 #####

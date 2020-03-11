@@ -56,7 +56,8 @@ export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_contain
        index_from_time, time_from_index, duration
 
 include("recordings.jl")
-export Recording, Signal, signal_from_template, Annotation, annotate!, span
+export Recording, Signal, signal_from_template, Annotation, annotate!, span,
+       sizeof_samples
 
 include("serialization.jl")
 export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,
