@@ -23,6 +23,7 @@ using Test, Onda, Dates, MsgPack
             @test channel_count(s) == length(s.signal.channel_names)
             @test channel_count(s.signal) == length(s.signal.channel_names)
             @test sample_count(s) == size(s.data, 2)
+            @test sizeof_samples(s.signal) == sizeof(s.data)
             @test encode(s) === s
             tmp = similar(s.data)
             encode!(tmp, s)
