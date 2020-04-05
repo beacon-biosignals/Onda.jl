@@ -115,11 +115,29 @@ Base.@kwdef struct Signal
     function Signal(channel_names, start_nanosecond, stop_nanosecond,
                     sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
                     sample_type, sample_rate, file_extension, file_options)
-        _validate_timespan(start_nanosecond, stop_nanosecond)
-        return new(channel_names, start_nanosecond, stop_nanosecond,
-                   sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
-                   sample_type, sample_rate, file_extension, file_options)
+        signal = new(channel_names, start_nanosecond, stop_nanosecond,
+                     sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
+                     sample_type, sample_rate, file_extension, file_options)
+        validate_on_construction() && validate_signal(signal)
+        return signal
     end
+end
+
+is_valid_sample_type(T::Type) = onda_sample_type_from_julia_type(T) isa AbstractString
+is_valid_sample_unit(u) = is_lower_snake_case_alphanumeric(string(u))
+is_valid_channel_name(c) = is_lower_snake_case_alphanumeric(string(c), ('-', '.'))
+
+"""
+TODO
+"""
+function validate_signal(signal::Signal)
+    _validate_timespan(signal.start_nanosecond, signal.stop_nanosecond)
+    is_valid_sample_type(signal.sample_type) || throw(ArgumentError("invalid sample type: $(signal.sample_type)"))
+    is_valid_sample_unit(signal.sample_unit) || throw(ArgumentError("invalid sample unit: $(signal.sample_unit)"))
+    foreach(signal.channel_names) do c
+        is_valid_channel_name(c) || throw(ArgumentError("invalid channel name: $c"))
+    end
+    return nothing
 end
 
 function Base.:(==)(a::Signal, b::Signal)
@@ -127,12 +145,6 @@ function Base.:(==)(a::Signal, b::Signal)
 end
 
 MsgPack.msgpack_type(::Type{Signal}) = MsgPack.StructType()
-
-function is_valid(signal::Signal)
-    return is_lower_snake_case_alphanumeric(string(signal.sample_unit)) &&
-           all(n -> is_lower_snake_case_alphanumeric(string(n), ('-', '.')), signal.channel_names) &&
-           onda_sample_type_from_julia_type(signal.sample_type) isa AbstractString
-end
 
 function file_option(signal::Signal, name, default)
     signal.file_options isa Dict && return get(signal.file_options, name, default)

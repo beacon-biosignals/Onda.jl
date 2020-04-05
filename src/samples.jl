@@ -29,18 +29,27 @@ struct Samples{D<:AbstractMatrix}
     encoded::Bool
     data::D
     function Samples(signal::Signal, encoded::Bool, data::AbstractMatrix)
-        n_channels = channel_count(signal)
-        n_rows = size(data, 1)
-        if n_channels != n_rows
-            throw(DimensionMismatch("number of channels in signal ($n_channels) " *
-                                    "does not match number of rows in data matrix " *
-                                    "($n_rows)"))
-        end
-        if encoded && !(eltype(data) <: signal.sample_type)
-            throw(ArgumentError("signal and encoded data matrix have mismatched element types"))
-        end
-        return new{typeof(data)}(signal, encoded, data)
+        samples = new{typeof(data)}(signal, encoded, data)
+        validate_on_construction() && validate_samples(samples)
+        return samples
     end
+end
+
+"""
+TODO
+"""
+function validate_samples(samples::Samples)
+    n_channels = channel_count(samples.signal)
+    n_rows = size(samples.data, 1)
+    if n_channels != n_rows
+        throw(DimensionMismatch("number of channels in signal ($n_channels) " *
+                                "does not match number of rows in data matrix " *
+                                "($n_rows)"))
+    end
+    if samples.encoded && !(eltype(samples.data) <: samples.signal.sample_type)
+        throw(ArgumentError("signal and encoded data matrix have mismatched element types"))
+    end
+    return nothing
 end
 
 for f in (:getindex, :view)
