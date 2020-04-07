@@ -45,7 +45,19 @@ end
 
 zstd_decompress(bytes::Vector{UInt8}) = transcode(ZstdDecompressor, bytes)
 
-zstd_decompress(reader, io::IO) = reader(ZstdDecompressorStream(io))
+function zstd_decompress(reader, io::IO)
+    @warn """
+          Streaming `zstd` decompression via `Onda.zstd_decompress(reader, io::IO)` has been shown
+          to exhibit memory-leak-like  behaviors (underlying cause at time of writing is currently
+          unknown).
+
+          If you did not call this method directly, it's likely that this was reached via
+          a call to  `Onda.load(dataset, uuid, signal_name, span)`. This call may be replaced
+          with `Onda.load(dataset, uuid, signal_name)[:, span]`, but note that this will load
+          in *all* sample data for the given signal.
+          """
+    reader(ZstdDecompressorStream(io))
+end
 
 #####
 ##### includes/exports
