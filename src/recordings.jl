@@ -65,7 +65,7 @@ struct Annotation <: AbstractTimeSpan
     start_nanosecond::Nanosecond
     stop_nanosecond::Nanosecond
     function Annotation(value::AbstractString, start::Nanosecond, stop::Nanosecond)
-        _validate_timespan(start, stop)
+        validate_timespan(start, stop)
         return new(value, start, stop)
     end
 end
@@ -100,6 +100,9 @@ the following fields, following the Onda specification for signal objects:
 - `sample_rate::Float64`
 - `file_extension::Symbol`
 - `file_options::Union{Nothing,Dict{Symbol,Any}}`
+
+If [`validate_on_construction`](@ref) returns `true`, [`validate_signal`](@ref)
+is called on all new `Signal` instances upon construction.
 """
 Base.@kwdef struct Signal
     channel_names::Vector{Symbol}
@@ -128,10 +131,20 @@ is_valid_sample_unit(u) = is_lower_snake_case_alphanumeric(string(u))
 is_valid_channel_name(c) = is_lower_snake_case_alphanumeric(string(c), ('-', '.'))
 
 """
-TODO
+    validate_signal(signal::Signal)
+
+Returns `nothing`, checking that the given `signal` is valid w.r.t. the Onda
+specification. If a violation is found, an `ArgumentError` is thrown.
+
+Properties that are validated by this function include:
+
+- `sample_type` is a valid Onda sample type
+- `sample_unit` name is lowercase, snakecase, and alphanumeric
+- `start_nanosecond`/`stop_nanosecond` form a valid time span
+- channel names are lowercase, snakecase, and alphanumeric
 """
 function validate_signal(signal::Signal)
-    _validate_timespan(signal.start_nanosecond, signal.stop_nanosecond)
+    validate_timespan(signal.start_nanosecond, signal.stop_nanosecond)
     is_valid_sample_type(signal.sample_type) || throw(ArgumentError("invalid sample type: $(signal.sample_type)"))
     is_valid_sample_unit(signal.sample_unit) || throw(ArgumentError("invalid sample unit: $(signal.sample_unit)"))
     foreach(signal.channel_names) do c

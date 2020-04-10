@@ -8,7 +8,19 @@ using CodecZstd
 const ONDA_FORMAT_VERSION = v"0.3"
 
 """
-TODO
+    Onda.validate_on_construction()
+
+If this function returns `true`, Onda objects will be validated upon construction
+for compliance with the Onda specification.
+
+If this function returns `false`, no such validation will be performed upon construction.
+
+Users may interactively redefine this method in order to attempt to read malformed
+Onda datasets.
+
+Returns `true` by default.
+
+See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
 """
 validate_on_construction() = true
 

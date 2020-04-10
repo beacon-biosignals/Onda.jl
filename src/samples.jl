@@ -22,6 +22,9 @@ indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
 values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
 
+If [`validate_on_construction`](@ref) returns `true`, [`validate_samples`](@ref)
+is called on all new `Samples` instances upon construction.
+
 See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
 struct Samples{D<:AbstractMatrix}
@@ -36,7 +39,16 @@ struct Samples{D<:AbstractMatrix}
 end
 
 """
-TODO
+    validate_samples(samples::Samples)
+
+Returns `nothing`, checking that the given `samples` are valid w.r.t. the
+underlying `samples.signal` and the Onda specification's canonical LPCM
+representation. If a violation is found, an `ArgumentError` is thrown.
+
+Properties that are validated by this function include:
+
+- encoded element type matches `samples.signal.sample_type`
+- the number of rows of `samples.data` matches the number of channels in `samples.signal`
 """
 function validate_samples(samples::Samples)
     n_channels = channel_count(samples.signal)
