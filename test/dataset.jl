@@ -183,7 +183,7 @@ end
         dataset = Dataset(joinpath(root, "okay.onda"); create=true)
         uuid, recording = create_recording!(dataset)
         signal = Signal([:a], Nanosecond(0), Nanosecond(Second(10)), :mv, 0.25, 0.0, Int8, 100, Symbol("lpcm.zst"), nothing)
-        @test_throws DimensionMismatch Samples(signal, true, rand(Int8, 2, 10))
+        @test_throws ArgumentError Samples(signal, true, rand(Int8, 2, 10))
         @test_throws ArgumentError Samples(signal, true, rand(Float32, 1, 10))
         samples = Samples(signal, true, rand(Int8, 1, 10 * 100))
         @test_throws ArgumentError store!(dataset, uuid, Symbol("***HI***"), samples)
@@ -261,20 +261,28 @@ end
     @test_throws ArgumentError signal_from_template(signal; sample_unit=Symbol("Ha Ha"))
     @test_throws ArgumentError signal_from_template(signal; sample_type=Complex{Float64})
     @test_throws ArgumentError signal_from_template(signal; channel_names=[Symbol("Ha Ha")])
+    @test_throws ArgumentError Samples(signal, false, rand(4, 10))
+    @test_throws ArgumentError Samples(signal, true, rand(Int32, 3, 10))
 
     Onda.validate_on_construction() = false
     @test signal_from_template(signal; start_nanosecond=Nanosecond(12000)) isa Signal
     @test signal_from_template(signal; sample_unit=Symbol("Ha Ha")) isa Signal
     @test signal_from_template(signal; sample_type=Complex{Float64}) isa Signal
     @test signal_from_template(signal; channel_names=[Symbol("Ha Ha")]) isa Signal
+    @test Samples(signal, false, rand(4, 10)) isa Samples
+    @test Samples(signal, true, rand(Int32, 3, 10)) isa Samples
     @test_throws ArgumentError validate_signal(signal_from_template(signal; start_nanosecond=Nanosecond(12000)))
     @test_throws ArgumentError validate_signal(signal_from_template(signal; sample_unit=Symbol("Ha Ha")))
     @test_throws ArgumentError validate_signal(signal_from_template(signal; sample_type=Complex{Float64}))
     @test_throws ArgumentError validate_signal(signal_from_template(signal; channel_names=[Symbol("Ha Ha")]))
+    @test_throws ArgumentError validate_samples(Samples(signal, false, rand(4, 10)))
+    @test_throws ArgumentError validate_samples(Samples(signal, true, rand(Int32, 3, 10)))
 
     Onda.validate_on_construction() = true
     @test_throws ArgumentError signal_from_template(signal; start_nanosecond=Nanosecond(12000))
     @test_throws ArgumentError signal_from_template(signal; sample_unit=Symbol("Ha Ha"))
     @test_throws ArgumentError signal_from_template(signal; sample_type=Complex{Float64})
     @test_throws ArgumentError signal_from_template(signal; channel_names=[Symbol("Ha Ha")])
+    @test_throws ArgumentError Samples(signal, false, rand(4, 10))
+    @test_throws ArgumentError Samples(signal, true, rand(Int32, 3, 10))
 end
