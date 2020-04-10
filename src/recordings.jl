@@ -31,7 +31,7 @@ function julia_type_from_onda_sample_type(t::AbstractString)
     t == "uint16" && return UInt16
     t == "uint32" && return UInt32
     t == "uint64" && return UInt64
-    error("sample type ", t, " is not supported by Onda")
+    throw(ArgumentError("sample type $t is not supported by Onda"))
 end
 
 function onda_sample_type_from_julia_type(T::Type)
@@ -43,7 +43,7 @@ function onda_sample_type_from_julia_type(T::Type)
     T === UInt16 && return "uint16"
     T === UInt32 && return "uint32"
     T === UInt64 && return "uint64"
-    error("sample type ", T, " is not supported by Onda")
+    throw(ArgumentError("sample type $T is not supported by Onda"))
 end
 
 #####

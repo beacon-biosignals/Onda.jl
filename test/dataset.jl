@@ -244,3 +244,37 @@ end
         end
     end
 end
+
+@testset "validate_on_construction" begin
+    signal = Signal(channel_names=[:a, :b, :c],
+                    start_nanosecond=Nanosecond(1000),
+                    stop_nanosecond=Nanosecond(11000),
+                    sample_unit=:microvolt,
+                    sample_resolution_in_unit=1.0,
+                    sample_offset_in_unit=0.0,
+                    sample_type=Int16,
+                    sample_rate=100.0,
+                    file_extension=:lpcm,
+                    file_options=nothing)
+    @test Onda.validate_on_construction()
+    @test_throws ArgumentError signal_from_template(signal; start_nanosecond=Nanosecond(12000))
+    @test_throws ArgumentError signal_from_template(signal; sample_unit=Symbol("Ha Ha"))
+    @test_throws ArgumentError signal_from_template(signal; sample_type=Complex{Float64})
+    @test_throws ArgumentError signal_from_template(signal; channel_names=[Symbol("Ha Ha")])
+
+    Onda.validate_on_construction() = false
+    @test signal_from_template(signal; start_nanosecond=Nanosecond(12000)) isa Signal
+    @test signal_from_template(signal; sample_unit=Symbol("Ha Ha")) isa Signal
+    @test signal_from_template(signal; sample_type=Complex{Float64}) isa Signal
+    @test signal_from_template(signal; channel_names=[Symbol("Ha Ha")]) isa Signal
+    @test_throws ArgumentError validate_signal(signal_from_template(signal; start_nanosecond=Nanosecond(12000)))
+    @test_throws ArgumentError validate_signal(signal_from_template(signal; sample_unit=Symbol("Ha Ha")))
+    @test_throws ArgumentError validate_signal(signal_from_template(signal; sample_type=Complex{Float64}))
+    @test_throws ArgumentError validate_signal(signal_from_template(signal; channel_names=[Symbol("Ha Ha")]))
+
+    Onda.validate_on_construction() = true
+    @test_throws ArgumentError signal_from_template(signal; start_nanosecond=Nanosecond(12000))
+    @test_throws ArgumentError signal_from_template(signal; sample_unit=Symbol("Ha Ha"))
+    @test_throws ArgumentError signal_from_template(signal; sample_type=Complex{Float64})
+    @test_throws ArgumentError signal_from_template(signal; channel_names=[Symbol("Ha Ha")])
+end
