@@ -18,12 +18,14 @@ load
 store!
 delete!
 save_recordings_file
+Onda.validate_on_construction
 ```
 
 ## Onda Metadata Objects
 
 ```@docs
 Signal
+validate_signal
 signal_from_template
 span
 sizeof_samples
@@ -37,6 +39,7 @@ annotate!
 
 ```@docs
 Samples
+validate_samples
 channel
 channel_count
 sample_count

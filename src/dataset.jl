@@ -186,10 +186,12 @@ function store!(dataset::Dataset, uuid::UUID, name::Symbol,
     if haskey(recording.signals, name) && !overwrite
         throw(ArgumentError("$name already exists in $uuid and `overwrite` is `false`"))
     end
-    is_valid(signal) || throw(ArgumentError("signal in `samples` is invalid"))
     if !is_lower_snake_case_alphanumeric(string(name))
         throw(ArgumentError("$name is not lower snake case and alphanumeric"))
     end
+    validate_signal(signal)
+    validate_samples(samples)
+    duration(signal) == duration(samples) || throw(ArgumentError("duration of `Samples` data does not match `Signal` duration"))
     recording.signals[name] = signal
     store_samples!(samples_path(dataset, uuid, name, signal.file_extension),
                    samples; overwrite=overwrite)

@@ -7,6 +7,23 @@ using CodecZstd
 
 const ONDA_FORMAT_VERSION = v"0.3"
 
+"""
+    Onda.validate_on_construction()
+
+If this function returns `true`, Onda objects will be validated upon construction
+for compliance with the Onda specification.
+
+If this function returns `false`, no such validation will be performed upon construction.
+
+Users may interactively redefine this method in order to attempt to read malformed
+Onda datasets.
+
+Returns `true` by default.
+
+See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
+"""
+validate_on_construction() = true
+
 #####
 ##### utilities
 #####
@@ -68,15 +85,16 @@ export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_contain
        index_from_time, time_from_index, duration
 
 include("recordings.jl")
-export Recording, Signal, signal_from_template, Annotation, annotate!, span,
-       sizeof_samples
+export Recording, Signal, validate_signal, signal_from_template, Annotation, annotate!,
+       span, sizeof_samples
 
 include("serialization.jl")
 export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,
        LPCM, LPCMZst
 
 include("samples.jl")
-export Samples, encode, encode!, decode, decode!, channel, channel_count, sample_count
+export Samples, validate_samples, encode, encode!, decode, decode!, channel,
+       channel_count, sample_count
 
 include("dataset.jl")
 export Dataset, samples_path, create_recording!, set_span!, load, store!, delete!,
