@@ -2,6 +2,8 @@
 ##### `Dataset`
 #####
 
+const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
+
 struct Dataset
     path::String
     header::Header
@@ -28,12 +30,12 @@ function Dataset(path; create::Bool=false)
         end
         initial_header = Header(ONDA_FORMAT_VERSION, true)
         initial_recordings = Dict{UUID,Recording}()
-        write_recordings_file(path, initial_header, initial_recordings)
+        write_recordings_msgpack_zst(joinpath(path, RECORDINGS_FILE_NAME), initial_header, initial_recordings)
     elseif !isdir(path)
         throw(ArgumentError("$path is not a valid Onda dataset"))
     end
     !isdir(samples_path) && mkdir(samples_path)
-    header, recordings = read_recordings_file(path)
+    header, recordings = read_recordings_msgpack_zst(joinpath(path, RECORDINGS_FILE_NAME))
     return Dataset(path, header, recordings)
 end
 
@@ -44,7 +46,8 @@ Overwrite `joinpath(dataset.path, "recordings.msgpack.zst")` with the contents
 of `dataset.recordings`.
 """
 function save_recordings_file(dataset::Dataset)
-    return write_recordings_file(dataset.path, dataset.header, dataset.recordings)
+    file_path = joinpath(dataset.path, RECORDINGS_FILE_NAME)
+    return write_recordings_msgpack_zst(file_path, dataset.header, dataset.recordings)
 end
 
 #####
