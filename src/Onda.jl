@@ -86,7 +86,7 @@ export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_contain
 
 include("recordings.jl")
 export Recording, Signal, validate_signal, signal_from_template, Annotation, annotate!,
-       span, sizeof_samples
+       span, sizeof_samples, read_recordings_msgpack_zst, write_recordings_msgpack_zst
 
 include("serialization.jl")
 export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,

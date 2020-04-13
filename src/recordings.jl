@@ -325,15 +325,26 @@ end
 
 MsgPack.msgpack_type(::Type{Header}) = MsgPack.StructType()
 
-function read_recordings_file(path)
-    file_path = joinpath(path, "recordings.msgpack.zst")
-    bytes = zstd_decompress(read(file_path))
-    io = IOBuffer(bytes)
-    # `0x92` is the MessagePack byte prefix for 2-element array
-    read(io, UInt8) == 0x92 || error("recordings.msgpack.zst has bad byte prefix")
+"""
+    read_recordings_msgpack_zst(file_path::AbstractString)
+
+Return `read_recordings_msgpack_zst(read(file_path))`.
+"""
+read_recordings_msgpack_zst(file_path::AbstractString) = read_recordings_msgpack_zst(read(file_path))
+
+"""
+    read_recordings_msgpack_zst(compressed_bytes::Vector{UInt8})
+
+Return the `(header::Header, recordings::Dict{UUID,Recording})` yielded from deserializing `compressed_bytes`,
+which is assumed to be in zstd-compressed MsgPack format and comply with the Onda format's specification of
+the contents of `recordings.msgpack.zst`.
+"""
+function read_recordings_msgpack_zst(compressed_bytes::Vector{UInt8})
+    io = IOBuffer(zstd_decompress(compressed_bytes))
+    read(io, UInt8) == 0x92 || error("Onda recordings file has unexpected first byte; expected 0x92 for a 2-element MsgPack array")
     header = MsgPack.unpack(io, Header)
     if !is_supported_onda_format_version(header.onda_format_version)
-        @warn("attempting to load `Dataset` with unsupported Onda version",
+        @warn("attempting to load `Dataset` recordings file with unsupported Onda version",
               supported=ONDA_FORMAT_VERSION, attempting=header.onda_format_version)
         @warn("consider upgrading old datasets via `Onda.upgrade_onda_format_from_v0_2_to_v0_3!`")
     end
@@ -342,14 +353,31 @@ function read_recordings_file(path)
     return header, recordings
 end
 
-function write_recordings_file(path, header::Header, recordings::Dict{UUID,Recording})
-    file_path = joinpath(path, "recordings.msgpack.zst")
-    backup_file_path = joinpath(path, "_recordings.msgpack.zst.backup")
+"""
+    write_recordings_msgpack_zst(file_path::AbstractString, header::Header, recordings::Dict{UUID,Recording})
+
+Overwrite `file_path` with `write_recordings_msgpack_zst(header, recordings)`.
+
+If `file_path` already exists, this function creates a backup at `\$file_path.backup` before overwriting `file_path`;
+this backup is automatically deleted after the overwrite succeeds.
+"""
+function write_recordings_msgpack_zst(file_path::AbstractString, header::Header, recordings::Dict{UUID,Recording})
+    backup_file_path = string(file_path, ".backup")
     isfile(file_path) && mv(file_path, backup_file_path)
-    io = IOBuffer()
-    MsgPack.pack(io, [header, recordings])
-    bytes = zstd_compress(resize!(io.data, io.size))
-    write(file_path, bytes)
+    write(file_path, write_recordings_msgpack_zst(header, recordings))
     rm(backup_file_path; force=true)
     return nothing
+end
+
+"""
+    write_recordings_msgpack_zst(header::Header, recordings::Dict{UUID,Recording})
+
+Return the `Vector{UInt8}` that results from serializing `(header::Header, recordings::Dict{UUID,Recording})` to zstd-compressed MsgPack format.
+"""
+function write_recordings_msgpack_zst(header::Header, recordings::Dict{UUID,Recording})
+    # we do this `resize!` maneuver instead of `MsgPack.pack([header, recordings])` (which
+    # calls `take!`) so that we sidestep https://github.com/JuliaLang/julia/issues/27741
+    io = IOBuffer()
+    MsgPack.pack(io, [header, recordings])
+    return zstd_compress(resize!(io.data, io.size))
 end

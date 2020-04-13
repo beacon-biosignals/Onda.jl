@@ -84,6 +84,9 @@ using Test, Onda, Dates, MsgPack
             store!(dataset, uuid, name, s)
         end
         save_recordings_file(dataset)
+        @test read_recordings_msgpack_zst(joinpath(dataset.path, "recordings.msgpack.zst")) ==
+              read_recordings_msgpack_zst(read(joinpath(dataset.path, "recordings.msgpack.zst")))
+        @test write_recordings_msgpack_zst(dataset.header, dataset.recordings) == read(joinpath(dataset.path, "recordings.msgpack.zst"))
 
         # read back in the test dataset, add some annotations
         old_dataset = dataset
@@ -152,9 +155,9 @@ using Test, Onda, Dates, MsgPack
 
         # read back everything, but without assuming an order on the metadata
         dataset = Dataset(joinpath(root, "test"))
-        Onda.write_recordings_file(dataset.path,
-                                   Onda.Header(dataset.header.onda_format_version, false),
-                                   dataset.recordings)
+        Onda.write_recordings_msgpack_zst(joinpath(dataset.path, "recordings.msgpack.zst"),
+                                          Onda.Header(dataset.header.onda_format_version, false),
+                                          dataset.recordings)
         dataset = Dataset(joinpath(root, "test"))
         @test Dict(old_uuid => old_recording) == dataset.recordings
         delete!(dataset, old_uuid)

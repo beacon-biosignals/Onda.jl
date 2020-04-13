@@ -33,6 +33,8 @@ Annotation
 Recording
 set_span!
 annotate!
+read_recordings_msgpack_zst
+write_recordings_msgpack_zst
 ```
 
 ## `Samples`
