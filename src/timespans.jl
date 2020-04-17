@@ -78,6 +78,8 @@ function contains(a::AbstractTimeSpan, b::AbstractTimeSpan)
     return first(a) <= first(b) && last(a) >= last(b)
 end
 
+contains(a::AbstractTimeSpan, b) = contains(a, TimeSpan(b))
+
 """
     overlaps(a, b)
 
