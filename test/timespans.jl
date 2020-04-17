@@ -22,6 +22,7 @@ end
     @test !contains(TimeSpan(11, 20), TimeSpan(10, 19))
     @test !contains(TimeSpan(10, 19), TimeSpan(10, 21))
     @test !contains(TimeSpan(11, 19), TimeSpan(10, 20))
+    @test contains(TimeSpan(1, 10), Nanosecond(4))
 end
 
 @testset "overlaps(::TimeSpan...)" begin
