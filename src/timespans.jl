@@ -64,13 +64,17 @@ Base.last(span::TimeSpan) = span.last
 ##### `AbstractTimeSpan` Utilities
 #####
 
+# Extend the Base function when defined
+if isdefined(Base, :contains)  # VERSION >= v"1.5.0-DEV.639"
+    import Base: contains
+end
+
 """
-    contains(a, b)
+    contains(a::AbstractTimeSpan, b::AbstractTimeSpan)
 
 Return `true` if the timespan `b` lies entirely within the timespan `a`, return `false` otherwise.
 """
-function contains(a, b)
-    a, b = TimeSpan(a), TimeSpan(b)
+function contains(a::AbstractTimeSpan, b::AbstractTimeSpan)
     return first(a) <= first(b) && last(a) >= last(b)
 end
 
