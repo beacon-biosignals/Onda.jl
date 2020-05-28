@@ -60,6 +60,8 @@ Base.first(span::TimeSpan) = span.first
 
 Base.last(span::TimeSpan) = span.last
 
+MsgPack.msgpack_type(::Type{TimeSpan}) = MsgPack.StructType()
+
 #####
 ##### `AbstractTimeSpan` Utilities
 #####
