@@ -1,4 +1,4 @@
-using Test, Onda, Dates
+using Test, Onda, Dates, MsgPack
 
 @testset "basic TimeSpan code paths" begin
     t = TimeSpan(Nanosecond(rand(UInt32)))
@@ -66,4 +66,10 @@ end
         @test index_from_time(rate, t) == i
         @test time_from_index(rate, i) == t
     end
+end
+
+@testset "MsgPack roundtrip" begin
+    ts = TimeSpan(0,1)
+    bytes = MsgPack.pack(ts)
+    @test MsgPack.unpack(bytes, TimeSpan) == ts
 end
