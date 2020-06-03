@@ -131,11 +131,10 @@ store!(dataset, uuid, :eeg, eeg)
 store!(dataset, uuid, :ecg, ecg)
 store!(dataset, uuid, :spo2, spo2)
 
-# Add a single `Annotation` to `recording`. An `Annotation` is simply a key-value
-# pair with an associated `TimeSpan`; you can basically put any strings you'd
-# like in there. For example, Beacon Biosignals stores JSON snippets in
-# annotations. Here, let's just go the simple route and pretend we found an
-# epileptiform spike in our EEG/ECG/SpO2 recording:
+# Add a single `Annotation` to `recording`. An `Annotation` is simply a string
+# and an associated `TimeSpan`; for example, Beacon Biosignals stores JSON
+# snippets in annotations. Here, let's just go the simple route and pretend we
+# found an epileptiform spike in our EEG/ECG/SpO2 recording:
 spike_annotation = Annotation("epileptiform_spike", TimeSpan(Millisecond(1500), Second(2)))
 annotate!(recording, spike_annotation)
 
