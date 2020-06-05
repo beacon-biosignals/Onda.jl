@@ -4,6 +4,7 @@ using UUIDs, Dates, Random
 using MsgPack
 using TranscodingStreams
 using CodecZstd
+using URIParser
 
 const ONDA_FORMAT_VERSION = v"0.3"
 
