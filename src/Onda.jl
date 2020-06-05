@@ -7,6 +7,7 @@ using CodecZstd
 using URIParser
 
 const ONDA_FORMAT_VERSION = v"0.3"
+const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
 
 """
     Onda.validate_on_construction()
@@ -86,8 +87,8 @@ export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_contain
        index_from_time, time_from_index, duration
 
 include("recordings.jl")
-export Recording, Signal, validate_signal, signal_from_template, Annotation, annotate!,
-       span, sizeof_samples, read_recordings_msgpack_zst, write_recordings_msgpack_zst
+export Recording, Signal, validate_signal, signal_from_template, Annotation,
+       annotate!, span, sizeof_samples
 
 include("serialization.jl")
 export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,
@@ -97,9 +98,11 @@ include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
+include("dataset_uri.jl")
+export samples_path, read_recordings_msgpack_zst, write_recordings_msgpack_zst
+
 include("dataset.jl")
-export Dataset, samples_path, create_recording!, set_span!, load, store!, delete!,
-       save_recordings_file
+export Dataset, create_recording!, set_span!, load, store!, delete!, save_recordings_file
 
 include("printing.jl")
 
