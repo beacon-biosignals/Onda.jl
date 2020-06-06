@@ -3,11 +3,11 @@
 #####
 
 # NOTE: `Dataset` purposefully does not reexpose the `scheme` type parameter of
-# the underlying `DatasetURI{scheme}` in order to prevent URI-based method overloads
-# from occuring at the `Dataset` API layer, rather than at the `DatasetURI` API layer
+# the underlying `TypedURI{scheme}` in order to prevent URI-based method overloads
+# from occuring at the `Dataset` API layer, rather than at the `TypedURI` API layer
 # where they belong.
 struct Dataset
-    uri::DatasetURI
+    uri::TypedURI
     header::Header
     recordings::Dict{UUID,Recording}
 end

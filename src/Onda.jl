@@ -99,7 +99,7 @@ include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
-include("dataset_uri.jl")
+include("uri.jl")
 export read_recordings_file, write_recordings_file
 
 include("dataset.jl")
@@ -113,6 +113,7 @@ include("printing.jl")
 
 # TODO deprecate read_recordings_msgpack_zst(file_path::AbstractString)
 # TODO deprecate write_recordings_msgpack_zst(file_path::AbstractString, ...)
+# TODO deprecate samples_path
 
 @deprecate set_duration!(dataset, uuid, duration) begin
     r = dataset.recordings[uuid]
