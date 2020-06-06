@@ -315,7 +315,7 @@ function set_span!(recording::Recording, span::AbstractTimeSpan)
 end
 
 #####
-##### reading/writing `recordings.msgpack.zst`
+##### (de)serializing Onda `recordings` file content to/from zstd-compressed MsgPack format
 #####
 
 struct Header
@@ -324,13 +324,6 @@ struct Header
 end
 
 MsgPack.msgpack_type(::Type{Header}) = MsgPack.StructType()
-
-"""
-    read_recordings_msgpack_zst(file_path::AbstractString)
-
-Return `read_recordings_msgpack_zst(read(file_path))`.
-"""
-read_recordings_msgpack_zst(file_path::AbstractString) = read_recordings_msgpack_zst(read(file_path))
 
 """
     read_recordings_msgpack_zst(compressed_bytes::Vector{UInt8})
@@ -351,22 +344,6 @@ function read_recordings_msgpack_zst(compressed_bytes::Vector{UInt8})
     strict = header.ordered_keys ? (Recording,) : ()
     recordings = MsgPack.unpack(io, Dict{UUID,Recording}; strict=strict)
     return header, recordings
-end
-
-"""
-    write_recordings_msgpack_zst(file_path::AbstractString, header::Header, recordings::Dict{UUID,Recording})
-
-Overwrite `file_path` with `write_recordings_msgpack_zst(header, recordings)`.
-
-If `file_path` already exists, this function creates a backup at `\$file_path.backup` before overwriting `file_path`;
-this backup is automatically deleted after the overwrite succeeds.
-"""
-function write_recordings_msgpack_zst(file_path::AbstractString, header::Header, recordings::Dict{UUID,Recording})
-    backup_file_path = string(file_path, ".backup")
-    isfile(file_path) && mv(file_path, backup_file_path)
-    write(file_path, write_recordings_msgpack_zst(header, recordings))
-    rm(backup_file_path; force=true)
-    return nothing
 end
 
 """

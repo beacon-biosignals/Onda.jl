@@ -2,8 +2,6 @@
 ##### `Dataset`
 #####
 
-const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
-
 # NOTE: `Dataset` purposefully does not reexpose the `scheme` type parameter of
 # the underlying `DatasetURI{scheme}` in order to prevent URI-based method overloads
 # from occuring at the `Dataset` API layer, rather than at the `DatasetURI` API layer
