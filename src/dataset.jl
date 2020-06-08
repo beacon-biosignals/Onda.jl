@@ -88,25 +88,25 @@ end
 ##### `samples_path`
 #####
 
-"""
-    samples_path(dataset::Dataset, uuid::UUID)
-
-Return the samples subdirectory path corresponding to the recording specified by `uuid`.
-"""
-samples_path(dataset::Dataset, uuid::UUID) = joinpath(dataset.path, "samples", string(uuid))
-
-"""
-    samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
-                 file_extension=dataset.recordings[uuid].signals[name].file_extension)
-
-Return the samples file path corresponding to the signal named `name` within the
-recording specified by `uuid`.
-"""
-function samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
-                      file_extension=dataset.recordings[uuid].signals[name].file_extension)
-    file_name = string(name, ".", file_extension)
-    return joinpath(samples_path(dataset, uuid), file_name)
-end
+# """
+#     samples_path(dataset::Dataset, uuid::UUID)
+#
+# Return the samples subdirectory path corresponding to the recording specified by `uuid`.
+# """
+# samples_path(dataset::Dataset, uuid::UUID) = joinpath(dataset.path, "samples", string(uuid))
+#
+# """
+#     samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
+#                  file_extension=dataset.recordings[uuid].signals[name].file_extension)
+#
+# Return the samples file path corresponding to the signal named `name` within the
+# recording specified by `uuid`.
+# """
+# function samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
+#                       file_extension=dataset.recordings[uuid].signals[name].file_extension)
+#     file_name = string(name, ".", file_extension)
+#     return joinpath(samples_path(dataset, uuid), file_name)
+# end
 
 #####
 ##### `create_recording!`

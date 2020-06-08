@@ -52,8 +52,18 @@ function read_recordings_file(uri::TypedURI{:file})
     return read_recordings_msgpack_zst(read(uri.path))
 end
 
+"""
+    samples_uri(uri::TypedURI{:file}, uuid::UUID)
+
+Return the `samples` subdirectory URI corresponding to the recording specified by `uuid`.
+"""
 samples_uri(uri::TypedURI{:file}, uuid::UUID) = TypedURI(URI(uri; path=joinpath(uri.path, "samples", uuid)))
 
+"""
+    samples_uri(uri::TypedURI{:file}, uuid::UUID, signal_name, file_extension)
+
+TODO
+"""
 function samples_uri(uri::TypedURI{:file}, uuid::UUID, signal_name, file_extension)
     file_path = joinpath(uri.path, "samples", uuid, string(signal_name, ".", file_extension))
     return TypedURI(URI(uri; path=file_path))
