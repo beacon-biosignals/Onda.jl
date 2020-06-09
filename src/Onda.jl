@@ -100,7 +100,7 @@ export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
 include("uri.jl")
-export read_recordings_file, write_recordings_file
+export read_recordings_file, write_recordings_file, samples_uri
 
 include("dataset.jl")
 export Dataset, create_recording!, set_span!, load, store!, delete!, save_recordings_file
@@ -111,8 +111,8 @@ include("printing.jl")
 ##### upgrades/deprecations
 #####
 
-# TODO deprecate read_recordings_msgpack_zst(file_path::AbstractString)
-# TODO deprecate write_recordings_msgpack_zst(file_path::AbstractString, ...)
+# TODO deprecate read_recordings_msgpack_zst
+# TODO deprecate write_recordings_msgpack_zst
 # TODO deprecate samples_path
 
 @deprecate set_duration!(dataset, uuid, duration) begin
