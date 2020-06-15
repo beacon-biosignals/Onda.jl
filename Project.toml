@@ -9,7 +9,6 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 MsgPack = "99f44e22-a591-53d1-9472-aa23ef4bd671"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-URIParser = "30578b45-9adc-5946-b283-645ec420af67"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]

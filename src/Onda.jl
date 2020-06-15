@@ -4,7 +4,6 @@ using UUIDs, Dates, Random
 using MsgPack
 using TranscodingStreams
 using CodecZstd
-using URIParser
 
 const ONDA_FORMAT_VERSION = v"0.3"
 
@@ -99,8 +98,8 @@ include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
-include("uri.jl")
-export read_recordings_file, write_recordings_file, samples_uri
+include("paths.jl")
+export read_recordings_file, write_recordings_file, samples_path
 
 include("dataset.jl")
 export Dataset, create_recording!, set_span!, load, store!, delete!, save_recordings_file
@@ -113,7 +112,9 @@ include("printing.jl")
 
 # TODO deprecate read_recordings_msgpack_zst
 # TODO deprecate write_recordings_msgpack_zst
-# TODO deprecate samples_path
+# TODO deprecate save_recordings_file --> save
+# TODO deprecate Onda.Dataset(; create=true) --> Onda.Dataset(...) + Onda.save
+# TODO deprecate Onda.Dataset(; create=false) --> Onda.load(path)
 
 @deprecate set_duration!(dataset, uuid, duration) begin
     r = dataset.recordings[uuid]
