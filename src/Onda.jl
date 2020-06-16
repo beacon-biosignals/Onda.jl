@@ -98,8 +98,8 @@ include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
-include("paths.jl")
-export read_recordings_file, write_recordings_file, samples_path
+include("location.jl")
+export read_recordings_file, write_recordings_file, samples_location
 
 include("dataset.jl")
 export Dataset, create_recording!, set_span!, load, store!, delete!, save_recordings_file
