@@ -5,6 +5,23 @@
 # TODO more doc/test
 
 #####
+##### read_location/write_location
+#####
+
+read_location(location) = read(location)
+
+read_location(location, ::Missing, ::Missing) = read_location(location)
+
+function read_location(location, byte_offset, byte_count)
+    return open(location, "r") do io
+        jump(io, byte_offset)
+        return read(io, byte_count)
+    end
+end
+
+write_location(location, bytes) = write(location, bytes)
+
+#####
 ##### samples_location
 #####
 
@@ -40,29 +57,19 @@ end
 ##### read_lpcm/write_lpcm
 #####
 
-# TODO restructure deserialize_lpcm to support the following:
-#
-# function read_lpcm(location, serializer, sample_offset, sample_count)
-#     required_byte_range, bytes_to_samples = request_sample_range(serializer, sample_offset, sample_count)
-#     bytes = read_location(location, required_byte_range)
-#     return bytes_to_samples(bytes)
-# end
+read_lpcm(location, serializer) = deserialize_lpcm(read_location(location), serializer)
 
-# read_lpcm(location, serializer) = deserialize_lpcm(read(location), serializer)
-#
-# function read_lpcm(location, serializer, sample_offset, sample_count)
-#     required_byte_range, bytes_to_samples = deserialize_lpcm(serializer, sample_offset, sample_count)
-#     bytes = read_location(location, required_byte_range)
-#     return bytes_to_samples(bytes)
-# end
-#
-# function read_lpcm(location, serializer, sample_offset, sample_count)
-#     return open(location, "r") do io
-#         return deserialize_lpcm(io, serializer, sample_offset, sample_count)
-#     end
-# end
-#
-# write_lpcm(location, data, serializer) = write(location, serialize_lpcm(data, serializer))
+function read_lpcm(location, serializer, sample_offset, sample_count)
+    deserialize_requested_samples,
+    required_byte_offset,
+    required_byte_count = deserialize_lpcm_callback(serializer,
+                                                    sample_offset,
+                                                    sample_count)
+    bytes = read_location(location, required_byte_offset, required_byte_count)
+    return deserialize_requested_samples(bytes)
+end
+
+write_lpcm(location, data, serializer) = write_location(location, serialize_lpcm(data, serializer))
 
 #####
 ##### read_recordings_file/write_recordings_file
@@ -74,13 +81,13 @@ end
 Write `serialize_recordings_msgpack_zst(header, recordings)` to `location`.
 """
 function write_recordings_file(location, header::Header, recordings::Dict{UUID,Recording})
-    write(location, serialize_recordings_msgpack_zst(header, recordings))
+    write_location(location, serialize_recordings_msgpack_zst(header, recordings))
     return nothing
 end
 
 """
     read_recordings_file(location)
 
-Return `deserialize_recordings_msgpack_zst(read(location))`.
+Return `deserialize_recordings_msgpack_zst(read_location(location))`.
 """
-read_recordings_file(location) = deserialize_recordings_msgpack_zst(read(location))
+read_recordings_file(location) = deserialize_recordings_msgpack_zst(read_location(location))

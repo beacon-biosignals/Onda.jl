@@ -2,6 +2,8 @@
 ##### `Dataset`
 #####
 
+const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
+
 struct Dataset
     path::Any
     header::Header

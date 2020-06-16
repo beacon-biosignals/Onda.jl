@@ -7,80 +7,11 @@ using CodecZstd
 
 const ONDA_FORMAT_VERSION = v"0.3"
 
-const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
-
-"""
-    Onda.validate_on_construction()
-
-If this function returns `true`, Onda objects will be validated upon construction
-for compliance with the Onda specification.
-
-If this function returns `false`, no such validation will be performed upon construction.
-
-Users may interactively redefine this method in order to attempt to read malformed
-Onda datasets.
-
-Returns `true` by default.
-
-See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
-"""
-validate_on_construction() = true
-
-#####
-##### utilities
-#####
-
-function is_supported_onda_format_version(v::VersionNumber)
-    onda_major, onda_minor = ONDA_FORMAT_VERSION.major, ONDA_FORMAT_VERSION.minor
-    return onda_major == v.major && (onda_major != 0 || onda_minor == v.minor)
-end
-
-const ALPHANUMERIC_SNAKE_CASE_CHARACTERS = Char['_',
-                                                '0':'9'...,
-                                                'a':'z'...]
-
-function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
-    return !startswith(x, '_') && !endswith(x, '_') &&
-           all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
-end
-
-function zstd_compress(bytes::Vector{UInt8}, level=3)
-    compressor = ZstdCompressor(; level=level)
-    TranscodingStreams.initialize(compressor)
-    compressed_bytes = transcode(compressor, bytes)
-    TranscodingStreams.finalize(compressor)
-    return compressed_bytes
-end
-
-function zstd_compress(writer, io::IO, level=3)
-    stream = ZstdCompressorStream(io; level=level)
-    result = writer(stream)
-    # write `TranscodingStreams.TOKEN_END` instead of calling `close` since
-    # `close` closes the underlying `io`, and we don't want to do that
-    write(stream, TranscodingStreams.TOKEN_END)
-    flush(stream)
-    return result
-end
-
-zstd_decompress(bytes::Vector{UInt8}) = transcode(ZstdDecompressor, bytes)
-
-function zstd_decompress(reader, io::IO)
-    @warn """
-          Streaming `zstd` decompression via `Onda.zstd_decompress(reader, io::IO)` has been shown
-          to exhibit memory-leak-like  behaviors (underlying cause at time of writing is currently
-          unknown).
-
-          If you did not call this method directly, it's likely that this was reached via
-          a call to  `Onda.load(dataset, uuid, signal_name, span)`. This call may be replaced
-          with `Onda.load(dataset, uuid, signal_name)[:, span]`, but note that this will load
-          in *all* sample data for the given signal.
-          """
-    reader(ZstdDecompressorStream(io))
-end
-
 #####
 ##### includes/exports
 #####
+
+include("utilities.jl")
 
 include("timespans.jl")
 export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_containing,
@@ -110,11 +41,12 @@ include("printing.jl")
 ##### upgrades/deprecations
 #####
 
-# TODO deprecate read_recordings_msgpack_zst
-# TODO deprecate write_recordings_msgpack_zst
-# TODO deprecate save_recordings_file --> save
-# TODO deprecate Onda.Dataset(; create=true) --> Onda.Dataset(...) + Onda.save
-# TODO deprecate Onda.Dataset(; create=false) --> Onda.load(path)
+# TODO load_samples/store_samples -> read_samples/write_samples
+# TODO read_recordings_msgpack_zst -> deserialize_recordings_msgpack_zst + read_recordings_file
+# TODO write_recordings_msgpack_zst -> serialize_recordings_msgpack_zst + write_recordings_file
+# TODO save_recordings_file -> save
+# TODO Dataset(; create=true) -> Dataset(...) + save(::Dataset)
+# TODO Dataset(; create=false) -> load(location)
 
 @deprecate set_duration!(dataset, uuid, duration) begin
     r = dataset.recordings[uuid]
