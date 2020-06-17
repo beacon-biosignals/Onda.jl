@@ -22,7 +22,7 @@ export Recording, Signal, validate_signal, signal_from_template, Annotation,
 include("serialization.jl")
 export AbstractLPCMSerializer, serializer, deserialize_recordings_msgpack_zst,
        serialize_recordings_msgpack_zst, deserialize_lpcm, serialize_lpcm,
-       LPCM, LPCMZst
+       deserialize_lpcm_callback, LPCM, LPCMZst
 
 include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,

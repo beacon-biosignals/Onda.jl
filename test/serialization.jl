@@ -18,14 +18,17 @@ using Test, Onda, Random, Dates
     io = IOBuffer(bytes)
     @test deserialize_lpcm(io, signal_serializer, 49, 51) == view(samples.data, :, 50:100)
 
+    callback, byte_offset, byte_count = deserialize_lpcm_callback(signal_serializer, 99, 201)
     if extension == :lpcm
+        byte_range = (byte_offset + 1):(byte_offset + byte_count)
+        @test callback(bytes[byte_range]) == view(samples.data, :, 100:300)
+        @test bytes == reinterpret(UInt8, vec(samples.data))
         # XXX this is broken for LPCMZstd; see https://github.com/beacon-biosignals/Onda.jl/issues/40
         @test deserialize_lpcm(io, signal_serializer, 49, 51) == view(samples.data, :, 150:200)
+    else
+        @test ismissing(byte_offset) && ismissing(byte_count)
+        @test callback(bytes) == view(samples.data, :, 100:300)
     end
-
-    extension == :lpcm && @test bytes == reinterpret(UInt8, vec(samples.data))
-
-    # TODO test deserialize_lpcm_callback(signal_serializer, samples_offset, samples_count)
 end
 
 @test_throws ArgumentError Onda.serializer_constructor_for_file_extension(Val(:extension))
