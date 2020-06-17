@@ -194,7 +194,7 @@ end
         @test_throws ArgumentError Annotation("hi", Nanosecond(20), Nanosecond(4))
 
         mkdir(joinpath(root, "other.onda"))
-        other = Dataset(joinpath(root, "other.onda"); create=true)  # Using existing empty directory
+        other = save(Dataset(joinpath(root, "other.onda")))  # Using existing empty directory
         create_recording!(other, uuid)
         @test_throws ArgumentError create_recording!(other, uuid)
         store!(other, uuid, :cool_stuff, samples)

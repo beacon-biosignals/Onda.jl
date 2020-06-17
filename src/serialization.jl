@@ -218,7 +218,7 @@ deserialize_lpcm(io::IO, serializer::LPCM) = deserialize_lpcm(read(io), serializ
 function deserialize_lpcm_callback(serializer::LPCM{S}, samples_offset, samples_count) where {S}
     callback = bytes -> deserialize_lpcm(bytes, serializer)
     bytes_per_sample = sizeof(S) * serializer.channel_count
-    return callback, samples_offset * bytes_per_sample, sample_count * bytes_per_sample
+    return callback, samples_offset * bytes_per_sample, samples_count * bytes_per_sample
 end
 
 function deserialize_lpcm(io::IO, serializer::LPCM{S}, sample_offset, sample_count) where {S}

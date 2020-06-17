@@ -46,7 +46,7 @@ using Test, Onda, Dates, Random, UUIDs
                                          :test => Signal([:a, :b, Symbol(\"c-d\")])
                                        annotations: (10 total)"""
     mktempdir() do root
-        dataset = Dataset(joinpath(root, "test.onda"); create=true)
+        dataset = save(Dataset(joinpath(root, "test.onda")))
         @test sprint(show, dataset) == "Dataset($(dataset.path), 0 recordings)"
     end
 end
