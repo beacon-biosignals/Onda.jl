@@ -19,7 +19,7 @@ using Test, Onda, Random, Dates
     @test deserialize_lpcm(io, signal_serializer, 49, 51) == view(samples.data, :, 50:100)
 
     if extension == :lpcm
-        # XXX this is broken for LPCMZstd; see
+        # XXX this is broken for LPCMZstd; see https://github.com/beacon-biosignals/Onda.jl/issues/40
         @test deserialize_lpcm(io, signal_serializer, 49, 51) == view(samples.data, :, 150:200)
     end
 
