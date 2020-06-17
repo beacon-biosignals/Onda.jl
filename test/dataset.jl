@@ -1,6 +1,6 @@
 using Test, Onda, Dates, MsgPack
 
-@testset "round trip" begin
+@testset "Dataset API (and friends)" begin
     mktempdir() do root
         # generate a test dataset
         dataset = Dataset(joinpath(root, "test"))

@@ -29,7 +29,8 @@ export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
 include("paths.jl")
-export read_recordings_file, write_recordings_file, samples_path
+export read_recordings_file, write_recordings_file, samples_path, read_samples,
+       write_samples, read_lpcm, write_lpcm
 
 include("dataset.jl")
 export Dataset, create_recording!, load, save, store!, delete!
