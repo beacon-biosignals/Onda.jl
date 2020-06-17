@@ -65,7 +65,7 @@ zstd_decompress(bytes::Vector{UInt8}) = transcode(ZstdDecompressor, bytes)
 function zstd_decompress(reader, io::IO)
     @warn """
           Streaming `zstd` decompression via `Onda.zstd_decompress(reader, io::IO)` has been shown
-          to exhibit memory-leak-like  behaviors (underlying cause at time of writing is currently
+          to exhibit memory-leak-like behaviors (underlying cause at time of writing is currently
           unknown).
 
           If you did not call this method directly, it's likely that this was reached via
