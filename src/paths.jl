@@ -11,6 +11,7 @@
 # - `rm`
 # - `abspath`
 # - `joinpath`
+# - `mkpath` (allowed to be a no-op)
 #
 # As well as the following Onda-defined functions:
 #
@@ -26,7 +27,7 @@ function read_byte_range(path, byte_offset, byte_count)
     end
 end
 
-write_path(path, bytes) = (mkpath(path); write(path, bytes))
+write_path(path, bytes) = (mkpath(dirname(path)); write(path, bytes))
 
 #####
 ##### samples_path
@@ -50,13 +51,12 @@ end
 function read_samples(path, signal::Signal, span::AbstractTimeSpan)
     sample_range = index_from_time(signal.sample_rate, span)
     sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
-    sample_data = read_lpcm(path, serializer(samples.signal),
-                            sample_offset, sample_count)
+    sample_data = read_lpcm(path, serializer(signal), sample_offset, sample_count)
     return Samples(signal, true, sample_data)
 end
 
 function write_samples(path, samples::Samples)
-    return write_lpcm(path, encode(samples).data, serializer(sample.signal))
+    return write_lpcm(path, encode(samples).data, serializer(samples.signal))
 end
 
 #####

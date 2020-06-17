@@ -3,9 +3,12 @@ using Test, Onda, Dates, MsgPack
 @testset "round trip" begin
     mktempdir() do root
         # generate a test dataset
-        dataset = Dataset(joinpath(root, "test"); create=true)
+        dataset = Dataset(joinpath(root, "test"))
         @test dataset isa Dataset
-        @test isdir(dataset.path)
+        @test !isdir(dataset.path)
+        @test !isdir(joinpath(dataset.path, "samples"))
+        save(dataset)
+        @test isfile(joinpath(dataset.path, Onda.RECORDINGS_FILE_NAME))
         @test isdir(joinpath(dataset.path, "samples"))
         duration_in_seconds = Second(10)
         duration_in_nanoseconds = Nanosecond(duration_in_seconds)
@@ -83,14 +86,20 @@ using Test, Onda, Dates, MsgPack
             @test s[:, TimeSpan(0, duration(s))].data == s.data
             store!(dataset, uuid, name, s)
         end
-        save_recordings_file(dataset)
-        @test read_recordings_msgpack_zst(joinpath(dataset.path, "recordings.msgpack.zst")) ==
-              read_recordings_msgpack_zst(read(joinpath(dataset.path, "recordings.msgpack.zst")))
-        @test write_recordings_msgpack_zst(dataset.header, dataset.recordings) == read(joinpath(dataset.path, "recordings.msgpack.zst"))
+        save(dataset)
+
+        # test recordings.msgpack.zst read/write/(de)serialize
+        bytes = read(joinpath(dataset.path, Onda.RECORDINGS_FILE_NAME))
+        contents = (dataset.header, dataset.recordings)
+        @test deserialize_recordings_msgpack_zst(bytes) == contents
+        @test read_recordings_file(joinpath(dataset.path, Onda.RECORDINGS_FILE_NAME)) == contents
+        @test serialize_recordings_msgpack_zst(contents...) == bytes
+        write_recordings_file(joinpath(dataset.path, "recordings.test.msgpack.zst"), contents...)
+        @test read_recordings_file(joinpath(dataset.path, "recordings.test.msgpack.zst")) == contents
 
         # read back in the test dataset, add some annotations
         old_dataset = dataset
-        dataset = Dataset(joinpath(root, "test"))
+        dataset = load(joinpath(root, "test"))
         @test length(dataset.recordings) == 1
         uuid, recording = first(dataset.recordings)
         x1 = load(dataset, uuid, :x1)
@@ -111,13 +120,13 @@ using Test, Onda, Dates, MsgPack
         for i in 1:3
             annotate!(recording, Annotation("value_$i", Nanosecond(i), Nanosecond(i + rand(1:1000000))))
         end
-        save_recordings_file(dataset)
+        save(dataset)
 
         # read back in annotations
         old_uuid = uuid
         old_recording = recording
         old_dataset = dataset
-        dataset = Dataset(joinpath(root, "test"))
+        dataset = load(joinpath(root, "test"))
         uuid, recording = first(dataset.recordings)
         @test old_recording == recording
         delete!(dataset.recordings, uuid)
@@ -154,36 +163,25 @@ using Test, Onda, Dates, MsgPack
         store!(dataset, uuid, signal_name, signal_samples)
 
         # read back everything, but without assuming an order on the metadata
-        dataset = Dataset(joinpath(root, "test"))
-        Onda.write_recordings_msgpack_zst(joinpath(dataset.path, "recordings.msgpack.zst"),
-                                          Onda.Header(dataset.header.onda_format_version, false),
-                                          dataset.recordings)
-        dataset = Dataset(joinpath(root, "test"))
+        dataset = load(joinpath(root, "test"))
+        write_recordings_file(joinpath(dataset.path, Onda.RECORDINGS_FILE_NAME),
+                              Onda.Header(dataset.header.onda_format_version, false),
+                              dataset.recordings)
+        dataset = load(joinpath(root, "test"))
         @test Dict(old_uuid => old_recording) == dataset.recordings
         delete!(dataset, old_uuid)
-        save_recordings_file(dataset)
+        save(dataset)
 
         # read back the dataset that should now be empty
-        dataset = Dataset(joinpath(root, "test"))
+        dataset = load(joinpath(root, "test"))
         @test isempty(dataset.recordings)
         @test !isdir(joinpath(dataset.path, "samples", string(old_uuid)))
-
-        # make sure samples directory is appropriately created if not present
-        no_samples_path = joinpath(root, "no_samples_dir.onda")
-        mkdir(no_samples_path)
-        cp(joinpath(dataset.path, "recordings.msgpack.zst"), joinpath(no_samples_path, "recordings.msgpack.zst"))
-        Dataset(no_samples_path; create=false)
-        @test isdir(joinpath(no_samples_path, "samples"))
     end
 end
 
 @testset "Error conditions" begin
     mktempdir() do root
-        mkdir(joinpath(root, "i_exist.onda"))
-        touch(joinpath(root, "i_exist.onda", "memes"))
-        @test_throws ArgumentError Dataset(joinpath(root, "i_exist.onda"); create=true)
-
-        dataset = Dataset(joinpath(root, "okay.onda"); create=true)
+        dataset = save(Dataset(joinpath(root, "okay.onda")))
         uuid, recording = create_recording!(dataset)
         signal = Signal([:a], Nanosecond(0), Nanosecond(Second(10)), :mv, 0.25, 0.0, Int8, 100, Symbol("lpcm.zst"), nothing)
         @test_throws ArgumentError Samples(signal, true, rand(Int8, 2, 10))

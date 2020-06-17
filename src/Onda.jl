@@ -5,8 +5,6 @@ using MsgPack
 using TranscodingStreams
 using CodecZstd
 
-const ONDA_FORMAT_VERSION = v"0.3"
-
 #####
 ##### includes/exports
 #####
@@ -19,10 +17,11 @@ export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_contain
 
 include("recordings.jl")
 export Recording, Signal, validate_signal, signal_from_template, Annotation,
-       annotate!, span, sizeof_samples
+       annotate!, span, set_span!, sizeof_samples
 
 include("serialization.jl")
-export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,
+export AbstractLPCMSerializer, serializer, deserialize_recordings_msgpack_zst,
+       serialize_recordings_msgpack_zst, deserialize_lpcm, serialize_lpcm,
        LPCM, LPCMZst
 
 include("samples.jl")
@@ -33,7 +32,7 @@ include("paths.jl")
 export read_recordings_file, write_recordings_file, samples_path
 
 include("dataset.jl")
-export Dataset, create_recording!, set_span!, load, store!, delete!, save_recordings_file
+export Dataset, create_recording!, load, save, store!, delete!
 
 include("printing.jl")
 
@@ -41,11 +40,12 @@ include("printing.jl")
 ##### upgrades/deprecations
 #####
 
+# TODO samples_path(dataset::Dataset, uuid::UUID, name, file_extension)
 # TODO load_samples/store_samples -> read_samples/write_samples
 # TODO read_recordings_msgpack_zst -> deserialize_recordings_msgpack_zst + read_recordings_file
 # TODO write_recordings_msgpack_zst -> serialize_recordings_msgpack_zst + write_recordings_file
-# TODO save_recordings_file -> commit(::Dataset)
-# TODO Dataset(; create=true) -> Dataset(...) + commit(::Dataset)
+# TODO save_recordings_file -> save(::Dataset)
+# TODO Dataset(; create=true) -> Dataset(...) + save(::Dataset)
 # TODO Dataset(; create=false) -> load(path)
 
 @deprecate set_duration!(dataset, uuid, duration) begin
@@ -101,7 +101,7 @@ function upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_val
     end
     fixed_recordings = MsgPack.unpack(MsgPack.pack(recordings), Dict{UUID,Recording})
     dataset = Dataset(path, Header(v"0.3.0", true), fixed_recordings)
-    save_recordings_file(dataset)
+    save(dataset)
     return dataset
 end
 

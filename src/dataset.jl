@@ -10,16 +10,18 @@ struct Dataset
     recordings::Dict{UUID,Recording}
 end
 
-Dataset(path) = Dataset(path, Header(ONDA_FORMAT_VERSION, true), Dict{UUID,Recording}())
+Dataset(path) = Dataset(path, Header(MAXIMUM_ONDA_FORMAT_VERSION, true), Dict{UUID,Recording}())
 
 function load(path)
     header, recordings = read_recordings_file(joinpath(path, RECORDINGS_FILE_NAME))
     return Dataset(path, header, recordings)
 end
 
-function commit(dataset::Dataset)
-    return write_recordings_file(joinpath(path, RECORDINGS_FILE_NAME),
-                                 dataset.header, dataset.recordings)
+function save(dataset::Dataset)
+    mkpath(joinpath(dataset.path, "samples"))
+    write_recordings_file(joinpath(dataset.path, RECORDINGS_FILE_NAME),
+                          dataset.header, dataset.recordings)
+    return dataset
 end
 
 #####
@@ -78,11 +80,22 @@ end
 #####
 
 """
-    samples_path(dataset::Dataset, uuid::UUID, args...)
+    samples_path(dataset::Dataset, uuid::UUID)
 
-Return `samples_path(dataset.path, uuid, args...)`.
+Return `samples_path(dataset.path, uuid)`.
 """
-samples_path(dataset::Dataset, uuid::UUID, args...) = samples_path(dataset.path, uuid, args...)
+samples_path(dataset::Dataset, uuid::UUID) = samples_path(dataset.path, uuid)
+
+"""
+    samples_path(dataset::Dataset, uuid::UUID, name::Symbol)
+
+Return `samples_path(dataset.path, uuid, name, extension)` where `extension`
+is defined as `dataset.recordings[uuid].signals[name].file_extension`.
+"""
+function samples_path(dataset::Dataset, uuid::UUID, name::Symbol)
+    file_extension = dataset.recordings[uuid].signals[name].file_extension
+    return samples_path(dataset, uuid, name, file_extension)
+end
 
 #####
 ##### `load`

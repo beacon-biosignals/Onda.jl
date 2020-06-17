@@ -19,9 +19,14 @@ See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
 """
 validate_on_construction() = true
 
+const MINIMUM_ONDA_FORMAT_VERSION = v"0.3"
+
+const MAXIMUM_ONDA_FORMAT_VERSION = v"0.4"
+
 function is_supported_onda_format_version(v::VersionNumber)
-    onda_major, onda_minor = ONDA_FORMAT_VERSION.major, ONDA_FORMAT_VERSION.minor
-    return onda_major == v.major && (onda_major != 0 || onda_minor == v.minor)
+    min_major, min_minor = MINIMUM_ONDA_FORMAT_VERSION.major, MINIMUM_ONDA_FORMAT_VERSION.minor
+    max_major, max_minor = MAXIMUM_ONDA_FORMAT_VERSION.major, MAXIMUM_ONDA_FORMAT_VERSION.minor
+    return (min_major <= v.major <= max_major) && (min_minor <= v.minor <= max_minor)
 end
 
 const ALPHANUMERIC_SNAKE_CASE_CHARACTERS = Char['_',

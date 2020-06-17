@@ -22,8 +22,10 @@ function deserialize_recordings_msgpack_zst(bytes::Vector{UInt8})
     header = MsgPack.unpack(io, Header)
     if !is_supported_onda_format_version(header.onda_format_version)
         @warn("attempting to load `Dataset` recordings file with unsupported Onda version",
-              supported=ONDA_FORMAT_VERSION, attempting=header.onda_format_version)
-        @warn("consider upgrading old datasets via `Onda.upgrade_onda_format_from_v0_2_to_v0_3!`")
+              minimum_supported=MINIMUM_ONDA_FORMAT_VERSION,
+              maximum_supported=MAXIMUM_ONDA_FORMAT_VERSION,
+              attempting=header.onda_format_version)
+        @warn("if your dataset is version v0.2, consider upgrading it via `Onda.upgrade_onda_format_from_v0_2_to_v0_3!`")
     end
     strict = header.ordered_keys ? (Recording,) : ()
     recordings = MsgPack.unpack(io, Dict{UUID,Recording}; strict=strict)
