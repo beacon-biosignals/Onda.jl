@@ -29,8 +29,8 @@ include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
-include("location.jl")
-export read_recordings_file, write_recordings_file, samples_location
+include("paths.jl")
+export read_recordings_file, write_recordings_file, samples_path
 
 include("dataset.jl")
 export Dataset, create_recording!, set_span!, load, store!, delete!, save_recordings_file
@@ -44,9 +44,9 @@ include("printing.jl")
 # TODO load_samples/store_samples -> read_samples/write_samples
 # TODO read_recordings_msgpack_zst -> deserialize_recordings_msgpack_zst + read_recordings_file
 # TODO write_recordings_msgpack_zst -> serialize_recordings_msgpack_zst + write_recordings_file
-# TODO save_recordings_file -> save
+# TODO save_recordings_file -> commit(::Dataset)
 # TODO Dataset(; create=true) -> Dataset(...) + save(::Dataset)
-# TODO Dataset(; create=false) -> load(location)
+# TODO Dataset(; create=false) -> load(path)
 
 @deprecate set_duration!(dataset, uuid, duration) begin
     r = dataset.recordings[uuid]
