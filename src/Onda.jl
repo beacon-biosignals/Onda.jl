@@ -45,7 +45,7 @@ include("printing.jl")
 # TODO read_recordings_msgpack_zst -> deserialize_recordings_msgpack_zst + read_recordings_file
 # TODO write_recordings_msgpack_zst -> serialize_recordings_msgpack_zst + write_recordings_file
 # TODO save_recordings_file -> commit(::Dataset)
-# TODO Dataset(; create=true) -> Dataset(...) + save(::Dataset)
+# TODO Dataset(; create=true) -> Dataset(...) + commit(::Dataset)
 # TODO Dataset(; create=false) -> load(path)
 
 @deprecate set_duration!(dataset, uuid, duration) begin
