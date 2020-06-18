@@ -26,29 +26,3 @@ using Test, Onda, UUIDs, Random, Dates
         @test Dataset(path; create=true).recordings == load(path).recordings
     end
 end
-
-# @deprecate(samples_path(dataset::Dataset, uuid::UUID, signal_name, file_extension),
-#            samples_path(dataset.path, uuid, signal_name, file_extension))
-#
-# @deprecate load_samples(path, signal) read_samples(path, signal)
-#
-# @deprecate store_samples(path, samples) write_samples(path, samples)
-#
-# @deprecate(read_recordings_msgpack_zst(bytes::Vector{UInt8}),
-#            deserialize_recordings_msgpack_zst(bytes))
-# @deprecate read_recordings_msgpack_zst(path) read_recordings_file(path)
-#
-# @deprecate(write_recordings_msgpack_zst(header, recodings),
-#            serialize_recordings_msgpack_zst(header, recodings))
-# @deprecate(write_recordings_msgpack_zst(path, header, recodings),
-#            write_recordings_file(path, header, recodings))
-#
-# @deprecate save_recordings_file save
-#
-# @deprecate(Dataset(path; create=boolean), create ? save(Dataset(path)) : load(path))
-#
-# @deprecate set_duration!(dataset, uuid, duration) begin
-#     r = dataset.recordings[uuid]
-#     set_span!(r, TimeSpan(Nanosecond(0), duration))
-#     r
-# end

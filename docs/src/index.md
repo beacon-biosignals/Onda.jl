@@ -6,7 +6,7 @@ Below is the documentation for all functions exported by Onda.jl. For general in
 CurrentModule = Onda
 ```
 
-Note that Onda.jl's API follows a specific philosophy with respect to property access: users are generally expected to access fields via Julia's `object.fieldname` syntax, but should only *mutate* objects via exposed API methods.
+Note that Onda.jl's API follows a specific philosophy with respect to property access: users are generally expected to access fields via Julia's `object.fieldname` syntax, but should only *mutate* objects via the exposed API methods documented below.
 
 ## `Dataset` API
 
