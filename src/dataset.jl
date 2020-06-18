@@ -4,6 +4,11 @@
 
 const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
 
+# NOTE: `Dataset` purposefully does not reexpose `typeof(path)` as a type parameter
+# in order to prevent downstream method overloads on `Dataset` from dispatching
+# on it; such specialization should strictly reside in the Paths API layer (see
+# `src/paths.jl`). Also, any resulting dynamic dispatch costs will be quite
+# neglible compared to the cost of storage layer interactions.
 struct Dataset
     path::Any
     header::Header
