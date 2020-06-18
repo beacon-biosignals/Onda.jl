@@ -24,8 +24,8 @@ using Test, Onda, Random, Dates, UUIDs
         test = read_samples(file_path, signal, span)
         @test test.data == view(samples, :, span).data
         @test test.signal == samples.signal
-        write_lpcm(file_path, samples.data, signal_serializer)
-        @test read_lpcm(file_path, signal_serializer) == samples.data
-        @test read_lpcm(file_path, signal_serializer, 99, 201) == view(samples.data, :, 100:300)
+        Onda.write_lpcm(file_path, samples.data, signal_serializer)
+        @test Onda.read_lpcm(file_path, signal_serializer) == samples.data
+        @test Onda.read_lpcm(file_path, signal_serializer, 99, 201) == view(samples.data, :, 100:300)
     end
 end

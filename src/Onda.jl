@@ -29,8 +29,8 @@ export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
 include("paths.jl")
-export read_recordings_file, write_recordings_file, samples_path, read_samples,
-       write_samples, read_lpcm, write_lpcm
+export read_recordings_file, write_recordings_file, samples_path,
+       read_samples, write_samples
 
 include("dataset.jl")
 export Dataset, create_recording!, load, save, store!, delete!
@@ -41,13 +41,24 @@ include("printing.jl")
 ##### upgrades/deprecations
 #####
 
-# TODO samples_path(dataset::Dataset, uuid::UUID, name, file_extension)
-# TODO load_samples/store_samples -> read_samples/write_samples
-# TODO read_recordings_msgpack_zst -> deserialize_recordings_msgpack_zst + read_recordings_file
-# TODO write_recordings_msgpack_zst -> serialize_recordings_msgpack_zst + write_recordings_file
-# TODO save_recordings_file -> save(::Dataset)
-# TODO Dataset(; create=true) -> Dataset(...) + save(::Dataset)
-# TODO Dataset(; create=false) -> load(path)
+@deprecate(samples_path(dataset::Dataset, uuid::UUID, signal_name, file_extension),
+           samples_path(dataset.path, uuid, signal_name, file_extension))
+
+@deprecate load_samples(path, signal) read_samples(path, signal)
+@deprecate load_samples(path, signal, span) read_samples(path, signal, span)
+
+@deprecate store_samples!(path, samples) write_samples(path, samples)
+
+@deprecate(read_recordings_msgpack_zst(bytes::Vector{UInt8}),
+           deserialize_recordings_msgpack_zst(bytes))
+@deprecate read_recordings_msgpack_zst(path) read_recordings_file(path)
+
+@deprecate(write_recordings_msgpack_zst(header, recodings),
+           serialize_recordings_msgpack_zst(header, recodings))
+@deprecate(write_recordings_msgpack_zst(path, header, recodings),
+           write_recordings_file(path, header, recodings))
+
+@deprecate save_recordings_file save
 
 @deprecate set_duration!(dataset, uuid, duration) begin
     r = dataset.recordings[uuid]

@@ -15,7 +15,18 @@ struct Dataset
     recordings::Dict{UUID,Recording}
 end
 
-Dataset(path) = Dataset(path, Header(MAXIMUM_ONDA_FORMAT_VERSION, true), Dict{UUID,Recording}())
+function Dataset(path; create=missing)
+    if create isa Bool
+        if create
+            @warn "`Dataset(path; create=true)` is deprecated; use `save(Dataset(path))` instead"
+            return save(Dataset(path))
+        else
+            @warn "`Dataset(path; create=false)` is deprecated; use `load(path)` instead"
+            return load(path)
+        end
+    end
+    return Dataset(path, Header(MAXIMUM_ONDA_FORMAT_VERSION, true), Dict{UUID,Recording}())
+end
 
 function load(path)
     header, recordings = read_recordings_file(joinpath(path, RECORDINGS_FILE_NAME))
