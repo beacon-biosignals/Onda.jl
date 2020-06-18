@@ -82,8 +82,6 @@ write_recordings_file
 samples_path
 read_samples
 write_samples
-read_lpcm
-write_lpcm
 read_byte_range
 ```
 
