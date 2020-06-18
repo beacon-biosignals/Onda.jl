@@ -1,22 +1,6 @@
-# TODO doc
-
 #####
-##### path interface functions
+##### utilites
 #####
-# TODO turn into actual documentation
-#
-# All paths handled by Onda must support the following `Base` functions:
-#
-# - `read`
-# - `rm`
-# - `abspath`
-# - `joinpath`
-# - `mkpath` (allowed to be a no-op)
-#
-# As well as the following Onda-defined functions:
-#
-# - `read_byte_range`
-# - `write_path`
 
 read_byte_range(path, ::Missing, ::Missing) = read(path)
 
@@ -28,6 +12,27 @@ function read_byte_range(path, byte_offset, byte_count)
 end
 
 write_path(path, bytes) = (mkpath(dirname(path)); write(path, bytes))
+
+#####
+##### read_recordings_file/write_recordings_file
+#####
+
+"""
+    write_recordings_file(path, header::Header, recordings::Dict{UUID,Recording})
+
+Write `serialize_recordings_msgpack_zst(header, recordings)` to `path`.
+"""
+function write_recordings_file(path, header::Header, recordings::Dict{UUID,Recording})
+    write_path(path, serialize_recordings_msgpack_zst(header, recordings))
+    return nothing
+end
+
+"""
+    read_recordings_file(path)
+
+Return `deserialize_recordings_msgpack_zst(read(path))`.
+"""
+read_recordings_file(path) = deserialize_recordings_msgpack_zst(read(path))
 
 #####
 ##### samples_path
@@ -76,24 +81,3 @@ function read_lpcm(path, serializer, sample_offset, sample_count)
 end
 
 write_lpcm(path, data, serializer) = write_path(path, serialize_lpcm(data, serializer))
-
-#####
-##### read_recordings_file/write_recordings_file
-#####
-
-"""
-    write_recordings_file(path, header::Header, recordings::Dict{UUID,Recording})
-
-Write `serialize_recordings_msgpack_zst(header, recordings)` to `path`.
-"""
-function write_recordings_file(path, header::Header, recordings::Dict{UUID,Recording})
-    write_path(path, serialize_recordings_msgpack_zst(header, recordings))
-    return nothing
-end
-
-"""
-    read_recordings_file(path)
-
-Return `deserialize_recordings_msgpack_zst(read(path))`.
-"""
-read_recordings_file(path) = deserialize_recordings_msgpack_zst(read(path))
