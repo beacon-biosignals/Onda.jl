@@ -5,106 +5,60 @@ using MsgPack
 using TranscodingStreams
 using CodecZstd
 
-const ONDA_FORMAT_VERSION = v"0.3"
-
-"""
-    Onda.validate_on_construction()
-
-If this function returns `true`, Onda objects will be validated upon construction
-for compliance with the Onda specification.
-
-If this function returns `false`, no such validation will be performed upon construction.
-
-Users may interactively redefine this method in order to attempt to read malformed
-Onda datasets.
-
-Returns `true` by default.
-
-See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
-"""
-validate_on_construction() = true
-
-#####
-##### utilities
-#####
-
-function is_supported_onda_format_version(v::VersionNumber)
-    onda_major, onda_minor = ONDA_FORMAT_VERSION.major, ONDA_FORMAT_VERSION.minor
-    return onda_major == v.major && (onda_major != 0 || onda_minor == v.minor)
-end
-
-const ALPHANUMERIC_SNAKE_CASE_CHARACTERS = Char['_',
-                                                '0':'9'...,
-                                                'a':'z'...]
-
-function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
-    return !startswith(x, '_') && !endswith(x, '_') &&
-           all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
-end
-
-function zstd_compress(bytes::Vector{UInt8}, level=3)
-    compressor = ZstdCompressor(; level=level)
-    TranscodingStreams.initialize(compressor)
-    compressed_bytes = transcode(compressor, bytes)
-    TranscodingStreams.finalize(compressor)
-    return compressed_bytes
-end
-
-function zstd_compress(writer, io::IO, level=3)
-    stream = ZstdCompressorStream(io; level=level)
-    result = writer(stream)
-    # write `TranscodingStreams.TOKEN_END` instead of calling `close` since
-    # `close` closes the underlying `io`, and we don't want to do that
-    write(stream, TranscodingStreams.TOKEN_END)
-    flush(stream)
-    return result
-end
-
-zstd_decompress(bytes::Vector{UInt8}) = transcode(ZstdDecompressor, bytes)
-
-function zstd_decompress(reader, io::IO)
-    @warn """
-          Streaming `zstd` decompression via `Onda.zstd_decompress(reader, io::IO)` has been shown
-          to exhibit memory-leak-like  behaviors (underlying cause at time of writing is currently
-          unknown).
-
-          If you did not call this method directly, it's likely that this was reached via
-          a call to  `Onda.load(dataset, uuid, signal_name, span)`. This call may be replaced
-          with `Onda.load(dataset, uuid, signal_name)[:, span]`, but note that this will load
-          in *all* sample data for the given signal.
-          """
-    reader(ZstdDecompressorStream(io))
-end
-
 #####
 ##### includes/exports
 #####
+
+include("utilities.jl")
 
 include("timespans.jl")
 export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_containing,
        index_from_time, time_from_index, duration
 
 include("recordings.jl")
-export Recording, Signal, validate_signal, signal_from_template, Annotation, annotate!,
-       span, sizeof_samples, read_recordings_msgpack_zst, write_recordings_msgpack_zst
+export Recording, Signal, validate_signal, signal_from_template, Annotation,
+       annotate!, span, set_span!, sizeof_samples
 
 include("serialization.jl")
-export AbstractLPCMSerializer, serializer, deserialize_lpcm, serialize_lpcm,
-       LPCM, LPCMZst
+export AbstractLPCMSerializer, serializer, deserialize_recordings_msgpack_zst,
+       serialize_recordings_msgpack_zst, deserialize_lpcm, serialize_lpcm,
+       deserialize_lpcm_callback, LPCM, LPCMZst
 
 include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
        channel_count, sample_count
 
+include("paths.jl")
+export read_recordings_file, write_recordings_file, samples_path,
+       read_samples, write_samples
+
 include("dataset.jl")
-export Dataset, samples_path, create_recording!, set_span!, load, store!, delete!,
-       save_recordings_file
+export Dataset, create_recording!, load, save, store!, delete!
 
 include("printing.jl")
 
 #####
 ##### upgrades/deprecations
 #####
+
+@deprecate(samples_path(dataset::Dataset, uuid::UUID, signal_name, file_extension),
+           samples_path(dataset.path, uuid, signal_name, file_extension))
+
+@deprecate load_samples(path, signal) read_samples(path, signal)
+@deprecate load_samples(path, signal, span) read_samples(path, signal, span)
+
+@deprecate store_samples!(path, samples) write_samples(path, samples)
+
+@deprecate(read_recordings_msgpack_zst(bytes::Vector{UInt8}),
+           deserialize_recordings_msgpack_zst(bytes))
+@deprecate read_recordings_msgpack_zst(path) read_recordings_file(path)
+
+@deprecate(write_recordings_msgpack_zst(header, recodings),
+           serialize_recordings_msgpack_zst(header, recodings))
+@deprecate(write_recordings_msgpack_zst(path, header, recodings),
+           write_recordings_file(path, header, recodings))
+
+@deprecate save_recordings_file save
 
 @deprecate set_duration!(dataset, uuid, duration) begin
     r = dataset.recordings[uuid]
@@ -159,7 +113,7 @@ function upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_val
     end
     fixed_recordings = MsgPack.unpack(MsgPack.pack(recordings), Dict{UUID,Recording})
     dataset = Dataset(path, Header(v"0.3.0", true), fixed_recordings)
-    save_recordings_file(dataset)
+    save(dataset)
     return dataset
 end
 

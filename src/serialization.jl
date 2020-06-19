@@ -1,4 +1,51 @@
 #####
+##### `recordings.msgpack.zst` file content (de)serialization
+#####
+
+struct Header
+    onda_format_version::VersionNumber
+    ordered_keys::Bool
+end
+
+MsgPack.msgpack_type(::Type{Header}) = MsgPack.StructType()
+
+"""
+    deserialize_recordings_msgpack_zst(bytes::Vector{UInt8})
+
+Return the `(header::Header, recordings::Dict{UUID,Recording})` yielded from deserializing `bytes`,
+which is assumed to be in zstd-compressed MsgPack format and comply with the Onda format's specification of
+the contents of `recordings.msgpack.zst`.
+"""
+function deserialize_recordings_msgpack_zst(bytes::Vector{UInt8})
+    io = IOBuffer(zstd_decompress(bytes))
+    read(io, UInt8) == 0x92 || error("Onda recordings file has unexpected first byte; expected 0x92 for a 2-element MsgPack array")
+    header = MsgPack.unpack(io, Header)
+    if !is_supported_onda_format_version(header.onda_format_version)
+        @warn("attempting to load `Dataset` recordings file with unsupported Onda version",
+              minimum_supported=MINIMUM_ONDA_FORMAT_VERSION,
+              maximum_supported=MAXIMUM_ONDA_FORMAT_VERSION,
+              attempting=header.onda_format_version)
+        @warn("if your dataset is version v0.2, consider upgrading it via `Onda.upgrade_onda_format_from_v0_2_to_v0_3!`")
+    end
+    strict = header.ordered_keys ? (Recording,) : ()
+    recordings = MsgPack.unpack(io, Dict{UUID,Recording}; strict=strict)
+    return header, recordings
+end
+
+"""
+    serialize_recordings_msgpack_zst(header::Header, recordings::Dict{UUID,Recording})
+
+Return the `Vector{UInt8}` that results from serializing `(header::Header, recordings::Dict{UUID,Recording})` to zstd-compressed MsgPack format.
+"""
+function serialize_recordings_msgpack_zst(header::Header, recordings::Dict{UUID,Recording})
+    # we do this `resize!` maneuver instead of `MsgPack.pack([header, recordings])` (which
+    # calls `take!`) so that we sidestep https://github.com/JuliaLang/julia/issues/27741
+    io = IOBuffer()
+    MsgPack.pack(io, [header, recordings])
+    return zstd_compress(resize!(io.data, io.size))
+end
+
+#####
 ##### `AbstractLPCMSerializer`
 #####
 
@@ -107,9 +154,32 @@ directly to `io`.
 """
 function serialize_lpcm end
 
+"""
+    deserialize_lpcm_callback(serializer::AbstractLPCMSerializer, samples_offset, samples_count)
+
+Return `(callback, required_byte_offset, required_byte_count)` where `callback` accepts the
+byte block specified by `required_byte_offset` and `required_byte_count` and returns the
+samples specified by `samples_offset` and `samples_count`.
+
+As a fallback, this function returns `(callback, missing, missing)`, where `callback`
+requires all available bytes. `AbstractLPCMSerializer` that support partial/block-based
+deserialization (e.g. the basic `LPCM` serializer) can overload this function to
+only request exactly the byte range that is required for the sample range requested by
+the caller.
+
+This allows callers to handle the byte block retrieval themselves while keeping
+Onda's Serialization API agnostic to the caller's storage layer of choice.
+"""
+function deserialize_lpcm_callback end
+
 #####
-##### fallbacks/utilities
+##### fallback implementations
 #####
+
+function deserialize_lpcm_callback(serializer::AbstractLPCMSerializer, samples_offset, samples_count)
+    callback = bytes -> deserialize_lpcm(bytes, serializer, samples_offset, samples_count)
+    return callback, missing, missing
+end
 
 function deserialize_lpcm(bytes, serializer::AbstractLPCMSerializer, args...)
     return deserialize_lpcm(IOBuffer(bytes), serializer, args...)
@@ -120,13 +190,6 @@ function serialize_lpcm(samples::AbstractMatrix, serializer::AbstractLPCMSeriali
     serialize_lpcm(io, samples, serializer)
     return resize!(io.data, io.size)
 end
-
-jump(io::IO, n) = (read(io, n); nothing)
-jump(io::IOStream, n) = (skip(io, n); nothing)
-jump(io::IOBuffer, n) = ((io.seekable ? skip(io, n) : read(io, n)); nothing)
-
-unsafe_vec_uint8(x::AbstractVector{UInt8}) = convert(Vector{UInt8}, x)
-unsafe_vec_uint8(x::Base.ReinterpretArray{UInt8,1}) = unsafe_wrap(Vector{UInt8}, pointer(x), length(x))
 
 #####
 ##### `LPCM`
@@ -167,6 +230,12 @@ function deserialize_lpcm(bytes, serializer::LPCM{S}, sample_offset, sample_coun
 end
 
 deserialize_lpcm(io::IO, serializer::LPCM) = deserialize_lpcm(read(io), serializer)
+
+function deserialize_lpcm_callback(serializer::LPCM{S}, samples_offset, samples_count) where {S}
+    callback = bytes -> deserialize_lpcm(bytes, serializer)
+    bytes_per_sample = sizeof(S) * serializer.channel_count
+    return callback, samples_offset * bytes_per_sample, samples_count * bytes_per_sample
+end
 
 function deserialize_lpcm(io::IO, serializer::LPCM{S}, sample_offset, sample_count) where {S}
     bytes_per_sample = sizeof(S) * serializer.channel_count

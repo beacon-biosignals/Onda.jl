@@ -1,6 +1,8 @@
 include("dataset.jl")
 include("timespans.jl")
+include("paths.jl")
 include("serialization.jl")
 include("printing.jl")
+include("deprecations.jl")
 include(joinpath(dirname(@__DIR__), "examples", "flac.jl"))
 include(joinpath(dirname(@__DIR__), "examples", "tour.jl"))

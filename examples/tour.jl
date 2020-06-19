@@ -113,8 +113,11 @@ root = mktempdir() # this will be deleted when the Julia process exits
 
 # Create a `Dataset` instance. This is a thin wrapper around an `example.onda`
 # directory that helps us to easily interface the Onda dataset in a compliant
-# manner.
-dataset = Dataset(joinpath(root, "example.onda"); create=true)
+# manner. Note that simply creating this instance does not actually create the
+# `example.onda` directory; that directory will only be created as needed by
+# Onda operations that actually write to the filesystem (e.g. `save`, `store!`,
+# etc.).
+dataset = Dataset(joinpath(root, "example.onda"))
 
 # Create a `Recording` instance within `dataset`. This object corresponds
 # directly to the recording MessagePack object defined by the specification.
@@ -152,10 +155,11 @@ for (i, t) in enumerate(2:2:Second(duration(recording)).value)
     annotate!(recording, ann)
 end
 
-# Finally, we save `dataset.recordings` to the `recordings.msgpack.zst` file
-# specified by the Onda format. NOTE: If you don't call this function, your
-# changes to `dataset.recordings` will not be saved!
-save_recordings_file(dataset)
+# Finally, we save `dataset`. Importantly, this function serializes `dataset.recordings`
+# to the `recordings.msgpack.zst` file specified by the Onda format. NOTE: If you don't
+# call this function, your `dataset` will not persist to disk as a valid Onda dataset
+# (though any `store!`ed sample data will still persist on disk)!
+save(dataset)
 
 ###############################################################################
 ###############################################################################
@@ -164,7 +168,7 @@ save_recordings_file(dataset)
 # wrote out this dataset; instead, we'll pretend our colleague passed it off to
 # us, and we have to load it up to check for spikes.
 
-dataset = Dataset(joinpath(root, "example.onda"))
+dataset = load(joinpath(root, "example.onda"))
 @test length(dataset.recordings) == 1
 uuid, recording = first(dataset.recordings)
 
@@ -192,5 +196,5 @@ spike_segment = load(dataset, uuid, :eeg, spike_annotation)
 # generally pass it wherever we'd pass a `TimeSpan` object:
 annotate!(recording, Annotation("confirmed_spike_by_me", spike_annotation))
 
-# ...and, finally, of course, let's save our annotation!
-save_recordings_file(dataset)
+# ...and, finally, of course, let's save our dataset to persist our changes!
+save(dataset)

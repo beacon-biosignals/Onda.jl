@@ -8,20 +8,19 @@ CurrentModule = Onda
 
 Note that Onda.jl's API follows a specific philosophy with respect to property access: users are generally expected to access fields via Julia's `object.fieldname` syntax, but should only *mutate* objects via the exposed API methods documented below.
 
-## `Dataset`
+## `Dataset` API
 
 ```@docs
 Dataset
-samples_path
-create_recording!
 load
+save
+create_recording!
 store!
 delete!
-save_recordings_file
 Onda.validate_on_construction
 ```
 
-## Onda Metadata Objects
+## Onda Format Metadata
 
 ```@docs
 Signal
@@ -33,8 +32,6 @@ Annotation
 Recording
 set_span!
 annotate!
-read_recordings_msgpack_zst
-write_recordings_msgpack_zst
 ```
 
 ## `Samples`
@@ -64,13 +61,45 @@ time_from_index
 index_from_time
 ```
 
-## Serialization
+## Paths API
+
+Onda's Paths API directly underlies its Dataset API, providing an abstraction
+layer that can be overloaded to support new storage backends for sample data and
+recording metadata. This API's fallback implementation supports any path-like
+type that implements:
+
+- `Base.read`
+- `Base.rm`
+- `Base.abspath`
+- `Base.joinpath`
+- `Base.mkpath` (note: this is allowed to be a no-op for storage backends which have no notion of intermediate directories, e.g. object storage systems)
+- `Base.dirname`
+- `Onda.read_byte_range`
 
 ```@docs
+read_recordings_file
+write_recordings_file
+samples_path
+read_samples
+write_samples
+read_byte_range
+```
+
+## Serialization API
+
+Onda's Serialization API underlies its Paths API, providing a storage-agnostic
+abstraction layer that can be overloaded to support new file/byte formats for
+(de)serializing LPCM-encodeable sample data. This API also facilitates low-level
+streaming sample data (de)serialization and Onda metadata (de)serialization.
+
+```@docs
+deserialize_recordings_msgpack_zst
+serialize_recordings_msgpack_zst
 AbstractLPCMSerializer
 Onda.serializer_constructor_for_file_extension
 serializer
 deserialize_lpcm
+deserialize_lpcm_callback
 serialize_lpcm
 LPCM
 LPCMZst

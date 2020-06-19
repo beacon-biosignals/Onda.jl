@@ -4,50 +4,40 @@
 
 const RECORDINGS_FILE_NAME = "recordings.msgpack.zst"
 
+# NOTE: `Dataset` purposefully does not reexpose `typeof(path)` as a type parameter
+# in order to prevent downstream method overloads on `Dataset` from dispatching
+# on it; such specialization should strictly reside in the Paths API layer (see
+# `src/paths.jl`). Also, any resulting dynamic dispatch costs will be quite
+# neglible compared to the cost of storage layer interactions.
 struct Dataset
-    path::String
+    path::Any
     header::Header
     recordings::Dict{UUID,Recording}
 end
 
-"""
-    Dataset(path; create=false)
-
-Return a `Dataset` instance that contains all metadata necessary to read and
-write to the Onda dataset stored at `path`. Note that this constuctor loads all
-the `Recording` objects contained in `path/recordings.msgpack.zst`.
-
-If `create` is `true`, then an empty Onda dataset will be created at `path`.
-"""
-function Dataset(path; create::Bool=false)
-    path = rstrip(abspath(path), '/')
-    samples_path = joinpath(path, "samples")
-    if create
-        if isdir(path)
-            isempty(readdir(path)) || throw(ArgumentError("cannot create dataset at $path: directory exists and is nonempty"))
+function Dataset(path; create=missing)
+    if create isa Bool
+        if create
+            @warn "`Dataset(path; create=true)` is deprecated; use `save(Dataset(path))` instead"
+            return save(Dataset(path))
         else
-            mkdir(path)
+            @warn "`Dataset(path; create=false)` is deprecated; use `load(path)` instead"
+            return load(path)
         end
-        initial_header = Header(ONDA_FORMAT_VERSION, true)
-        initial_recordings = Dict{UUID,Recording}()
-        write_recordings_msgpack_zst(joinpath(path, RECORDINGS_FILE_NAME), initial_header, initial_recordings)
-    elseif !isdir(path)
-        throw(ArgumentError("$path is not a valid Onda dataset"))
     end
-    !isdir(samples_path) && mkdir(samples_path)
-    header, recordings = read_recordings_msgpack_zst(joinpath(path, RECORDINGS_FILE_NAME))
+    return Dataset(path, Header(MAXIMUM_ONDA_FORMAT_VERSION, true), Dict{UUID,Recording}())
+end
+
+function load(path)
+    header, recordings = read_recordings_file(joinpath(path, RECORDINGS_FILE_NAME))
     return Dataset(path, header, recordings)
 end
 
-"""
-    save_recordings_file(dataset::Dataset)
-
-Overwrite `joinpath(dataset.path, "recordings.msgpack.zst")` with the contents
-of `dataset.recordings`.
-"""
-function save_recordings_file(dataset::Dataset)
-    file_path = joinpath(dataset.path, RECORDINGS_FILE_NAME)
-    return write_recordings_msgpack_zst(file_path, dataset.header, dataset.recordings)
+function save(dataset::Dataset)
+    mkpath(joinpath(dataset.path, "samples"))
+    write_recordings_file(joinpath(dataset.path, RECORDINGS_FILE_NAME),
+                          dataset.header, dataset.recordings)
+    return dataset
 end
 
 #####
@@ -83,30 +73,6 @@ function Base.merge!(destination::Dataset, datasets::Dataset...; only_recordings
 end
 
 #####
-##### `samples_path`
-#####
-
-"""
-    samples_path(dataset::Dataset, uuid::UUID)
-
-Return the samples subdirectory path corresponding to the recording specified by `uuid`.
-"""
-samples_path(dataset::Dataset, uuid::UUID) = joinpath(dataset.path, "samples", string(uuid))
-
-"""
-    samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
-                 file_extension=dataset.recordings[uuid].signals[name].file_extension)
-
-Return the samples file path corresponding to the signal named `name` within the
-recording specified by `uuid`.
-"""
-function samples_path(dataset::Dataset, uuid::UUID, name::Symbol,
-                      file_extension=dataset.recordings[uuid].signals[name].file_extension)
-    file_name = string(name, ".", file_extension)
-    return joinpath(samples_path(dataset, uuid), file_name)
-end
-
-#####
 ##### `create_recording!`
 #####
 
@@ -122,8 +88,29 @@ function create_recording!(dataset::Dataset, uuid::UUID=uuid4())
     end
     recording = Recording(Dict{Symbol,Signal}(), Set{Annotation}())
     dataset.recordings[uuid] = recording
-    mkpath(samples_path(dataset, uuid))
     return uuid => recording
+end
+
+#####
+##### `samples_path`
+#####
+
+"""
+    samples_path(dataset::Dataset, uuid::UUID)
+
+Return `samples_path(dataset.path, uuid)`.
+"""
+samples_path(dataset::Dataset, uuid::UUID) = samples_path(dataset.path, uuid)
+
+"""
+    samples_path(dataset::Dataset, uuid::UUID, signal_name::Symbol)
+
+Return `samples_path(dataset.path, uuid, signal_name, extension)` where `extension`
+is defined as `dataset.recordings[uuid].signals[signal_name].file_extension`.
+"""
+function samples_path(dataset::Dataset, uuid::UUID, signal_name::Symbol)
+    file_extension = dataset.recordings[uuid].signals[signal_name].file_extension
+    return samples_path(dataset, uuid, signal_name, file_extension)
 end
 
 #####
@@ -131,31 +118,32 @@ end
 #####
 
 """
-    load(dataset::Dataset, uuid::UUID, name::Symbol[, span::AbstractTimeSpan])
+    load(dataset::Dataset, uuid::UUID, signal_name::Symbol[, span::AbstractTimeSpan])
 
-Load and return the `Samples` object corresponding to the signal named `name`
+Load and return the `Samples` object corresponding to the signal named `signal_name`
 in the recording specified by `uuid`.
 
 If `span` is provided, this function returns the equivalent of
-`load(dataset, uuid, name)[:, span]`, but potentially avoids loading the entire
-signal's worth of sample data if the underlying signal file format supports
-partial access/random seeks.
+`load(dataset, uuid, signal_name)[:, span]`, but potentially avoids loading the
+entire signal's worth of sample data if the underlying signal file format and
+target storage layer both support partial access/random seeks.
 
-See also: [`deserialize_lpcm`](@ref)
+See also: [`read_samples`](@ref), [`deserialize_lpcm`](@ref)
 """
-function load(dataset::Dataset, uuid::UUID, name::Symbol, span::AbstractTimeSpan...)
-    signal = dataset.recordings[uuid].signals[name]
-    path = samples_path(dataset, uuid, name, signal.file_extension)
-    return load_samples(path, signal, span...)
+function load(dataset::Dataset, uuid::UUID, signal_name::Symbol, span::AbstractTimeSpan...)
+    signal = dataset.recordings[uuid].signals[signal_name]
+    path = samples_path(dataset, uuid, signal_name, signal.file_extension)
+    return read_samples(path, signal, span...)
 end
 
 """
-    load(dataset::Dataset, uuid::UUID, names[, span::AbstractTimeSpan])
+    load(dataset::Dataset, uuid::UUID, signal_names[, span::AbstractTimeSpan])
 
-Return `Dict(name => load(dataset, uuid, name[, span]) for name in names)`.
+Return `Dict(signal_name => load(dataset, uuid, signal_name[, span]) for signal_name in signal_names)`.
 """
-function load(dataset::Dataset, uuid::UUID, names, span::AbstractTimeSpan...)
-    return Dict(name => load(dataset, uuid, name, span...) for name in names)
+function load(dataset::Dataset, uuid::UUID, signal_names, span::AbstractTimeSpan...)
+    return Dict(signal_name => load(dataset, uuid, signal_name, span...)
+                for signal_name in signal_names)
 end
 
 """
@@ -173,31 +161,30 @@ end
 #####
 
 """
-    store!(dataset::Dataset, uuid::UUID, name::Symbol, samples::Samples;
+    store!(dataset::Dataset, uuid::UUID, signal_name::Symbol, samples::Samples;
            overwrite::Bool=true)
 
-Add `name => samples.signal` to `dataset.recordings[uuid].signals` and serialize
-`samples.data` to the proper file location within `dataset.path`.
+Add `signal_name => samples.signal` to `dataset.recordings[uuid].signals` and serialize
+`samples.data` to the proper file path within `dataset.path`.
 
-If `overwrite` is `false`, an error is thrown if `samples` already exists
-in `recording`/`dataset`. Otherwise, existing entries matching `samples.signal`
-will be deleted and replaced with `samples`.
+If `overwrite` is `false`, an error is thrown if a signal with `signal_name` already
+exists in `dataset.recordings[uuid]`. Otherwise, existing entries matching
+`samples.signal` will be deleted and replaced with `samples`.
 """
-function store!(dataset::Dataset, uuid::UUID, name::Symbol,
+function store!(dataset::Dataset, uuid::UUID, signal_name::Symbol,
                 samples::Samples; overwrite::Bool=true)
     recording, signal = dataset.recordings[uuid], samples.signal
-    if haskey(recording.signals, name) && !overwrite
-        throw(ArgumentError("$name already exists in $uuid and `overwrite` is `false`"))
+    if haskey(recording.signals, signal_name) && !overwrite
+        throw(ArgumentError("$signal_name already exists in $uuid and `overwrite` is `false`"))
     end
-    if !is_lower_snake_case_alphanumeric(string(name))
-        throw(ArgumentError("$name is not lower snake case and alphanumeric"))
+    if !is_lower_snake_case_alphanumeric(string(signal_name))
+        throw(ArgumentError("$signal_name is not lower snake case and alphanumeric"))
     end
     validate_signal(signal)
     validate_samples(samples)
     duration(signal) == duration(samples) || throw(ArgumentError("duration of `Samples` data does not match `Signal` duration"))
-    recording.signals[name] = signal
-    store_samples!(samples_path(dataset, uuid, name, signal.file_extension),
-                   samples; overwrite=overwrite)
+    recording.signals[signal_name] = signal
+    write_samples(samples_path(dataset, uuid, signal_name, signal.file_extension), samples)
     return recording
 end
 
@@ -214,20 +201,20 @@ deletes the corresponding subdirectory in the `dataset`'s `samples` directory.
 """
 function Base.delete!(dataset::Dataset, uuid::UUID)
     delete!(dataset.recordings, uuid)
-    rm(samples_path(dataset, uuid); recursive=true, force=true)
+    rm(samples_path(dataset, uuid); force=true, recursive=true)
     return dataset
 end
 
 """
-    delete!(dataset::Dataset, uuid::UUID, name::Symbol)
+    delete!(dataset::Dataset, uuid::UUID, signal_name::Symbol)
 
-Delete the signal whose name matches `name` from the recording whose UUID matches
-`uuid` in `dataset`. This function removes the matching `Signal` object from
-`dataset.recordings[uuid]`, as well as deletes the corresponding sample data in
-the `dataset`'s `samples` directory.
+Delete the signal whose signal_name matches `signal_name` from the recording
+whose UUID matches `uuid` in `dataset`. This function removes the matching
+`Signal` object from `dataset.recordings[uuid]`, as well as deletes the
+corresponding sample data in the `dataset`'s `samples` directory.
 """
-function Base.delete!(dataset::Dataset, uuid::UUID, name::Symbol)
-    rm(samples_path(dataset, uuid, name); force=true)
-    delete!(dataset.recordings[uuid].signals, name)
+function Base.delete!(dataset::Dataset, uuid::UUID, signal_name::Symbol)
+    rm(samples_path(dataset, uuid, signal_name); force=true)
+    delete!(dataset.recordings[uuid].signals, signal_name)
     return dataset
 end
