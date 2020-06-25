@@ -110,7 +110,7 @@ is defined as `dataset.recordings[uuid].signals[signal_name].file_extension`.
 """
 function samples_path(dataset::Dataset, uuid::UUID, signal_name::Symbol)
     file_extension = dataset.recordings[uuid].signals[signal_name].file_extension
-    return samples_path(dataset, uuid, signal_name, file_extension)
+    return samples_path(dataset.path, uuid, signal_name, file_extension)
 end
 
 #####
@@ -132,7 +132,7 @@ See also: [`read_samples`](@ref), [`deserialize_lpcm`](@ref)
 """
 function load(dataset::Dataset, uuid::UUID, signal_name::Symbol, span::AbstractTimeSpan...)
     signal = dataset.recordings[uuid].signals[signal_name]
-    path = samples_path(dataset, uuid, signal_name, signal.file_extension)
+    path = samples_path(dataset.path, uuid, signal_name, signal.file_extension)
     return read_samples(path, signal, span...)
 end
 
@@ -184,7 +184,7 @@ function store!(dataset::Dataset, uuid::UUID, signal_name::Symbol,
     validate_samples(samples)
     duration(signal) == duration(samples) || throw(ArgumentError("duration of `Samples` data does not match `Signal` duration"))
     recording.signals[signal_name] = signal
-    write_samples(samples_path(dataset, uuid, signal_name, signal.file_extension), samples)
+    write_samples(samples_path(dataset.path, uuid, signal_name, signal.file_extension), samples)
     return recording
 end
 
