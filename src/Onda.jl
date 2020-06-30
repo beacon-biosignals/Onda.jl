@@ -20,9 +20,10 @@ export Recording, Signal, validate_signal, signal_from_template, Annotation,
        annotate!, span, set_span!, sizeof_samples
 
 include("serialization.jl")
-export AbstractLPCMSerializer, serializer, deserialize_recordings_msgpack_zst,
+export AbstractLPCMFormat, format, deserialize_recordings_msgpack_zst,
        serialize_recordings_msgpack_zst, deserialize_lpcm, serialize_lpcm,
-       deserialize_lpcm_callback, LPCM, LPCMZst
+       deserialize_lpcm_callback, LPCM, LPCMZst, deserializing_lpcm_stream
+       serializing_lpcm_stream, finalize_lpcm_stream
 
 include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
@@ -40,6 +41,21 @@ include("printing.jl")
 #####
 ##### upgrades/deprecations
 #####
+
+#= TODO deprecate:
+zstd_compress(writer, io) -> nothing
+zstd_decompress(reader, io) -> nothing
+
+serializer -> format
+serializer_constructor_for_file_extension -> format_constructor_for_file_extension
+
+deserialize_lpcm(bytes, serializer, args...) -> deserialize_lpcm(bytes, format, args...)
+deserialize_lpcm(io, serializer, args...) -> deserialize_lpcm(stream, args...)
+
+serialize_lpcm(samples, serializer) -> serialize_lpcm(format, samples)
+serialize_lpcm(samples, io, serializer) -> serialize_lpcm(stream, samples)
+=#
+
 
 @deprecate(samples_path(dataset::Dataset, uuid::UUID, signal_name, file_extension),
            samples_path(dataset.path, uuid, signal_name, file_extension))
