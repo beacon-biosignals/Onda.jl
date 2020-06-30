@@ -43,12 +43,6 @@ include("printing.jl")
 #####
 
 #= TODO deprecate:
-zstd_compress(writer, io) -> nothing
-zstd_decompress(reader, io) -> nothing
-
-serializer -> format
-serializer_constructor_for_file_extension -> format_constructor_for_file_extension
-
 deserialize_lpcm(bytes, serializer, args...) -> deserialize_lpcm(bytes, format, args...)
 deserialize_lpcm(io, serializer, args...) -> deserialize_lpcm(stream, args...)
 
@@ -56,6 +50,26 @@ serialize_lpcm(samples, serializer) -> serialize_lpcm(format, samples)
 serialize_lpcm(samples, io, serializer) -> serialize_lpcm(stream, samples)
 =#
 
+function zstd_compress(writer, io::IO, level=3)
+    @warn "`zstd_compress(writer, io::IO[, level])` is deprecated, use CodecZstd + TranscodingStreams directly instead"
+    stream = ZstdCompressorStream(io; level=level)
+    result = writer(stream)
+    # write `TranscodingStreams.TOKEN_END` instead of calling `close` since
+    # `close` closes the underlying `io`, and we don't want to do that
+    write(stream, TranscodingStreams.TOKEN_END)
+    flush(stream)
+    return result
+end
+
+function zstd_decompress(reader, io::IO)
+    @warn "`zstd_decompress(reader, io::IO)` is deprecated and has known bugs, use CodecZstd + TranscodingStreams directly instead"
+    reader(ZstdDecompressorStream(io))
+end
+
+@deprecate(serializer_constructor_for_file_extension(ext),
+           format_constructor_for_file_extension(ext))
+
+@deprecate serializer(signal::Signal; kwargs...) format(signal; kwargs...)
 
 @deprecate(samples_path(dataset::Dataset, uuid::UUID, signal_name, file_extension),
            samples_path(dataset.path, uuid, signal_name, file_extension))
