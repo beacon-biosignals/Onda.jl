@@ -15,6 +15,12 @@ struct Dataset
     recordings::Dict{UUID,Recording}
 end
 
+"""
+    Dataset(path)
+
+Return a `Dataset` instance targeting `path` as an Onda dataset, without loading
+any content from `path`.
+"""
 function Dataset(path; create=missing)
     if create isa Bool
         if create
@@ -28,11 +34,28 @@ function Dataset(path; create=missing)
     return Dataset(path, Header(MAXIMUM_ONDA_FORMAT_VERSION, true), Dict{UUID,Recording}())
 end
 
+"""
+    load(path)
+
+Return a `Dataset` instance that contains all metadata necessary to read and
+write to the Onda dataset stored at `path`. Note that this constuctor loads all
+the `Recording` objects contained in `path/recordings.msgpack.zst`.
+"""
 function load(path)
     header, recordings = read_recordings_file(joinpath(path, RECORDINGS_FILE_NAME))
     return Dataset(path, header, recordings)
 end
 
+"""
+    save(dataset::Dataset)
+
+Save all metadata content necessary to read/write `dataset` to `dataset.path`.
+
+Note that in-memory mutations to `dataset` will not persist unless followed by
+a `save` call. Furthermore, new sample data written to `dataset` via `store!`
+will not be readable from freshly loaded copies of `dataset` (e.g.
+`load(dataset.path)`) until `save` is called.
+"""
 function save(dataset::Dataset)
     mkpath(joinpath(dataset.path, "samples"))
     write_recordings_file(joinpath(dataset.path, RECORDINGS_FILE_NAME),
