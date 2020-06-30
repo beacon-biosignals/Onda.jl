@@ -20,10 +20,10 @@ export Recording, Signal, validate_signal, signal_from_template, Annotation,
        annotate!, span, set_span!, sizeof_samples
 
 include("serialization.jl")
-export AbstractLPCMFormat, format, deserialize_recordings_msgpack_zst,
-       serialize_recordings_msgpack_zst, deserialize_lpcm, serialize_lpcm,
-       deserialize_lpcm_callback, LPCM, LPCMZst, deserializing_lpcm_stream
-       serializing_lpcm_stream, finalize_lpcm_stream
+export AbstractLPCMFormat, AbstractLPCMStream, format,
+       deserialize_recordings_msgpack_zst, serialize_recordings_msgpack_zst,
+       deserialize_lpcm, serialize_lpcm, deserialize_lpcm_callback, LPCM, LPCMZst,
+       deserializing_lpcm_stream, serializing_lpcm_stream, finalize_lpcm_stream
 
 include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
