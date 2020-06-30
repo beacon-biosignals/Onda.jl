@@ -264,12 +264,14 @@ serializing_lpcm_stream(format::LPCM, io) = LPCMStream(format, io)
 finalize_lpcm_stream(::LPCMStream) = true
 
 function deserialize_lpcm(format::LPCM{S}, bytes, sample_offset=0,
-                          sample_count=typemax(Inf)) where {S}
-    byte_start = max((format.channel_count * sample_offset) + 1, length(bytes))
-    byte_end = min(format.channel_count * (sample_offset + sample_count), length(bytes))
-    byte_view = view(reinterpret(S, bytes), byte_start:byte_end)
-    sample_count = min(Int(length(byte_view) / _bytes_per_sample(format)), sample_count)
-    return reshape(byte_view, (format.channel_count, sample_count))
+                          sample_count=typemax(Int)) where {S}
+    sample_offset, sample_count = Int(sample_offset), Int(sample_count)
+    sample_interpretation = reinterpret(S, bytes)
+    sample_start = min((format.channel_count * sample_offset) + 1, length(sample_interpretation))
+    sample_end = min(format.channel_count * (sample_offset + sample_count), length(sample_interpretation))
+    sample_view = view(sample_interpretation, sample_start:sample_end)
+    sample_shape = (format.channel_count, min(Int(length(sample_view) / format.channel_count), sample_count))
+    return reshape(sample_view, sample_shape)
 end
 
 function deserialize_lpcm(stream::LPCMStream, sample_offset=0, sample_count=typemax(Inf))
@@ -280,7 +282,7 @@ function deserialize_lpcm(stream::LPCMStream, sample_offset=0, sample_count=type
 end
 
 function serialize_lpcm(format::LPCM, samples::AbstractMatrix)
-    _validate_lpcm_samples(samples, format)
+    _validate_lpcm_samples(format, samples)
     samples isa Matrix && return reinterpret(UInt8, vec(samples))
     io = IOBuffer()
     write(io, samples)
@@ -326,7 +328,7 @@ end
 
 function serialize_lpcm(format::LPCMZst, samples::AbstractMatrix)
     decompressed_bytes = unsafe_vec_uint8(serialize_lpcm(format.lpcm, samples))
-    return zstd_compress(bytes, format.level)
+    return zstd_compress(decompressed_bytes, format.level)
 end
 
 struct LPCMZstStream{L<:LPCMStream} <: AbstractLPCMStream

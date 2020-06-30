@@ -10,6 +10,8 @@ using Test, Onda, Dates, MsgPack
         save(dataset)
         @test isfile(joinpath(dataset.path, Onda.RECORDINGS_FILE_NAME))
         @test isdir(joinpath(dataset.path, "samples"))
+        rm(joinpath(root, "test"); force=true, recursive=true)
+        dataset = Dataset(joinpath(root, "test"))
         duration_in_seconds = Second(10)
         duration_in_nanoseconds = Nanosecond(duration_in_seconds)
         uuid, recording = create_recording!(dataset)
