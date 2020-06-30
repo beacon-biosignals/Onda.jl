@@ -42,26 +42,27 @@ include("printing.jl")
 ##### upgrades/deprecations
 #####
 
-@deprecate(deserialize_lpcm(io::IO, format, args...),
+@deprecate(deserialize_lpcm(io::IO, signal_format, args...),
            begin
-               stream = deserializing_lpcm_stream(format, io)
-               results = serialize_lpcm(stream, args...)
-               finalize_lpcm_stream(stream) && close(io)
+               stream = deserializing_lpcm_stream(signal_format, io)
+               results = deserialize_lpcm(stream, args...)
+               finalize_lpcm_stream(stream)
                results
            end)
 
-@deprecate(deserialize_lpcm(bytes::AbstractVector, serializer, args...),
-           deserialize_lpcm(format, bytes, args...))
+@deprecate(deserialize_lpcm(bytes::AbstractVector, signal_format, args...),
+           deserialize_lpcm(signal_format, bytes, args...))
 
-@deprecate(serialize_lpcm(samples::AbstractMatrix, io::IO, format),
+@deprecate(serialize_lpcm(io::IO, samples::AbstractMatrix, signal_format),
            begin
-               stream = serializing_lpcm_stream(format, io)
+               stream = serializing_lpcm_stream(signal_format, io)
                bytes = serialize_lpcm(stream, samples)
-               finalize_lpcm_stream(stream) && close(io)
+               finalize_lpcm_stream(stream)
                bytes
            end)
 
-@deprecate serialize_lpcm(samples::AbstractMatrix, format) serialize_lpcm(format, samples::AbstractMatrix)
+@deprecate(serialize_lpcm(samples::AbstractMatrix, signal_format),
+           serialize_lpcm(signal_format, samples::AbstractMatrix))
 
 function zstd_compress(writer, io::IO, level=3)
     @warn "`zstd_compress(writer, io::IO[, level])` is deprecated, use CodecZstd + TranscodingStreams directly instead"

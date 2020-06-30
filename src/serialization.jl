@@ -164,8 +164,12 @@ underlying I/O object was closed as result of finalization.
 function finalize_lpcm_stream end
 
 """
-    deserialize_lpcm(format::AbstractLPCMFormat, bytes, samples_offset=0, samples_count=typemax(Int))
-    deserialize_lpcm(stream::AbstractLPCMStream, samples_offset=0, samples_count=typemax(Int))
+    deserialize_lpcm(format::AbstractLPCMFormat, bytes,
+                     samples_offset::Integer=0,
+                     samples_count::Integer=typemax(Int))
+    deserialize_lpcm(stream::AbstractLPCMStream,
+                     samples_offset::Integer=0,
+                     samples_count::Integer=typemax(Int))
 
 Return a channels-by-timesteps `AbstractMatrix` of interleaved LPCM-encoded
 sample data by deserializing the provided `bytes` in the given `format`, or
@@ -263,22 +267,31 @@ serializing_lpcm_stream(format::LPCM, io) = LPCMStream(format, io)
 
 finalize_lpcm_stream(::LPCMStream) = true
 
-function deserialize_lpcm(format::LPCM{S}, bytes, sample_offset=0,
-                          sample_count=typemax(Int)) where {S}
-    sample_offset, sample_count = Int(sample_offset), Int(sample_count)
+function deserialize_lpcm(format::LPCM{S}, bytes, sample_offset::Integer=0,
+                          sample_count::Integer=typemax(Int)) where {S}
     sample_interpretation = reinterpret(S, bytes)
     sample_start = min((format.channel_count * sample_offset) + 1, length(sample_interpretation))
-    sample_end = min(format.channel_count * (sample_offset + sample_count), length(sample_interpretation))
+    sample_end = format.channel_count * (sample_offset + sample_count)
+    sample_end = sample_end >= 0 ? sample_end : typemax(Int) # handle overflow
+    sample_end = min(sample_end, length(sample_interpretation))
     sample_view = view(sample_interpretation, sample_start:sample_end)
-    sample_shape = (format.channel_count, min(Int(length(sample_view) / format.channel_count), sample_count))
-    return reshape(sample_view, sample_shape)
+    timestep_count = min(Int(length(sample_view) / format.channel_count), sample_count)
+    return reshape(sample_view, (format.channel_count, timestep_count))
 end
 
-function deserialize_lpcm(stream::LPCMStream, sample_offset=0, sample_count=typemax(Inf))
+function deserialize_lpcm_callback(format::LPCM{S}, samples_offset, samples_count) where {S}
+    callback = bytes -> deserialize_lpcm(format, bytes)
+    bytes_per_sample = _bytes_per_sample(format)
+    return callback, samples_offset * bytes_per_sample, samples_count * bytes_per_sample
+end
+
+function deserialize_lpcm(stream::LPCMStream, sample_offset::Integer=0,
+                          sample_count::Integer=typemax(Int))
     bytes_per_sample = _bytes_per_sample(stream.format)
     jump(stream.io, bytes_per_sample * sample_offset)
-    bytes = read(stream.io, bytes_per_sample * sample_count)
-    return deserialize_lpcm(stream.format, bytes)
+    byte_count = bytes_per_sample * sample_count
+    byte_count = byte_count >= 0 ? byte_count : typemax(Int) # handle overflow
+    return deserialize_lpcm(stream.format, read(stream.io, byte_count))
 end
 
 function serialize_lpcm(format::LPCM, samples::AbstractMatrix)
@@ -336,12 +349,12 @@ struct LPCMZstStream{L<:LPCMStream} <: AbstractLPCMStream
 end
 
 function deserializing_lpcm_stream(format::LPCMZst, io)
-    stream = LPCMStream(format, ZstdDecompressorStream(io))
+    stream = LPCMStream(format.lpcm, ZstdDecompressorStream(io))
     return LPCMZstStream(stream)
 end
 
 function serializing_lpcm_stream(format::LPCMZst, io)
-    stream = LPCMStream(format, ZstdCompressorStream(io; level=format.level))
+    stream = LPCMStream(format.lpcm, ZstdCompressorStream(io; level=format.level))
     return LPCMZstStream(stream)
 end
 
