@@ -54,8 +54,6 @@ function zstd_compress(writer, io::IO, level=3)
     @warn "`zstd_compress(writer, io::IO[, level])` is deprecated, use CodecZstd + TranscodingStreams directly instead"
     stream = ZstdCompressorStream(io; level=level)
     result = writer(stream)
-    # write `TranscodingStreams.TOKEN_END` instead of calling `close` since
-    # `close` closes the underlying `io`, and we don't want to do that
     write(stream, TranscodingStreams.TOKEN_END)
     flush(stream)
     return result
