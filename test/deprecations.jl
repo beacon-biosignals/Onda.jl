@@ -56,3 +56,6 @@ end
         @test callback(bytes) == view(samples.data, :, 100:300)
     end
 end
+
+@test_throws ErrorException Onda.zstd_compress(identity, IOBuffer())
+@test_throws ErrorException Onda.zstd_decompress(identity, IOBuffer())

@@ -65,17 +65,11 @@ include("printing.jl")
            serialize_lpcm(signal_format, samples::AbstractMatrix))
 
 function zstd_compress(writer, io::IO, level=3)
-    @warn "`zstd_compress(writer, io::IO[, level])` is deprecated, use CodecZstd + TranscodingStreams directly instead"
-    stream = ZstdCompressorStream(io; level=level)
-    result = writer(stream)
-    write(stream, TranscodingStreams.TOKEN_END)
-    flush(stream)
-    return result
+    error("`zstd_compress(writer, io::IO[, level])` is deprecated, use CodecZstd + TranscodingStreams directly instead")
 end
 
 function zstd_decompress(reader, io::IO)
-    @warn "`zstd_decompress(reader, io::IO)` is deprecated, use CodecZstd + TranscodingStreams directly instead"
-    reader(ZstdDecompressorStream(io))
+    error("`zstd_decompress(reader, io::IO)` is deprecated, use CodecZstd + TranscodingStreams directly instead")
 end
 
 @deprecate(serializer_constructor_for_file_extension(ext),
