@@ -95,9 +95,13 @@ streaming sample data (de)serialization and Onda metadata (de)serialization.
 ```@docs
 deserialize_recordings_msgpack_zst
 serialize_recordings_msgpack_zst
-AbstractLPCMSerializer
-Onda.serializer_constructor_for_file_extension
-serializer
+AbstractLPCMFormat
+AbstractLPCMStream
+deserializing_lpcm_stream
+serializing_lpcm_stream
+finalize_lpcm_stream
+Onda.format_constructor_for_file_extension
+format
 deserialize_lpcm
 deserialize_lpcm_callback
 serialize_lpcm

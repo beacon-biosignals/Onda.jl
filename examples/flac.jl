@@ -12,8 +12,8 @@ using Onda, Test, Random, Dates
      FLAC(lpcm::LPCM; sample_rate, level=5)
      FLAC(signal::Signal; level=5)
 
-Return a `FLAC<:AbstractLPCMSerializer` instance that represents the
-FLAC format assumed for signal files with the ".flac" extension.
+Return a `FLAC<:AbstractLPCMFormat` instance that represents the
+FLAC format assumed for sample data files with the ".flac" extension.
 
 The `sample_rate` keyword argument corresponds to `flac`'s `--sample-rate` flag,
 while `level` corresponds to `flac`'s `--compression-level` flag.
@@ -26,7 +26,7 @@ See https://xiph.org/flac/ for details about FLAC.
 
 See also: [`Zstd`](@ref)
 """
-struct FLAC{S} <: Onda.AbstractLPCMSerializer
+struct FLAC{S} <: Onda.AbstractLPCMFormat
     lpcm::LPCM{S}
     sample_rate::Int
     level::Int
@@ -40,7 +40,7 @@ end
 FLAC(signal::Signal; kwargs...) = FLAC(LPCM(signal); sample_rate=signal.sample_rate,
                                        kwargs...)
 
-Onda.serializer_constructor_for_file_extension(::Val{:flac}) = FLAC
+Onda.format_constructor_for_file_extension(::Val{:flac}) = FLAC
 
 function flac_raw_specification_flags(serializer::FLAC{S}) where {S}
     return (level="--compression-level-$(serializer.level)",
@@ -51,16 +51,45 @@ function flac_raw_specification_flags(serializer::FLAC{S}) where {S}
             is_signed=string("--sign=", S <: Signed ? "signed" : "unsigned"))
 end
 
-function Onda.deserialize_lpcm(io::IO, serializer::FLAC, args...)
-    flags = flac_raw_specification_flags(serializer)
-    command = pipeline(`flac - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`; stdin=io)
-    return open(lpcm_io -> deserialize_lpcm(lpcm_io, serializer.lpcm, args...), command, "r")
+struct FLACStream{L<:Onda.LPCMStream} <: AbstractLPCMStream
+    stream::L
 end
 
-function Onda.serialize_lpcm(io::IO, samples::AbstractMatrix, serializer::FLAC)
-    flags = flac_raw_specification_flags(serializer)
-    command = pipeline(`flac --totally-silent $(flags) -`; stdout=io)
-    return open(lpcm_io -> serialize_lpcm(lpcm_io, samples, serializer.lpcm), command, "w")
+function Onda.deserializing_lpcm_stream(format::FLAC, io)
+    flags = flac_raw_specification_flags(format)
+    cmd = open(`flac - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`, io)
+    return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
+end
+
+function Onda.serializing_lpcm_stream(format::FLAC, io)
+    flags = flac_raw_specification_flags(format)
+    cmd = open(`flac --totally-silent $(flags) -`, io; write=true)
+    return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
+end
+
+function Onda.finalize_lpcm_stream(stream::FLACStream)
+    close(stream.stream.io)
+    wait(stream.stream.io)
+    return true
+end
+
+Onda.deserialize_lpcm(stream::FLACStream, args...) = deserialize_lpcm(stream.stream, args...)
+
+Onda.serialize_lpcm(stream::FLACStream, args...) = serialize_lpcm(stream.stream, args...)
+
+function Onda.deserialize_lpcm(format::FLAC, bytes, args...)
+    stream = deserializing_lpcm_stream(format, IOBuffer(bytes))
+    results = deserialize_lpcm(stream, args...)
+    finalize_lpcm_stream(stream)
+    return results
+end
+
+function Onda.serialize_lpcm(format::FLAC, samples::AbstractMatrix)
+    io = IOBuffer()
+    stream = serializing_lpcm_stream(format, io)
+    serialize_lpcm(stream, samples)
+    finalize_lpcm_stream(stream)
+    return take!(io)
 end
 
 #####
@@ -69,14 +98,30 @@ end
 
 if VERSION >= v"1.1.0"
     @testset "FLAC example" begin
-        signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, 0.0, Int16, 50.0, :flac, Dict(:level => 2))
-        samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, 50 * 10))).data
-        s = serializer(signal)
-        bytes = serialize_lpcm(samples, s)
-        @test deserialize_lpcm(bytes, s) == samples
-        @test deserialize_lpcm(IOBuffer(bytes), s) == samples
-        io = IOBuffer(); serialize_lpcm(io, samples, s); seekstart(io)
-        @test take!(io) == bytes
+        signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50, :flac, Dict(:level => 2))
+        samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50 * 10))))
+        signal_format = format(signal)
+
+        bytes = serialize_lpcm(signal_format, samples.data)
+        @test deserialize_lpcm(signal_format, bytes) == samples.data
+        @test deserialize_lpcm(signal_format, bytes, 99) == view(samples.data, :, 100:size(samples.data, 2))
+        @test deserialize_lpcm(signal_format, bytes, 99, 201) == view(samples.data, :, 100:300)
+
+        io = IOBuffer()
+        stream = serializing_lpcm_stream(signal_format, io)
+        serialize_lpcm(stream, samples.data)
+        @test finalize_lpcm_stream(stream)
+        seekstart(io)
+        stream = deserializing_lpcm_stream(signal_format, io)
+        @test deserialize_lpcm(stream) == samples.data
+        finalize_lpcm_stream(stream) && close(io)
+
+        io = IOBuffer(bytes)
+        stream = deserializing_lpcm_stream(signal_format, io)
+        @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 50:100)
+        @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 150:200)
+        @test deserialize_lpcm(stream, 9) == view(samples.data, :, 210:size(samples.data, 2))
+        finalize_lpcm_stream(stream) && close(io)
     end
 else
     @warn "This example may be broken on Julia versions lower than v1.1 due to https://github.com/JuliaLang/julia/issues/33117"

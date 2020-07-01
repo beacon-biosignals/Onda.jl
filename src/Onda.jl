@@ -20,9 +20,10 @@ export Recording, Signal, validate_signal, signal_from_template, Annotation,
        annotate!, span, set_span!, sizeof_samples
 
 include("serialization.jl")
-export AbstractLPCMSerializer, serializer, deserialize_recordings_msgpack_zst,
-       serialize_recordings_msgpack_zst, deserialize_lpcm, serialize_lpcm,
-       deserialize_lpcm_callback, LPCM, LPCMZst
+export AbstractLPCMFormat, AbstractLPCMStream, format,
+       deserialize_recordings_msgpack_zst, serialize_recordings_msgpack_zst,
+       deserialize_lpcm, serialize_lpcm, deserialize_lpcm_callback, LPCM, LPCMZst,
+       deserializing_lpcm_stream, serializing_lpcm_stream, finalize_lpcm_stream
 
 include("samples.jl")
 export Samples, validate_samples, encode, encode!, decode, decode!, channel,
@@ -40,6 +41,41 @@ include("printing.jl")
 #####
 ##### upgrades/deprecations
 #####
+
+@deprecate(deserialize_lpcm(io::IO, signal_format, args...),
+           begin
+               stream = deserializing_lpcm_stream(signal_format, io)
+               results = deserialize_lpcm(stream, args...)
+               finalize_lpcm_stream(stream)
+               results
+           end)
+
+@deprecate(deserialize_lpcm(bytes::AbstractVector, signal_format, args...),
+           deserialize_lpcm(signal_format, bytes, args...))
+
+@deprecate(serialize_lpcm(io::IO, samples::AbstractMatrix, signal_format),
+           begin
+               stream = serializing_lpcm_stream(signal_format, io)
+               bytes = serialize_lpcm(stream, samples)
+               finalize_lpcm_stream(stream)
+               bytes
+           end)
+
+@deprecate(serialize_lpcm(samples::AbstractMatrix, signal_format),
+           serialize_lpcm(signal_format, samples::AbstractMatrix))
+
+function zstd_compress(writer, io::IO, level=3)
+    error("`zstd_compress(writer, io::IO[, level])` is deprecated, use CodecZstd + TranscodingStreams directly instead")
+end
+
+function zstd_decompress(reader, io::IO)
+    error("`zstd_decompress(reader, io::IO)` is deprecated, use CodecZstd + TranscodingStreams directly instead")
+end
+
+@deprecate(serializer_constructor_for_file_extension(ext),
+           format_constructor_for_file_extension(ext))
+
+@deprecate serializer(signal::Signal; kwargs...) format(signal; kwargs...)
 
 @deprecate(samples_path(dataset::Dataset, uuid::UUID, signal_name, file_extension),
            samples_path(dataset.path, uuid, signal_name, file_extension))

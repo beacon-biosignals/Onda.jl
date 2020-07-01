@@ -26,3 +26,36 @@ using Test, Onda, UUIDs, Random, Dates
         @test Dataset(path; create=true).recordings == load(path).recordings
     end
 end
+
+@testset "Serialization API deprecations for ($(repr(extension)))" for (extension, options) in
+                                                                   [(:lpcm, nothing), (Symbol("lpcm.zst"), Dict(:level => 2))]
+    signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50.5, extension, options)
+    samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50.5 * 10))))
+    signal_format = serializer(signal)
+
+    bytes = serialize_lpcm(samples.data, signal_format)
+    io = IOBuffer()
+    serialize_lpcm(io, samples.data, signal_format)
+    seekstart(io)
+    @test take!(io) == bytes
+
+    @test deserialize_lpcm(bytes, signal_format) == samples.data
+    @test deserialize_lpcm(bytes, signal_format, 99) == view(samples.data, :, 100:size(samples.data, 2))
+    @test deserialize_lpcm(bytes, signal_format, 99, 201) == view(samples.data, :, 100:300)
+    @test deserialize_lpcm(IOBuffer(bytes), signal_format) == samples.data
+    io = IOBuffer(bytes)
+    @test deserialize_lpcm(io, signal_format, 49, 51) == view(samples.data, :, 50:100)
+    callback, byte_offset, byte_count = deserialize_lpcm_callback(signal_format, 99, 201)
+    if extension == :lpcm
+        byte_range = (byte_offset + 1):(byte_offset + byte_count)
+        @test callback(bytes[byte_range]) == view(samples.data, :, 100:300)
+        @test bytes == reinterpret(UInt8, vec(samples.data))
+        @test deserialize_lpcm(io, signal_format, 49, 51) == view(samples.data, :, 150:200)
+    else
+        @test ismissing(byte_offset) && ismissing(byte_count)
+        @test callback(bytes) == view(samples.data, :, 100:300)
+    end
+end
+
+@test_throws ErrorException Onda.zstd_compress(identity, IOBuffer())
+@test_throws ErrorException Onda.zstd_decompress(identity, IOBuffer())

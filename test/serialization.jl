@@ -4,32 +4,49 @@ using Test, Onda, Random, Dates
                                                                                (Symbol("lpcm.zst"), Dict(:level => 2))]
     signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50.5, extension, options)
     samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50.5 * 10))))
-    signal_serializer = serializer(signal)
+    signal_format = format(signal)
 
-    bytes = serialize_lpcm(samples.data, signal_serializer)
+    bytes = serialize_lpcm(signal_format, samples.data)
+    @test deserialize_lpcm(signal_format, bytes) == samples.data
+    @test deserialize_lpcm(signal_format, bytes, 99) == view(samples.data, :, 100:size(samples.data, 2))
+    @test deserialize_lpcm(signal_format, bytes, 99, 201) == view(samples.data, :, 100:300)
+
     io = IOBuffer()
-    serialize_lpcm(io, samples.data, signal_serializer)
+    stream = serializing_lpcm_stream(signal_format, io)
+    serialize_lpcm(stream, samples.data)
+    @test finalize_lpcm_stream(stream)
     seekstart(io)
-    @test take!(io) == bytes
+    stream = deserializing_lpcm_stream(signal_format, io)
+    @test deserialize_lpcm(stream) == samples.data
+    finalize_lpcm_stream(stream) && close(io)
 
-    @test deserialize_lpcm(bytes, signal_serializer) == samples.data
-    @test deserialize_lpcm(bytes, signal_serializer, 99, 201) == view(samples.data, :, 100:300)
-    @test deserialize_lpcm(IOBuffer(bytes), signal_serializer) == samples.data
+    io = IOBuffer()
+    for _ in 1:2 # test `io` reuse for serialization
+        stream = serializing_lpcm_stream(signal_format, io)
+        serialize_lpcm(stream, samples.data)
+        @test finalize_lpcm_stream(stream)
+    end
+    seekstart(io)
+    stream = deserializing_lpcm_stream(signal_format, io)
+    @test deserialize_lpcm(stream) == hcat(samples.data, samples.data)
+    finalize_lpcm_stream(stream) && close(io)
+
     io = IOBuffer(bytes)
-    @test deserialize_lpcm(io, signal_serializer, 49, 51) == view(samples.data, :, 50:100)
+    stream = deserializing_lpcm_stream(signal_format, io)
+    @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 50:100)
+    @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 150:200)
+    @test deserialize_lpcm(stream, 9) == view(samples.data, :, 210:size(samples.data, 2))
+    finalize_lpcm_stream(stream) && close(io)
 
-    callback, byte_offset, byte_count = deserialize_lpcm_callback(signal_serializer, 99, 201)
+    callback, byte_offset, byte_count = deserialize_lpcm_callback(signal_format, 99, 201)
     if extension == :lpcm
         byte_range = (byte_offset + 1):(byte_offset + byte_count)
         @test callback(bytes[byte_range]) == view(samples.data, :, 100:300)
         @test bytes == reinterpret(UInt8, vec(samples.data))
-        # XXX this is broken for LPCMZstd; see https://github.com/beacon-biosignals/Onda.jl/issues/40
-        @test deserialize_lpcm(io, signal_serializer, 49, 51) == view(samples.data, :, 150:200)
     else
         @test ismissing(byte_offset) && ismissing(byte_count)
         @test callback(bytes) == view(samples.data, :, 100:300)
     end
 end
 
-@test_throws ArgumentError Onda.serializer_constructor_for_file_extension(Val(:extension))
-@test_throws ErrorException Onda.register_file_extension_for_serializer(:extension, LPCM)
+@test_throws ArgumentError Onda.format_constructor_for_file_extension(Val(:extension))

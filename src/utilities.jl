@@ -50,31 +50,7 @@ function zstd_compress(bytes::Vector{UInt8}, level=3)
     return compressed_bytes
 end
 
-function zstd_compress(writer, io::IO, level=3)
-    stream = ZstdCompressorStream(io; level=level)
-    result = writer(stream)
-    # write `TranscodingStreams.TOKEN_END` instead of calling `close` since
-    # `close` closes the underlying `io`, and we don't want to do that
-    write(stream, TranscodingStreams.TOKEN_END)
-    flush(stream)
-    return result
-end
-
 zstd_decompress(bytes::Vector{UInt8}) = transcode(ZstdDecompressor, bytes)
-
-function zstd_decompress(reader, io::IO)
-    @warn """
-          Streaming `zstd` decompression via `Onda.zstd_decompress(reader, io::IO)` has been shown
-          to exhibit memory-leak-like behaviors (underlying cause at time of writing is currently
-          unknown).
-
-          If you did not call this method directly, it's likely that this was reached via
-          a call to  `Onda.load(dataset, uuid, signal_name, span)`. This call may be replaced
-          with `Onda.load(dataset, uuid, signal_name)[:, span]`, but note that this will load
-          in *all* sample data for the given signal.
-          """
-    reader(ZstdDecompressorStream(io))
-end
 
 ####
 #### bytes/streams

@@ -74,7 +74,7 @@ end
 Return the `Samples` object described by `signal` and stored at `path`.
 """
 function read_samples(path, signal::Signal)
-    return Samples(signal, true, read_lpcm(path, serializer(signal)))
+    return Samples(signal, true, read_lpcm(path, format(signal)))
 end
 
 """
@@ -82,12 +82,12 @@ end
 
 Return `read_samples(path, signal)[:, span]`, but attempt to avoid reading
 unreturned intermediate sample data. Note that the effectiveness of this method
-depends on the types of both `path` and `serializer(signal)`.
+depends on the types of both `path` and `format(signal)`.
 """
 function read_samples(path, signal::Signal, span::AbstractTimeSpan)
     sample_range = index_from_time(signal.sample_rate, span)
     sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
-    sample_data = read_lpcm(path, serializer(signal), sample_offset, sample_count)
+    sample_data = read_lpcm(path, format(signal), sample_offset, sample_count)
     return Samples(signal, true, sample_data)
 end
 
@@ -97,23 +97,23 @@ end
 Serialize and write `encode(samples)` to `path`.
 """
 function write_samples(path, samples::Samples)
-    return write_lpcm(path, encode(samples).data, serializer(samples.signal))
+    return write_lpcm(path, encode(samples).data, format(samples.signal))
 end
 
 #####
 ##### read_lpcm/write_lpcm
 #####
 
-read_lpcm(path, serializer) = deserialize_lpcm(read(path), serializer)
+read_lpcm(path, format) = deserialize_lpcm(format, read(path))
 
-function read_lpcm(path, serializer, sample_offset, sample_count)
+function read_lpcm(path, format, sample_offset, sample_count)
     deserialize_requested_samples,
     required_byte_offset,
-    required_byte_count = deserialize_lpcm_callback(serializer,
+    required_byte_count = deserialize_lpcm_callback(format,
                                                     sample_offset,
                                                     sample_count)
     bytes = read_byte_range(path, required_byte_offset, required_byte_count)
     return deserialize_requested_samples(bytes)
 end
 
-write_lpcm(path, data, serializer) = write_path(path, serialize_lpcm(data, serializer))
+write_lpcm(path, data, format) = write_path(path, serialize_lpcm(format, data))
