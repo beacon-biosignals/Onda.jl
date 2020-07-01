@@ -57,17 +57,21 @@ end
 
 function Onda.deserializing_lpcm_stream(format::FLAC, io)
     flags = flac_raw_specification_flags(format)
-    command = pipeline(`flac - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`; stdin=io)
-    return FLACStream(Onda.LPCMStream(format.lpcm, open(command, "r")))
+    cmd = open(`flac - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`, io)
+    return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
 
 function Onda.serializing_lpcm_stream(format::FLAC, io)
     flags = flac_raw_specification_flags(format)
-    command = pipeline(`flac --totally-silent $(flags) -`; stdout=io)
-    return FLACStream(Onda.LPCMStream(format.lpcm, open(command, "w")))
+    cmd = open(`flac --totally-silent $(flags) -`, io; write=true)
+    return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
 
-Onda.finalize_lpcm_stream(stream::FLACStream) = (close(stream.stream.io); true)
+function Onda.finalize_lpcm_stream(stream::FLACStream)
+    close(stream.stream.io)
+    wait(stream.stream.io)
+    return true
+end
 
 Onda.deserialize_lpcm(stream::FLACStream, args...) = deserialize_lpcm(stream.stream, args...)
 
