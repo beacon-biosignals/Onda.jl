@@ -20,6 +20,17 @@ using Test, Onda, Random, Dates
     @test deserialize_lpcm(stream) == samples.data
     finalize_lpcm_stream(stream) && close(io)
 
+    io = IOBuffer()
+    for _ in 1:2 # test `io` reuse for serialization
+        stream = serializing_lpcm_stream(signal_format, io)
+        serialize_lpcm(stream, samples.data)
+        @test finalize_lpcm_stream(stream)
+    end
+    seekstart(io)
+    stream = deserializing_lpcm_stream(signal_format, io)
+    @test deserialize_lpcm(stream) == hcat(samples.data, samples.data)
+    finalize_lpcm_stream(stream) && close(io)
+
     io = IOBuffer(bytes)
     stream = deserializing_lpcm_stream(signal_format, io)
     @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 50:100)

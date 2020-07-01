@@ -360,10 +360,11 @@ end
 
 function finalize_lpcm_stream(stream::LPCMZstStream)
     if stream.stream.io isa ZstdCompressorStream
-        # write `TranscodingStreams.TOKEN_END` instead of calling `close` since
-        # `close` closes the underlying `io`, and we don't want to do that
+        # write `TranscodingStreams.TOKEN_END` and change the `ZstdCompressorStream`'s
+        # mode to `:close`, which flushes any remaining buffered data and finalizes the
+        # underlying codec to free its resources without closing the underlying I/O object.
         write(stream.stream.io, TranscodingStreams.TOKEN_END)
-        flush(stream.stream.io)
+        TranscodingStreams.changemode!(stream.stream.io, :close)
         return true
     else
         close(stream.stream.io)
