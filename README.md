@@ -9,7 +9,7 @@
 
 [See Other Examples](https://github.com/beacon-biosignals/Onda.jl/tree/master/examples)
 
-Onda.jl is a Julia package for reading/writing [Onda](https://github.com/beacon-biosignals/OndaFormat) datasets.
+Onda.jl is a Julia package for high-throughput manipulation of structured LPCM signal data across arbitrary domain-specific encodings, file formats and storage layers via [the Onda Format](https://github.com/beacon-biosignals/OndaFormat).
 
 This package follows the [YASGuide](https://github.com/jrevels/YASGuide).
 
