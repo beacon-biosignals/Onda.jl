@@ -123,12 +123,13 @@ Base.@kwdef struct Signal
     file_options::Union{Nothing,Dict{Symbol,Any}}
     function Signal(channel_names, start_nanosecond, stop_nanosecond,
                     sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
-                    sample_type, sample_rate, file_extension, file_options)
+                    sample_type, sample_rate, file_extension, file_options,
+                    validate=true)
         stop_nanosecond += Nanosecond(start_nanosecond == stop_nanosecond)
         signal = new(channel_names, start_nanosecond, stop_nanosecond,
                      sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
                      sample_type, sample_rate, file_extension, file_options)
-        validate_on_construction() && validate_signal(signal)
+        validate_on_construction() && validate && validate_signal(signal)
         return signal
     end
 end
@@ -196,10 +197,11 @@ function signal_from_template(signal::Signal;
                               sample_type=signal.sample_type,
                               sample_rate=signal.sample_rate,
                               file_extension=signal.file_extension,
-                              file_options=signal.file_options)
+                              file_options=signal.file_options,
+                              validate=true)
     return Signal(channel_names, start_nanosecond, stop_nanosecond,
                   sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
-                  sample_type, sample_rate, file_extension, file_options)
+                  sample_type, sample_rate, file_extension, file_options, validate)
 end
 
 """
