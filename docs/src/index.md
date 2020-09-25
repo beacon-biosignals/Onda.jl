@@ -66,15 +66,15 @@ index_from_time
 Onda's Paths API directly underlies its Dataset API, providing an abstraction
 layer that can be overloaded to support new storage backends for sample data and
 recording metadata. This API's fallback implementation supports any path-like
-type that implements:
+type `P` that supports:
 
-- `Base.read`
-- `Base.rm`
-- `Base.abspath`
-- `Base.joinpath`
-- `Base.mkpath` (note: this is allowed to be a no-op for storage backends which have no notion of intermediate directories, e.g. object storage systems)
-- `Base.dirname`
-- `Onda.read_byte_range`
+- `Base.read(::P)`
+- `Base.write(::P, bytes::Vector{UInt8})`
+- `Base.rm(::P; force, recursive)`
+- `Base.joinpath(::P, ::AbstractString...)`
+- `Base.mkpath(::P)` (note: this is allowed to be a no-op for storage backends which have no notion of intermediate directories, e.g. object storage systems)
+- `Base.dirname(::P)`
+- `Onda.read_byte_range` (see signatures documented below)
 
 ```@docs
 read_recordings_file
