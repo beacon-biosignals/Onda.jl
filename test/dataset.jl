@@ -178,6 +178,8 @@ using Test, Onda, Dates, MsgPack
         dataset = load(joinpath(root, "test"))
         @test isempty(dataset.recordings)
         @test !isdir(joinpath(dataset.path, "samples", string(old_uuid)))
+
+        @test Annotation("test", TimeSpan(1)) == Annotation("test", Nanosecond(1), Nanosecond(1))
     end
 end
 
