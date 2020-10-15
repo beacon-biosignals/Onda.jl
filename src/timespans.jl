@@ -20,9 +20,7 @@ Base.first(t::Period) = convert(Nanosecond, t)
 Base.last(t::Period) = convert(Nanosecond, t)
 
 function validate_timespan(first::Nanosecond, last::Nanosecond)
-    if first > last
-        throw(ArgumentError("start of time span should precede end, got $first and $last"))
-    end
+    first < last || throw(ArgumentError("first(span) < last(span) must be true, got $first and $last"))
     return nothing
 end
 
@@ -50,11 +48,20 @@ end
 """
     TimeSpan(x)
 
-Return `TimeSpan(first(x), last(x))`.
+Return `TimeSpan(first(x), last(x))`
 
 See also: [`AbstractTimeSpan`](@ref)
 """
 TimeSpan(x) = TimeSpan(first(x), last(x))
+
+"""
+    TimeSpan(x::Union{Period,Integer})
+
+Return `TimeSpan(x, Nanosecond(x) + Nanosecond(1))`
+
+See also: [`AbstractTimeSpan`](@ref)
+"""
+TimeSpan(x::Union{Period,Integer}) = TimeSpan(x, Nanosecond(x) + Nanosecond(1))
 
 Base.first(span::TimeSpan) = span.first
 
@@ -163,7 +170,7 @@ Return the `UnitRange` of indices corresponding to `span` given `sample_rate` in
 julia> index_from_time(100, TimeSpan(Second(0), Second(1)))
 1:100
 
-julia> index_from_time(100, TimeSpan(Second(1), Second(1)))
+julia> index_from_time(100, TimeSpan(Second(1)))
 101:101
 
 julia> index_from_time(100, TimeSpan(Second(3), Second(6)))

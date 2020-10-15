@@ -4,13 +4,15 @@ using Test, Onda, Dates, MsgPack
     t = TimeSpan(Nanosecond(rand(UInt32)))
     @test t == TimeSpan(t)
     @test t == TimeSpan(first(t), last(t))
+    @test t == TimeSpan(first(t), first(t) + Nanosecond(1))
     @test contains(t, t)
     @test overlaps(t, t)
     @test shortest_timespan_containing([t]) == t
     @test shortest_timespan_containing((t,t,t)) == t
-    @test duration(t) == Nanosecond(0)
+    @test duration(t) == Nanosecond(1)
     @test duration(first(t)) == first(t)
     @test_throws ArgumentError TimeSpan(4, 2)
+    @test_throws ArgumentError TimeSpan(2, 2)
 end
 
 @testset "contains(::TimeSpan...)" begin
@@ -53,11 +55,11 @@ end
     @test_throws ArgumentError time_from_index(200, 0)
     @test time_from_index(100, 1) == Nanosecond(0)
     @test time_from_index(100, 301:600) == TimeSpan(Second(3), Second(6))
-    @test time_from_index(100, 101:101) == TimeSpan(Second(1), Second(1))
+    @test time_from_index(100, 101:101) == TimeSpan(Second(1))
     @test_throws ArgumentError index_from_time(200, Nanosecond(-1))
     @test index_from_time(100, Nanosecond(0)) == 1
     @test index_from_time(100, TimeSpan(Second(3), Second(6))) == 301:600
-    @test index_from_time(100, TimeSpan(Second(1), Second(1))) == 101:101
+    @test index_from_time(100, TimeSpan(Second(1))) == 101:101
     # test non-integer sample rates
     rate = 100.66
     ns_per_sample = Onda.nanoseconds_per_sample(rate)
@@ -69,7 +71,7 @@ end
 end
 
 @testset "MsgPack roundtrip" begin
-    ts = TimeSpan(0,1)
+    ts = TimeSpan(0, 1)
     bytes = MsgPack.pack(ts)
     @test MsgPack.unpack(bytes, TimeSpan) == ts
 end
