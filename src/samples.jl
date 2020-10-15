@@ -40,6 +40,8 @@ struct Samples{D<:AbstractMatrix}
     end
 end
 
+Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.signal == b.signal && a.data == b.data
+
 """
     validate_samples(samples::Samples)
 

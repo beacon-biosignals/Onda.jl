@@ -13,6 +13,7 @@ Note that Onda.jl's API follows a specific philosophy with respect to property a
 ```@docs
 Dataset
 load
+load_encoded
 save
 create_recording!
 store!

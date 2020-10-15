@@ -143,8 +143,8 @@ end
 """
     load_encoded(args...)
 
-Exactly the same as [`load`], but doesn't automatically call `decode` before
-returning the loaded `Samples`.
+Supports exactly the same methods as [`load`](@ref), but doesn't automatically call
+[`decode`](@ref) on the returned `Samples`.
 """
 function load_encoded(dataset::Dataset, uuid::UUID, signal_name::Symbol, span::AbstractTimeSpan...)
     signal = dataset.recordings[uuid].signals[signal_name]
@@ -164,7 +164,7 @@ end
 """
     load(dataset::Dataset, uuid::UUID, signal_name::Symbol[, span::AbstractTimeSpan])
 
-Load and return the decoded `Samples` object corresponding to the signal named
+Load, [`decode`](@ref), and return the `Samples` object corresponding to the signal named
 `signal_name` in the recording specified by `uuid`.
 
 If `span` is provided, this function returns the equivalent of
@@ -183,7 +183,11 @@ Return `Dict(signal_name => load(dataset, uuid, signal_name[, span]) for signal_
 
 See also: [`read_samples`](@ref), [`deserialize_lpcm`](@ref)
 """
-load(args...) = decode(load_encoded(args...))
+function load(args...)
+    result = load_encoded(args...)
+    result isa Dict && return Dict(k => decode(v) for (k, v) in result)
+    return result
+end
 
 #####
 ##### `store!`
