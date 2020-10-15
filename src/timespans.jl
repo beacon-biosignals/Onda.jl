@@ -34,9 +34,9 @@ end
 Return `TimeSpan(Nanosecond(first), Nanosecond(last))::AbstractTimeSpan`.
 
 If `first == last`, a single `Nanosecond` is added to `last` since `last` is an exclusive
-upper bound andOnda only supports up to nanosecond precision anyway. This also avoids most
-practical forms of potential breakage w.r.t to legacy versions of Onda that accidentally
-allowed `first == last`.
+upper bound and Onda only supports up to nanosecond precision anyway. This behavior also
+avoids most practical forms of potential breakage w.r.t to legacy versions of Onda that
+accidentally allowed the construction of `TimeSpans` where `first == last`.
 
 See also: [`AbstractTimeSpan`](@ref)
 """
