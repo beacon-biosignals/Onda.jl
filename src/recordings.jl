@@ -59,14 +59,17 @@ the following fields, following the Onda specification for annotation objects:
 - `value::String`
 - `start_nanosecond::Nanosecond`
 - `stop_nanosecond::Nanosecond`
+
+Similarly to the [`TimeSpan`](@ref) constructor, this constructor will add a single
+`Nanosecond` to `stop_nanosecond` if `start_nanosecond == stop_nanosecond`.
 """
 struct Annotation <: AbstractTimeSpan
     value::String
     start_nanosecond::Nanosecond
     stop_nanosecond::Nanosecond
     function Annotation(value::AbstractString, start::Nanosecond, stop::Nanosecond)
-        validate_timespan(start, stop)
-        return new(value, start, stop)
+        span = TimeSpan(start, stop)
+        return new(value, first(span), last(span))
     end
 end
 
@@ -103,6 +106,9 @@ the following fields, following the Onda specification for signal objects:
 
 If [`validate_on_construction`](@ref) returns `true`, [`validate_signal`](@ref)
 is called on all new `Signal` instances upon construction.
+
+Similarly to the [`TimeSpan`](@ref) constructor, this constructor will add a single
+`Nanosecond` to `stop_nanosecond` if `start_nanosecond == stop_nanosecond`.
 """
 Base.@kwdef struct Signal
     channel_names::Vector{Symbol}
@@ -118,6 +124,7 @@ Base.@kwdef struct Signal
     function Signal(channel_names, start_nanosecond, stop_nanosecond,
                     sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
                     sample_type, sample_rate, file_extension, file_options)
+        stop_nanosecond += Nanosecond(start_nanosecond == stop_nanosecond)
         signal = new(channel_names, start_nanosecond, stop_nanosecond,
                      sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
                      sample_type, sample_rate, file_extension, file_options)

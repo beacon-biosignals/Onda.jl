@@ -4,6 +4,7 @@ using Test, Onda, Dates, MsgPack
     t = TimeSpan(Nanosecond(rand(UInt32)))
     @test t == TimeSpan(t)
     @test t == TimeSpan(first(t), last(t))
+    @test t == TimeSpan(first(t), first(t))
     @test t == TimeSpan(first(t), first(t) + Nanosecond(1))
     @test contains(t, t)
     @test overlaps(t, t)
@@ -12,7 +13,6 @@ using Test, Onda, Dates, MsgPack
     @test duration(t) == Nanosecond(1)
     @test duration(first(t)) == first(t)
     @test_throws ArgumentError TimeSpan(4, 2)
-    @test_throws ArgumentError TimeSpan(2, 2)
 end
 
 @testset "contains(::TimeSpan...)" begin

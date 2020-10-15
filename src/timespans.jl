@@ -33,12 +33,18 @@ end
 
 Return `TimeSpan(Nanosecond(first), Nanosecond(last))::AbstractTimeSpan`.
 
+If `first == last`, a single `Nanosecond` is added to `last` since `last` is an exclusive
+upper bound andOnda only supports up to nanosecond precision anyway. This also avoids most
+practical forms of potential breakage w.r.t to legacy versions of Onda that accidentally
+allowed `first == last`.
+
 See also: [`AbstractTimeSpan`](@ref)
 """
 struct TimeSpan <: AbstractTimeSpan
     first::Nanosecond
     last::Nanosecond
     function TimeSpan(first::Nanosecond, last::Nanosecond)
+        last += Nanosecond(first == last)
         validate_timespan(first, last)
         return new(first, last)
     end
@@ -48,20 +54,11 @@ end
 """
     TimeSpan(x)
 
-Return `TimeSpan(first(x), last(x))`
+Return `TimeSpan(first(x), last(x))`.
 
 See also: [`AbstractTimeSpan`](@ref)
 """
 TimeSpan(x) = TimeSpan(first(x), last(x))
-
-"""
-    TimeSpan(x::Union{Period,Integer})
-
-Return `TimeSpan(x, Nanosecond(x) + Nanosecond(1))`
-
-See also: [`AbstractTimeSpan`](@ref)
-"""
-TimeSpan(x::Union{Period,Integer}) = TimeSpan(x, Nanosecond(x) + Nanosecond(1))
 
 Base.first(span::TimeSpan) = span.first
 
@@ -221,7 +218,7 @@ julia> time_from_index(100, 1:100)
 TimeSpan(0 nanoseconds, 1000000000 nanoseconds)
 
 julia> time_from_index(100, 101:101)
-TimeSpan(1000000000 nanoseconds, 1000000000 nanoseconds)
+TimeSpan(1000000000 nanoseconds, 1000000001 nanoseconds)
 
 julia> time_from_index(100, 301:600)
 TimeSpan(3000000000 nanoseconds, 6000000000 nanoseconds)
