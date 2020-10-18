@@ -186,7 +186,7 @@ See also: [`read_samples`](@ref), [`deserialize_lpcm`](@ref)
 function load(args...)
     result = load_encoded(args...)
     result isa Dict && return Dict(k => decode(v) for (k, v) in result)
-    return result
+    return decode(result)
 end
 
 #####

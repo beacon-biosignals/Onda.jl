@@ -118,6 +118,8 @@ using Test, Onda, Dates, MsgPack
         xs = load_encoded(dataset, uuid, (:x3, :x2))
         @test xs[:x3].signal == signals[:x3]
         @test xs[:x2].signal == signals[:x2]
+        @test decode(xs[:x3]) == load(dataset, uuid, :x3)
+        @test decode(xs[:x2]) == load(dataset, uuid, :x2)
         xs = load_encoded(dataset, uuid)
         span = TimeSpan(Second(1), Second(2))
         xs_span = load_encoded(dataset, uuid, span)
