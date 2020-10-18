@@ -31,6 +31,14 @@ using Test, Onda, Dates, MsgPack
             @test sizeof_samples(s.signal) == sizeof(s.data)
             @test encode(s) === s
             tmp = similar(s.data)
+            tmp_dither_storage = zeros(size(s.data))
+            encode!(tmp, s.signal.sample_resolution_in_unit,
+                    s.signal.sample_offset_in_unit, decode(s).data,
+                    tmp_dither_storage)
+            @test tmp == encode(s.signal.sample_type, s.signal.sample_resolution_in_unit,
+                                s.signal.sample_offset_in_unit, decode(s).data + tmp_dither_storage,
+                                nothing)
+            tmp = similar(s.data)
             encode!(tmp, s)
             @test tmp == s.data
             d = decode(s)
