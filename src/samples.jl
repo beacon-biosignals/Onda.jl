@@ -3,7 +3,8 @@
 #####
 
 """
-    Samples(signal::Signal, encoded::Bool, data::AbstractMatrix)
+    Samples(signal::Signal, encoded::Bool, data::AbstractMatrix,
+            validate::Bool=Onda.validate_on_construction())
 
 Return a `Samples` instance with the following fields:
 
@@ -17,13 +18,13 @@ Return a `Samples` instance with the following fields:
    corresponds to the `i`th channel in `signal.channel_names`, while the `j`th
    column corresponds to the `j`th multichannel sample.
 
+- `validate::Bool`: If `true`, [`validate_samples`](@ref) is called on the constructed
+   `Samples` instance before it is returned.
+
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
 indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
 values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
-
-If [`validate_on_construction`](@ref) returns `true`, [`validate_samples`](@ref)
-is called on all new `Samples` instances upon construction.
 
 See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
@@ -31,9 +32,10 @@ struct Samples{D<:AbstractMatrix}
     signal::Signal
     encoded::Bool
     data::D
-    function Samples(signal::Signal, encoded::Bool, data::AbstractMatrix)
+    function Samples(signal::Signal, encoded::Bool, data::AbstractMatrix,
+                     validate::Bool=validate_on_construction())
         samples = new{typeof(data)}(signal, encoded, data)
-        validate_on_construction() && validate_samples(samples)
+        validate && validate_samples(samples)
         return samples
     end
 end
@@ -71,8 +73,10 @@ for f in (:getindex, :view)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
             signal = rows isa Colon ? samples.signal :
-                     signal_from_template(samples.signal; channel_names=samples.signal.channel_names[rows])
-            return Samples(signal, samples.encoded, $f(samples.data, rows, columns))
+                     signal_from_template(samples.signal;
+                                          channel_names=samples.signal.channel_names[rows],
+                                          validate=false)
+            return Samples(signal, samples.encoded, $f(samples.data, rows, columns), false)
         end
         Base.@deprecate $f(samples::Samples, columns) $f(samples, :, columns)
     end
