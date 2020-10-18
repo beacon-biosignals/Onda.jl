@@ -155,7 +155,7 @@ sample_count(samples::Samples) = size(samples.data, 2)
 const VALID_SAMPLE_TYPE_UNION = Union{Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64}
 
 function encode_sample(::Type{S}, resolution_in_unit, offset_in_unit, sample_in_unit,
-                       noise=zero(sample_in_unit)) where {S <: VALID_SAMPLE_TYPE_UNION}
+                       noise=zero(sample_in_unit)) where {S<:VALID_SAMPLE_TYPE_UNION}
     sample_in_unit += noise
     isnan(sample_in_unit) && return typemax(S)
     from_unit = clamp((sample_in_unit - offset_in_unit) / resolution_in_unit, typemin(S), typemax(S))
