@@ -40,6 +40,11 @@ struct Samples{D<:AbstractMatrix}
     end
 end
 
+"""
+    ==(a::Samples, b::Samples)
+
+Returns `a.encoded == b.encoded && a.signal == b.signal && a.data == b.data`.
+"""
 Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.signal == b.signal && a.data == b.data
 
 """

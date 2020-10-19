@@ -39,6 +39,7 @@ annotate!
 
 ```@docs
 Samples
+==(::Samples, ::Samples)
 validate_samples
 channel
 channel_count
