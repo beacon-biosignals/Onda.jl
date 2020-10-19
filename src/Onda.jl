@@ -34,7 +34,7 @@ export read_recordings_file, write_recordings_file, samples_path,
        read_samples, write_samples
 
 include("dataset.jl")
-export Dataset, create_recording!, load, save, store!, delete!
+export Dataset, create_recording!, load, load_encoded, save, store!, delete!
 
 include("printing.jl")
 

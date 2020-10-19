@@ -13,6 +13,7 @@ Note that Onda.jl's API follows a specific philosophy with respect to property a
 ```@docs
 Dataset
 load
+load_encoded
 save
 create_recording!
 store!
@@ -38,6 +39,7 @@ annotate!
 
 ```@docs
 Samples
+==(::Samples, ::Samples)
 validate_samples
 channel
 channel_count

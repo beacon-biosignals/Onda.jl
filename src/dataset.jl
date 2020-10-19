@@ -141,42 +141,52 @@ end
 #####
 
 """
+    load_encoded(args...)
+
+Supports exactly the same methods as [`load`](@ref), but doesn't automatically call
+[`decode`](@ref) on the returned `Samples`.
+"""
+function load_encoded(dataset::Dataset, uuid::UUID, signal_name::Symbol, span::AbstractTimeSpan...)
+    signal = dataset.recordings[uuid].signals[signal_name]
+    path = samples_path(dataset.path, uuid, signal_name, signal.file_extension)
+    return read_samples(path, signal, span...)
+end
+
+function load_encoded(dataset::Dataset, uuid::UUID, signal_names, span::AbstractTimeSpan...)
+    return Dict(signal_name => load_encoded(dataset, uuid, signal_name, span...)
+                for signal_name in signal_names)
+end
+
+function load_encoded(dataset::Dataset, uuid::UUID, span::AbstractTimeSpan...)
+    return load_encoded(dataset, uuid, keys(dataset.recordings[uuid].signals), span...)
+end
+
+"""
     load(dataset::Dataset, uuid::UUID, signal_name::Symbol[, span::AbstractTimeSpan])
 
-Load and return the `Samples` object corresponding to the signal named `signal_name`
-in the recording specified by `uuid`.
+Load, [`decode`](@ref), and return the `Samples` object corresponding to the signal named
+`signal_name` in the recording specified by `uuid`.
 
 If `span` is provided, this function returns the equivalent of
 `load(dataset, uuid, signal_name)[:, span]`, but potentially avoids loading the
 entire signal's worth of sample data if the underlying signal file format and
 target storage layer both support partial access/random seeks.
 
-See also: [`read_samples`](@ref), [`deserialize_lpcm`](@ref)
-"""
-function load(dataset::Dataset, uuid::UUID, signal_name::Symbol, span::AbstractTimeSpan...)
-    signal = dataset.recordings[uuid].signals[signal_name]
-    path = samples_path(dataset.path, uuid, signal_name, signal.file_extension)
-    return read_samples(path, signal, span...)
-end
-
-"""
-    load(dataset::Dataset, uuid::UUID, signal_names[, span::AbstractTimeSpan])
-
-Return `Dict(signal_name => load(dataset, uuid, signal_name[, span]) for signal_name in signal_names)`.
-"""
-function load(dataset::Dataset, uuid::UUID, signal_names, span::AbstractTimeSpan...)
-    return Dict(signal_name => load(dataset, uuid, signal_name, span...)
-                for signal_name in signal_names)
-end
-
-"""
     load(dataset::Dataset, uuid::UUID[, span::AbstractTimeSpan])
 
 Return `load(dataset, uuid, names[, span])` where `names` is a list of all
 signal names in the recording specified by `uuid`.
+
+    load(dataset::Dataset, uuid::UUID, signal_names[, span::AbstractTimeSpan])
+
+Return `Dict(signal_name => load(dataset, uuid, signal_name[, span]) for signal_name in signal_names)`.
+
+See also: [`read_samples`](@ref), [`deserialize_lpcm`](@ref)
 """
-function load(dataset::Dataset, uuid::UUID, span::AbstractTimeSpan...)
-    return load(dataset, uuid, keys(dataset.recordings[uuid].signals), span...)
+function load(args...)
+    result = load_encoded(args...)
+    result isa Dict && return Dict(k => decode(v) for (k, v) in result)
+    return decode(result)
 end
 
 #####

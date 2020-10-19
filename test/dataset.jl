@@ -112,14 +112,17 @@ using Test, Onda, Dates, MsgPack
         dataset = load(joinpath(root, "test"))
         @test length(dataset.recordings) == 1
         uuid, recording = first(dataset.recordings)
-        x1 = load(dataset, uuid, :x1)
+        x1 = load_encoded(dataset, uuid, :x1)
+        @test decode(x1) == load(dataset, uuid, :x1)
         @test x1.signal == signals[:x1]
-        xs = load(dataset, uuid, (:x3, :x2))
+        xs = load_encoded(dataset, uuid, (:x3, :x2))
         @test xs[:x3].signal == signals[:x3]
         @test xs[:x2].signal == signals[:x2]
-        xs = load(dataset, uuid)
+        @test decode(xs[:x3]) == load(dataset, uuid, :x3)
+        @test decode(xs[:x2]) == load(dataset, uuid, :x2)
+        xs = load_encoded(dataset, uuid)
         span = TimeSpan(Second(1), Second(2))
-        xs_span = load(dataset, uuid, span)
+        xs_span = load_encoded(dataset, uuid, span)
         for (name, s) in samples
             xi = xs[name]
             @test xi.signal == signals[name]
@@ -142,7 +145,7 @@ using Test, Onda, Dates, MsgPack
         delete!(dataset.recordings, uuid)
         uuid, recording = create_recording!(dataset)
         foreach(x -> annotate!(recording, x), old_recording.annotations)
-        foreach(x -> store!(dataset, uuid, x, load(old_dataset, old_uuid, x)), keys(old_recording.signals))
+        foreach(x -> store!(dataset, uuid, x, load_encoded(old_dataset, old_uuid, x)), keys(old_recording.signals))
         merge!(dataset, old_dataset, only_recordings=true)
         @test length(dataset.recordings) == 2
         r1 = dataset.recordings[old_uuid]
@@ -163,7 +166,7 @@ using Test, Onda, Dates, MsgPack
         r = dataset.recordings[uuid]
         original_signals_length = length(r.signals)
         signal_name, signal = first(r.signals)
-        signal_samples = load(dataset, uuid, signal_name)
+        signal_samples = load_encoded(dataset, uuid, signal_name)
         signal_samples_path = samples_path(dataset, uuid, signal_name)
         delete!(dataset, uuid, signal_name)
         @test r === dataset.recordings[uuid]
