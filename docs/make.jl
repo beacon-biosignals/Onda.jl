@@ -6,5 +6,4 @@ makedocs(modules=[Onda],
          authors="Beacon Biosignals, Inc.",
          pages=["API Documentation" => "index.md"])
 
-# this is commented out until Onda has been open-sourced
 deploydocs(repo="github.com/beacon-biosignals/Onda.jl.git")
