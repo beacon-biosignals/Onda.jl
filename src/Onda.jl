@@ -1,9 +1,8 @@
 module Onda
 
 using UUIDs, Dates, Random
-using MsgPack
-using TranscodingStreams
-using CodecZstd
+using TranscodingStreams, CodecZstd
+using Arrow, Tables
 
 #####
 ##### includes/exports
@@ -15,6 +14,52 @@ include("timespans.jl")
 export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_containing,
        index_from_time, time_from_index, duration
 
+include("tables.jl")
+
+#####
+##### upgrades/deprecations
+#####
+
+upgrade_onda_format_from_v0_3_to_v0_5!(args...) = upgrade_onda_format_from_v0_4_to_v0_5!(args...)
+
+function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path, uuid_from_annotation = _ -> uuid4())
+    raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
+    v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
+    signals = Signal[]
+    annotations = Annotation{String}[]
+    for (uuid, recording) in raw_recordings
+        recording_uuid = UUID(uuid)
+        for (type, signal) in recording["signals"]
+            # TODO the file_path needs to be absolute if it's a URI but relative to `signals.arrow` if it's a relative path
+            push!(signals, Signal(; recording_uuid, type,
+                                  file_path=Onda.samples_path(dataset_path, recording_uuid, type, signal["file_extension"]),
+                                  file_metadata=signal["file_options"],
+                                  channel_names=signal["channel_names"],
+                                  start_nanosecond=signal["start_nanosecond"],
+                                  stop_nanosecond=signal["stop_nanosecond"],
+                                  sample_unit=signal["sample_unit"],
+                                  sample_resolution_in_unit=signal["sample_resolution_in_unit"],
+                                  sample_offset_in_unit=signal["sample_offset_in_unit"],
+                                  sample_type=signal["sample_type"],
+                                  sample_rate=signal["sample_rate"]))
+        end
+        for ann in recording["annotations"]
+            ann_uuid = uuid_from_annotation(ann)
+            push!(annotations, Annotation(; recording_uuid, uuid=ann_uuid,
+                                          start_nanosecond=ann["start_nanosecond"],
+                                          stop_nanosecond=ann["stop_nanosecond"],
+                                          value=ann["value"]))
+        end
+    end
+    # TODO write back out, clean up, etc
+    return Signals(Tables.columntable(signals)), Annotations(Tables.columntable(annotations))
+end
+
+#####
+##### conversion
+#####
+
+#=
 include("recordings.jl")
 export Recording, Signal, validate_signal, signal_from_template, Annotation,
        annotate!, span, set_span!, sizeof_samples
@@ -152,5 +197,7 @@ function upgrade_onda_format_from_v0_2_to_v0_3!(path, combine_annotation_key_val
     save(dataset)
     return dataset
 end
+
+=#
 
 end # module
