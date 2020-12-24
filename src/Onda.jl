@@ -1,7 +1,7 @@
 module Onda
 
 using UUIDs, Dates, Random
-using TranscodingStreams, CodecZstd
+using MsgPack, TranscodingStreams, CodecZstd
 using Arrow, Tables
 
 #####
