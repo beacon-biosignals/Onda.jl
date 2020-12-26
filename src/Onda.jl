@@ -22,7 +22,9 @@ include("tables.jl")
 
 upgrade_onda_format_from_v0_3_to_v0_5!(args...) = upgrade_onda_format_from_v0_4_to_v0_5!(args...)
 
-function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path, uuid_from_annotation = _ -> uuid4())
+function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path,
+                                                uuid_from_annotation = _ -> uuid4(),
+                                                signal_format_from_extension_and_options = (ext, opts) -> ext)
     raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
     v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
     signals = Signal[]
@@ -30,10 +32,12 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path, uuid_from_annotati
     for (uuid, recording) in raw_recordings
         recording_uuid = UUID(uuid)
         for (type, signal) in recording["signals"]
-            # TODO the file_path needs to be absolute if it's a URI but relative to `signals.arrow` if it's a relative path
+            # TODO the file_path needs to be absolute if it's a URI but relative to `signals.arrow` if it's a relative path?
+            signal_file_path = # TODO Onda.samples_path(dataset_path, recording_uuid, type, signal["file_extension"]),
+            signal_file_format = signal_format_from_extension_and_options(signal["file_extension"], signal["file_options"])
             push!(signals, Signal(; recording_uuid, type,
-                                  file_path=Onda.samples_path(dataset_path, recording_uuid, type, signal["file_extension"]),
-                                  file_metadata=signal["file_options"],
+                                  file_path=signal_file_path,
+                                  file_format=signal_file_format,
                                   channel_names=signal["channel_names"],
                                   start_nanosecond=signal["start_nanosecond"],
                                   stop_nanosecond=signal["stop_nanosecond"],
@@ -44,8 +48,8 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path, uuid_from_annotati
                                   sample_rate=signal["sample_rate"]))
         end
         for ann in recording["annotations"]
-            ann_uuid = uuid_from_annotation(ann)
-            push!(annotations, Annotation(; recording_uuid, uuid=ann_uuid,
+            push!(annotations, Annotation(; recording_uuid,
+                                          uuid=uuid_from_annotation(ann),
                                           start_nanosecond=ann["start_nanosecond"],
                                           stop_nanosecond=ann["stop_nanosecond"],
                                           value=ann["value"]))

@@ -6,13 +6,13 @@ struct Signal{R} <: Tables.AbstractRow
     _row::R
 end
 
-const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :type, :file_path, :file_metadata, :channel_names, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
-                                  Tuple{UUID,String,String,Union{Missing,Nothing,Dict{String,String}},Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
+const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :file_path, :file_format, :type, :channel_names, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+                                  Tuple{UUID,String,String,String,Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
 
 function Signal(; recording_uuid::UUID,
-                type,
                 file_path,
-                file_metadata::Union{Missing,Nothing,Dict{String,String}}=nothing,
+                file_format,
+                type,
                 channel_names,
                 start_nanosecond,
                 stop_nanosecond,
@@ -24,7 +24,7 @@ function Signal(; recording_uuid::UUID,
     return Signal{SIGNAL_FIELDS}((; recording_uuid,
                                   type=String(type),
                                   file_path=String(file_path),
-                                  file_metadata,
+                                  file_format=String(file_format),
                                   channel_names=convert(Vector{String}, channel_names),
                                   start_nanosecond=Nanosecond(start_nanosecond),
                                   stop_nanosecond=Nanosecond(stop_nanosecond),
