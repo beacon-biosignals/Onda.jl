@@ -35,9 +35,10 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path,
             # TODO the file_path needs to be absolute if it's a URI but relative to `signals.arrow` if it's a relative path?
             signal_file_path = # TODO Onda.samples_path(dataset_path, recording_uuid, type, signal["file_extension"]),
             signal_file_format = signal_format_from_extension_and_options(signal["file_extension"], signal["file_options"])
-            push!(signals, Signal(; recording_uuid, type,
+            push!(signals, Signal(; recording_uuid,
                                   file_path=signal_file_path,
                                   file_format=signal_file_format,
+                                  type,
                                   channel_names=signal["channel_names"],
                                   start_nanosecond=signal["start_nanosecond"],
                                   stop_nanosecond=signal["stop_nanosecond"],
