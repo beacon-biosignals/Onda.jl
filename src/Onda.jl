@@ -1,8 +1,7 @@
 module Onda
 
 using UUIDs, Dates, Random
-using MsgPack, TranscodingStreams, CodecZstd
-using Arrow, Tables
+using Arrow, Tables, MsgPack, TranscodingStreams, CodecZstd
 
 #####
 ##### includes/exports
@@ -22,9 +21,10 @@ include("tables.jl")
 
 upgrade_onda_format_from_v0_3_to_v0_5!(args...) = upgrade_onda_format_from_v0_4_to_v0_5!(args...)
 
-function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path,
+function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
                                                 uuid_from_annotation = _ -> uuid4(),
-                                                signal_format_from_extension_and_options = (ext, opts) -> ext)
+                                                signal_file_path = (uuid, type, ext) -> string("./samples", uuid, type, ext),
+                                                signal_file_format = (ext, opts) -> ext)
     raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
     v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
     signals = Signal[]
@@ -32,12 +32,9 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path,
     for (uuid, recording) in raw_recordings
         recording_uuid = UUID(uuid)
         for (type, signal) in recording["signals"]
-            # TODO the file_path needs to be absolute if it's a URI but relative to `signals.arrow` if it's a relative path?
-            signal_file_path = # TODO Onda.samples_path(dataset_path, recording_uuid, type, signal["file_extension"]),
-            signal_file_format = signal_format_from_extension_and_options(signal["file_extension"], signal["file_options"])
             push!(signals, Signal(; recording_uuid,
-                                  file_path=signal_file_path,
-                                  file_format=signal_file_format,
+                                  file_path=signal_file_path(recording_uuid, type, signal["file_extension"]),
+                                  file_format=signal_format_from_extension_and_options(signal["file_extension"], signal["file_options"]),
                                   type,
                                   channel_names=signal["channel_names"],
                                   start_nanosecond=signal["start_nanosecond"],
