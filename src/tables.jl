@@ -1,3 +1,9 @@
+
+function has_supported_onda_format_version(tbl)
+    metadata = Arrow.getmetadata(tbl)
+    return metadata isa Dict && get(metadata, "onda_format_version", nothing) == "v0.5.0"
+end
+
 #####
 ##### Signals
 #####
@@ -58,7 +64,11 @@ end
 
 Signals() = Signals(Tables.columntable(SIGNAL_FIELDS[]))
 
-load_signals(io_or_path) = Signals(Arrow.Table(io_or_path))
+function load_signals(io_or_path)
+    tbl = Arrow.Table(io_or_path)
+    has_supported_onda_format_version(tbl) || error("supported `onda_format_version` not found in signals file")
+    return Signals(tbl)
+end
 
 Tables.istable(signals::Signals) = Tables.istable(getfield(signals, :_columns))
 Tables.schema(signals::Signals) = Tables.schema(getfield(signals, :_columns))
@@ -126,7 +136,11 @@ end
 
 Annotations{V}() where {V} = Annotations(Tables.columntable(_annotation_fields(V)[]))
 
-load_annotations(io_or_path) = Annotations(Arrow.Table(io_or_path))
+function load_annotations(io_or_path)
+    tbl = Arrow.Table(io_or_path)
+    has_supported_onda_format_version(tbl) || error("supported `onda_format_version` not found in annotations file")
+    return Annotations(tbl)
+end
 
 Tables.istable(annotations::Annotations) = Tables.istable(getfield(annotations, :_columns))
 Tables.schema(annotations::Annotations) = Tables.schema(getfield(annotations, :_columns))
