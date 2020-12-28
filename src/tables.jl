@@ -22,9 +22,9 @@ function Signal(; recording_uuid::UUID,
                 sample_type,
                 sample_rate)
     return Signal{SIGNAL_FIELDS}((; recording_uuid,
-                                  type=String(type),
                                   file_path=String(file_path),
                                   file_format=String(file_format),
+                                  type=String(type),
                                   channel_names=convert(Vector{String}, channel_names),
                                   start_nanosecond=Nanosecond(start_nanosecond),
                                   stop_nanosecond=Nanosecond(stop_nanosecond),
@@ -58,17 +58,21 @@ end
 
 Signals() = Signals(Tables.columntable(SIGNAL_FIELDS[]))
 
+load_signals(io_or_path) = Signals(Arrow.Table(io_or_path))
+
 Tables.istable(signals::Signals) = Tables.istable(getfield(signals, :_columns))
 Tables.schema(signals::Signals) = Tables.schema(getfield(signals, :_columns))
 Tables.materializer(signals::Signals) = Tables.materializer(getfield(signals, :_columns))
 Tables.rowaccess(signals::Signals) = Tables.rowaccess(getfield(signals, :_columns))
 Tables.rows(signals::Signals) = (Signal(row) for row in Tables.rows(getfield(signals, :_columns)))
 Tables.columnaccess(signals::Signals) = Tables.columnaccess(getfield(signals, :_columns))
-Tables.columns(signals::Signals) = Tables.columns(getfield(signals, :_columns))
+Tables.columns(signals::Signals) = signals
 Tables.columnnames(signals::Signals) = Tables.columnnames(getfield(signals, :_columns))
 Tables.getcolumn(signals::Signals, i::Int) = Tables.getcolumn(getfield(signals, :_columns), i)
 Tables.getcolumn(signals::Signals, nm::Symbol) = Tables.getcolumn(getfield(signals, :_columns), nm)
 Tables.getcolumn(signals::Signals, ::Type{T}, i::Int, nm::Symbol) where {T} = Tables.getcolumn(getfield(signals, :_columns), T, i, nm)
+
+Base.show(io::IO, signals::Signals) = pretty_table(io, signals)
 
 #####
 ##### Annotations
@@ -122,28 +126,36 @@ end
 
 Annotations{V}() where {V} = Annotations(Tables.columntable(_annotation_fields(V)[]))
 
+load_annotations(io_or_path) = Annotations(Arrow.Table(io_or_path))
+
 Tables.istable(annotations::Annotations) = Tables.istable(getfield(annotations, :_columns))
 Tables.schema(annotations::Annotations) = Tables.schema(getfield(annotations, :_columns))
 Tables.materializer(annotations::Annotations) = Tables.materializer(getfield(annotations, :_columns))
 Tables.rowaccess(annotations::Annotations) = Tables.rowaccess(getfield(annotations, :_columns))
 Tables.rows(annotations::Annotations{V}) where {V} = (Annotation{V}(row) for row in Tables.rows(getfield(annotations, :_columns)))
 Tables.columnaccess(annotations::Annotations) = Tables.columnaccess(getfield(annotations, :_columns))
-Tables.columns(annotations::Annotations) = Tables.columns(getfield(annotations, :_columns))
+Tables.columns(annotations::Annotations) = annotations
 Tables.columnnames(annotations::Annotations) = Tables.columnnames(getfield(annotations, :_columns))
 Tables.getcolumn(annotations::Annotations, i::Int) = Tables.getcolumn(getfield(annotations, :_columns), i)
 Tables.getcolumn(annotations::Annotations, nm::Symbol) = Tables.getcolumn(getfield(annotations, :_columns), nm)
 Tables.getcolumn(annotations::Annotations, ::Type{T}, i::Int, nm::Symbol) where {T} = Tables.getcolumn(getfield(annotations, :_columns), T, i, nm)
 
+Base.show(io::IO, annotations::Annotations) = pretty_table(io, annotations)
+
 #####
 ##### by_recording
 #####
+# TODO add signals_by for others
+# TODO DRY this code a bit
 
-function by_recording(signals::Signals, annotations::Annotations{V}) where {V}
+function by_recording(signals::Signals, annotations::Annotations{V},
+                      signals_by::Symbol=:type) where {V}
+    signals_by in (:type, :file_path) || throw(ArgumentError("`signals_by` must be `:type` or `:file_path`, got: $signals_by"))
     recordings = Dict{UUID,NamedTuple{(:signals, :annotations),Tuple{Dict{String,Signal},Dict{UUID,Annotation{V}}}}}()
     for signal in Tables.rows(signals)
         recording = get!(() -> (signals = Dict{String,Signal}(), annotations = Dict{UUID,Annotation{V}}()),
                          recordings, signal.recording_uuid)
-        recording.signals[signal.type] = signal
+        recording.signals[getproperty(signal, signals_by)] = signal
     end
     for annotation in Tables.rows(annotations)
         recording = get(recordings, annotation.recording_uuid, nothing)

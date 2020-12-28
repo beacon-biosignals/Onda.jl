@@ -1,7 +1,7 @@
 module Onda
 
 using UUIDs, Dates, Random
-using Arrow, Tables, MsgPack, TranscodingStreams, CodecZstd
+using Arrow, Tables, PrettyTables, MsgPack, TranscodingStreams, CodecZstd
 
 #####
 ##### includes/exports
@@ -19,22 +19,25 @@ include("tables.jl")
 ##### upgrades/deprecations
 #####
 
-upgrade_onda_format_from_v0_3_to_v0_5!(args...) = upgrade_onda_format_from_v0_4_to_v0_5!(args...)
+log(message) = println(now(), " | ", message)
 
 function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
+                                                verbose=true,
+                                                compress=nothing,
                                                 uuid_from_annotation = _ -> uuid4(),
-                                                signal_file_path = (uuid, type, ext) -> string("./samples", uuid, type, ext),
+                                                signal_file_path = (uuid, type, ext) -> joinpath("samples", string(uuid), type * "." * ext),
                                                 signal_file_format = (ext, opts) -> ext)
     raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
     v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
     signals = Signal[]
     annotations = Annotation{String}[]
-    for (uuid, recording) in raw_recordings
+    for (i, (uuid, recording)) in enumerate(raw_recordings)
+        verbose && log("($i / $(length(raw_recordings))) converting recording $uuid...")
         recording_uuid = UUID(uuid)
         for (type, signal) in recording["signals"]
             push!(signals, Signal(; recording_uuid,
                                   file_path=signal_file_path(recording_uuid, type, signal["file_extension"]),
-                                  file_format=signal_format_from_extension_and_options(signal["file_extension"], signal["file_options"]),
+                                  file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
                                   type,
                                   channel_names=signal["channel_names"],
                                   start_nanosecond=signal["start_nanosecond"],
@@ -53,8 +56,17 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
                                           value=ann["value"]))
         end
     end
-    # TODO write back out, clean up, etc
-    return Signals(Tables.columntable(signals)), Annotations(Tables.columntable(annotations))
+    verbose && log("writing out onda.signals file...")
+    signals = Signals(Tables.columntable(signals))
+    Arrow.setmetadata!(signals, Dict("onda_format_version" => "v0.5.0"))
+    Arrow.write(joinpath(dataset_path, "onda.signals"), signals; compress)
+    verbose && log("onda.signals file written.")
+    verbose && log("writing out onda.annotations file...")
+    annotations = Annotations(Tables.columntable(annotations))
+    Arrow.setmetadata!(annotations, Dict("onda_format_version" => "v0.5.0"))
+    Arrow.write(joinpath(dataset_path, "onda.annotations"), annotations; compress)
+    verbose && log("onda.annotations file written.")
+    return signals, annotations
 end
 
 #####
