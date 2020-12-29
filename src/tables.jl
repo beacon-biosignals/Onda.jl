@@ -1,7 +1,16 @@
+#####
+##### utilities
+#####
 
 function has_supported_onda_format_version(tbl)
     metadata = Arrow.getmetadata(tbl)
     return metadata isa Dict && get(metadata, "onda_format_version", nothing) == "v0.5.0"
+end
+
+function load_onda_table(io_or_path; materialize::Bool=false)
+    table = Arrow.Table(io_or_path)
+    has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
+    return materialize ? map(collect, Tables.columntable(table)) : table
 end
 
 #####
@@ -64,11 +73,7 @@ end
 
 Signals() = Signals(Tables.columntable(SIGNAL_FIELDS[]))
 
-function load_signals(io_or_path)
-    tbl = Arrow.Table(io_or_path)
-    has_supported_onda_format_version(tbl) || error("supported `onda_format_version` not found in signals file")
-    return Signals(tbl)
-end
+load_signals(io_or_path; materialize::Bool=false) = Signals(load_onda_table(io_or_path; materialize))
 
 Tables.istable(signals::Signals) = Tables.istable(getfield(signals, :_columns))
 Tables.schema(signals::Signals) = Tables.schema(getfield(signals, :_columns))
@@ -136,11 +141,7 @@ end
 
 Annotations{V}() where {V} = Annotations(Tables.columntable(_annotation_fields(V)[]))
 
-function load_annotations(io_or_path)
-    tbl = Arrow.Table(io_or_path)
-    has_supported_onda_format_version(tbl) || error("supported `onda_format_version` not found in annotations file")
-    return Annotations(tbl)
-end
+load_annotations(io_or_path; materialize::Bool=false) = Annotations(load_onda_table(io_or_path; materialize))
 
 Tables.istable(annotations::Annotations) = Tables.istable(getfield(annotations, :_columns))
 Tables.schema(annotations::Annotations) = Tables.schema(getfield(annotations, :_columns))
@@ -194,11 +195,10 @@ function by_recording(annotations::Annotations{V}, signals::Signals) where {V}
     return recordings
 end
 
-function by_recording(signals::Signals)
-    recordings = Dict{UUID,Dict{String,Signal}}()
-    for signal in Tables.rows(signals)
-        recording = get!(() -> Dict{String,Signal}(), recordings, signal.recording_uuid)
-        recording[signal.type] = signal
+function by_recording!(recordings, table, default, attach!)
+    for row in Tables.rows(table)
+        recording = get!(default, recordings, row.recording_uuid)
+        attach!(recording, row)
     end
     return recordings
 end
@@ -211,3 +211,21 @@ function by_recording(annotations::Annotations{V}) where {V}
     end
     return recordings
 end
+
+function by_recording(signals::Signals)
+    recordings = Dict{UUID,Dict{String,Signal}}()
+    for signal in Tables.rows(signals)
+        recording = get!(() -> Dict{String,Signal}(), recordings, signal.recording_uuid)
+        recording[signal.type] = signal
+    end
+    return recordings
+end
+
+# function by_recording(annotations::Annotations{V}) where {V}
+#     recordings = Dict{UUID,Dict{UUID,Annotation{V}}}()
+#     for annotation in Tables.rows(annotations)
+#         recording = get!(() -> Dict{UUID,Annotation{V}}(), recordings, annotation.recording_uuid)
+#         recording[annotation.uuid] = annotation
+#     end
+#     return recordings
+# end

@@ -1,6 +1,7 @@
 module Onda
 
 using UUIDs, Dates, Random
+using TimeSpans
 using Arrow, Tables, PrettyTables, MsgPack, TranscodingStreams, CodecZstd
 
 #####
@@ -8,11 +9,6 @@ using Arrow, Tables, PrettyTables, MsgPack, TranscodingStreams, CodecZstd
 #####
 
 include("utilities.jl")
-
-include("timespans.jl")
-export AbstractTimeSpan, TimeSpan, contains, overlaps, shortest_timespan_containing,
-       index_from_time, time_from_index, duration
-
 include("tables.jl")
 
 #####
