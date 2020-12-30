@@ -1,13 +1,19 @@
-struct Samples{D<:AbstractMatrix,T<:LPCM_SAMPLE_TYPE_UNION}
+struct Samples{D<:AbstractMatrix,S<:LPCM_SAMPLE_TYPE_UNION}
     data::D
     encoded::Bool
-    type::String
+    kind::String
     channel_names::Vector{String}
     sample_unit::String,
     sample_resolution_in_unit::Float64
     sample_offset_in_unit::Float64
-    sample_type::T
+    sample_type::Type{S}
     sample_rate::Float64
+end
+
+function Samples(data, encoded::Bool, signal::Signal)
+    return Samples(data, encoded, signal.kind, signal.channel_names,
+                   signal.sample_unit, signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
+                   julia_type_from_onda_sample_type(signal.sample_type), signal.sample_rate)
 end
 
 # #####

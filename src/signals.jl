@@ -6,13 +6,13 @@ struct Signal{R} <: Tables.AbstractRow
     _row::R
 end
 
-const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :file_path, :file_format, :type, :channel_names, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :file_path, :file_format, :kind, :channel_names, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
                                   Tuple{UUID,String,String,String,Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
 
 function Signal(; recording_uuid::UUID,
                 file_path,
                 file_format,
-                type,
+                kind,
                 channel_names,
                 start_nanosecond,
                 stop_nanosecond,
@@ -24,7 +24,7 @@ function Signal(; recording_uuid::UUID,
     return Signal{SIGNAL_FIELDS}((; recording_uuid,
                                   file_path=String(file_path),
                                   file_format=String(file_format),
-                                  type=String(type),
+                                  kind=String(kind),
                                   channel_names=convert(Vector{String}, channel_names),
                                   start_nanosecond=Nanosecond(start_nanosecond),
                                   stop_nanosecond=Nanosecond(stop_nanosecond),
@@ -78,42 +78,45 @@ Base.show(io::IO, signals::Signals) = pretty_table(io, signals)
 
 read_signals(io_or_path; materialize::Bool=false) = Signals(read_onda_table(io_or_path; materialize))
 
-# #####
-# ##### load
-# #####
+#####
+##### load
+#####
 
-# """
-#     load(signal::Signal)
+"""
+    load(signal::Signal)
 
-# Return the `Samples` object described by `signal`.
-# """
-# function load(signal::Signal; encoded::Bool=false)
-#     samples = Samples(read_lpcm(signal.file_path, format(signal)), true, ...) # TODO
-#     return encoded ? samples : decode(samples)
-# end
+Return the `Samples` object described by `signal`.
+"""
+function load(signal::Signal; encoded::Bool=false)
+    samples = Samples(read_lpcm(signal.file_path, format(signal)), true, signal)
+    return encoded ? samples : decode(samples)
+end
 
-# """
-#     load(signal::Signal, timespan)
+"""
+    load(signal::Signal, timespan)
 
-# Return `load(signal)[:, timespan]`, but attempt to avoid reading unreturned intermediate
-# sample data. Note that the effectiveness of this method over the aforementioned primitive
-# expression depends on the types of both `signal.file_path` and `format(signal)`.
-# """
-# function load(signal::Signal, timespan; encoded::Bool=false)
-#     sample_range = TimeSpans.index_from_time(signal.sample_rate, timespan)
-#     sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
-#     sample_data = read_lpcm(signal.file_path, format(signal), sample_offset, sample_count)
-#     samples = Samples(sample_data, true, ...) # TODO
-#     return encoded ? samples : decode(samples)
-# end
+Return `load(signal)[:, timespan]`, but attempt to avoid reading unreturned intermediate
+sample data. Note that the effectiveness of this method over the aforementioned primitive
+expression depends on the types of both `signal.file_path` and `format(signal)`.
+"""
+function load(signal::Signal, timespan; encoded::Bool=false)
+    sample_range = TimeSpans.index_from_time(signal.sample_rate, timespan)
+    sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
+    sample_data = read_lpcm(signal.file_path, format(signal), sample_offset, sample_count)
+    samples = Samples(sample_data, true, signal)
+    return encoded ? samples : decode(samples)
+end
 
-# #####
-# ##### store!
-# #####
+#####
+##### store
+#####
 
-# function store!(signals, recording_uuid, file_path, file_format, samples::Samples; kwargs...)
-#     signal = Signal(...)
-#     write_lpcm(file_path, encode(samples).data, format(signal; kwargs...))
-#     return signal
-# end
+function store(recording_uuid, file_path, file_format, samples::Samples; kwargs...)
+    signal = Signal(; recording_uuid, file_path, file_format, samples.kind, samples.channel_names,
+                    samples.sample_unit, samples.sample_resolution_in_unit, samples.sample_offset_in_unit,
+                    sample_type=onda_sample_type_from_julia_type(samples.sample_type),
+                    samples.sample_rate)
+    write_lpcm(file_path, encode(samples).data, format(signal; kwargs...))
+    return signal
+end
 

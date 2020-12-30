@@ -185,27 +185,26 @@ write_lpcm(path, format::AbstractLPCMFormat, data) = write_path(path, serialize_
 ##### `LPCM`
 #####
 
-const LPCM_SAMPLE_TYPE_UNION = Union{Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64,Float32,Float64}
-
 """
-    LPCM{S}(channel_count)
+    LPCM(channel_count::Int, sample_type::Type)
     LPCM(signal::Signal)
 
 Return a `LPCM<:AbstractLPCMFormat` instance corresponding to Onda's default
 interleaved LPCM format assumed for sample data files with the "lpcm"
 extension.
 
-`S` corresponds to `signal.sample_type`, while `channel_count` corresponds to
-`length(signal.channel_names)`.
+`channel_count` corresponds to `length(signal.channel_names)`, while `sample_type`
+corresponds to `signal.sample_type`
 
 Note that bytes (de)serialized to/from this format are little-endian (per the
 Onda specification).
 """
 struct LPCM{S<:LPCM_SAMPLE_TYPE_UNION} <: AbstractLPCMFormat
     channel_count::Int
+    sample_type::Type{S}
 end
 
-LPCM(signal::Signal) = LPCM{signal.sample_type}(length(signal.channel_names))
+LPCM(signal::Signal) = LPCM(length(signal.channel_names), signal.sample_type)
 
 register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCM : nothing)
 
