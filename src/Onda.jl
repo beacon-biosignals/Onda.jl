@@ -9,7 +9,9 @@ using Arrow, Tables, PrettyTables, MsgPack, TranscodingStreams, CodecZstd
 #####
 
 include("utilities.jl")
-include("tables.jl")
+include("signals.jl")
+include("annotations.jl")
+include("lpcm.jl")
 
 #####
 ##### upgrades/deprecations
@@ -128,7 +130,7 @@ function zstd_decompress(reader, io::IO)
 end
 
 @deprecate(serializer_constructor_for_file_extension(ext),
-           format_constructor_for_file_extension(ext))
+           file_format_constructor(ext))
 
 @deprecate serializer(signal::Signal; kwargs...) format(signal; kwargs...)
 

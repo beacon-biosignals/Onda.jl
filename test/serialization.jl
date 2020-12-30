@@ -49,4 +49,4 @@ using Test, Onda, Random, Dates
     end
 end
 
-@test_throws ArgumentError Onda.format_constructor_for_file_extension(Val(:extension))
+@test_throws ArgumentError Onda.file_format_constructor(Val(:extension))

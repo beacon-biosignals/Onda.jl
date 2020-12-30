@@ -1,6 +1,6 @@
-####
-#### validation
-####
+#####
+##### validation
+#####
 
 """
     Onda.validate_on_construction()
@@ -19,9 +19,9 @@ See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
 """
 validate_on_construction() = true
 
-const MINIMUM_ONDA_FORMAT_VERSION = v"0.3"
+const MINIMUM_ONDA_FORMAT_VERSION = v"0.5"
 
-const MAXIMUM_ONDA_FORMAT_VERSION = v"0.4"
+const MAXIMUM_ONDA_FORMAT_VERSION = v"0.5"
 
 function is_supported_onda_format_version(v::VersionNumber)
     min_major, min_minor = MINIMUM_ONDA_FORMAT_VERSION.major, MINIMUM_ONDA_FORMAT_VERSION.minor
@@ -38,9 +38,24 @@ function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
            all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
 end
 
-####
-#### zstd_compress/zstd_decompress
-####
+#####
+##### tables
+#####
+
+function table_has_supported_onda_format_version(table)
+    m = Arrow.getmetadata(table)
+    return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
+end
+
+function read_onda_table(io_or_path; materialize::Bool=false)
+    table = Arrow.Table(io_or_path)
+    table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
+    return materialize ? map(collect, Tables.columntable(table)) : table
+end
+
+#####
+##### zstd_compress/zstd_decompress
+#####
 
 function zstd_compress(bytes::Vector{UInt8}, level=3)
     compressor = ZstdCompressor(; level=level)
@@ -52,9 +67,9 @@ end
 
 zstd_decompress(bytes::Vector{UInt8}) = transcode(ZstdDecompressor, bytes)
 
-####
-#### bytes/streams
-####
+#####
+##### read/write/bytes/streams
+#####
 
 jump(io::IO, n) = (read(io, n); nothing)
 jump(io::IOStream, n) = (skip(io, n); nothing)
@@ -62,3 +77,21 @@ jump(io::IOBuffer, n) = ((io.seekable ? skip(io, n) : read(io, n)); nothing)
 
 unsafe_vec_uint8(x::AbstractVector{UInt8}) = convert(Vector{UInt8}, x)
 unsafe_vec_uint8(x::Base.ReinterpretArray{UInt8,1}) = unsafe_wrap(Vector{UInt8}, pointer(x), length(x))
+
+"""
+    read_byte_range(path, byte_offset, byte_count)
+
+Return the equivalent `read(path)[(byte_offset + 1):(byte_offset + byte_count)]`,
+but try to avoid reading unreturned intermediate bytes. Note that the
+effectiveness of this method depends on the type of `path`.
+"""
+function read_byte_range(path, byte_offset, byte_count)
+    return open(path, "r") do io
+        jump(io, byte_offset)
+        return read(io, byte_count)
+    end
+end
+
+read_byte_range(path, ::Missing, ::Missing) = read(path)
+
+write_path(path, bytes) = (mkpath(dirname(path)); write(path, bytes))

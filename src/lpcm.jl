@@ -1,53 +1,31 @@
 #####
-##### `recordings.msgpack.zst` file content (de)serialization
+##### LPCM API types/functions/stubs
 #####
 
-struct Header
-    onda_format_version::VersionNumber
-    ordered_keys::Bool
-end
-
-MsgPack.msgpack_type(::Type{Header}) = MsgPack.StructType()
+const LPCM_FORMAT_REGISTRY = Any[]
 
 """
-    deserialize_recordings_msgpack_zst(bytes::Vector{UInt8})
-
-Return the `(header::Header, recordings::Dict{UUID,Recording})` yielded from deserializing `bytes`,
-which is assumed to be in zstd-compressed MsgPack format and comply with the Onda format's specification of
-the contents of `recordings.msgpack.zst`.
+TODO precompile issues?
 """
-function deserialize_recordings_msgpack_zst(bytes::Vector{UInt8})
-    io = IOBuffer(zstd_decompress(bytes))
-    read(io, UInt8) == 0x92 || error("Onda recordings file has unexpected first byte; expected 0x92 for a 2-element MsgPack array")
-    header = MsgPack.unpack(io, Header)
-    if !is_supported_onda_format_version(header.onda_format_version)
-        @warn("attempting to load `Dataset` recordings file with unsupported Onda version",
-              minimum_supported=MINIMUM_ONDA_FORMAT_VERSION,
-              maximum_supported=MAXIMUM_ONDA_FORMAT_VERSION,
-              attempting=header.onda_format_version)
-        @warn("if your dataset is version v0.2, consider upgrading it via `Onda.upgrade_onda_format_from_v0_2_to_v0_3!`")
+register_lpcm_format!(create_constructor) = push!(LPCM_FORMAT_REGISTRY, create_constructor)
+
+"""
+format(signal::Signal; kwargs...)
+
+Return `f(signal; kwargs...)` where `f` constructs the `AbstractLPCMFormat` instance that
+corresponds to `signal.file_format`. `f` is determined by matching `signal.file_format` to
+a suitable format constuctor registered via [`register_lpcm_format!`](@ref).
+
+See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
+"""
+function format(signal::Signal; kwargs...)
+    for create_constructor in LPCM_FORMAT_REGISTRY
+        f = create_constructor(signal.file_format)
+        f === nothing && continue
+        return f(signal; kwargs...)
     end
-    strict = header.ordered_keys ? (Recording,) : ()
-    recordings = MsgPack.unpack(io, Dict{UUID,Recording}; strict=strict)
-    return header, recordings
+    throw(ArgumentError("unrecognized file_format for signal: $signal"))
 end
-
-"""
-    serialize_recordings_msgpack_zst(header::Header, recordings::Dict{UUID,Recording})
-
-Return the `Vector{UInt8}` that results from serializing `(header::Header, recordings::Dict{UUID,Recording})` to zstd-compressed MsgPack format.
-"""
-function serialize_recordings_msgpack_zst(header::Header, recordings::Dict{UUID,Recording})
-    # we do this `resize!` maneuver instead of `MsgPack.pack([header, recordings])` (which
-    # calls `take!`) so that we sidestep https://github.com/JuliaLang/julia/issues/27741
-    io = IOBuffer()
-    MsgPack.pack(io, [header, recordings])
-    return zstd_compress(resize!(io.data, io.size))
-end
-
-#####
-##### LPCM Serialization API basic types/functions/stubs
-#####
 
 """
     AbstractLPCMFormat
@@ -83,32 +61,6 @@ See also:
 - [`finalize_lpcm_stream`](@ref)
 """
 abstract type AbstractLPCMStream end
-
-"""
-    Onda.file_format_constructor(::Val{:extension_symbol})
-
-Return a constructor of the form `F(::Signal)::AbstractLPCMFormat`
-corresponding to the provided extension.
-
-This function should be overloaded for new `AbstractLPCMFormat` subtypes.
-"""
-function file_format_constructor(::Val{unknown}) where {unknown}
-    throw(ArgumentError("unknown file extension: $unknown"))
-end
-
-"""
-    format(signal::Signal; kwargs...)
-
-Return `F(signal; kwargs...)` where `F` is the `AbstractLPCMFormat` that
-corresponds to `signal.file_extension` (as determined by the format author
-via `file_format_constructor`).
-
-See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
-"""
-function format(signal::Signal; kwargs...)
-    F = file_format_constructor(Val(signal.file_extension))
-    return F(signal; kwargs...)
-end
 
 """
     deserialize_lpcm_callback(format::AbstractLPCMFormat, samples_offset, samples_count)
@@ -212,10 +164,28 @@ deserialize_lpcm(format, serialize_lpcm(format, samples)) == samples
 function serialize_lpcm end
 
 #####
+##### read_lpcm/write_lpcm
+#####
+
+read_lpcm(path, format::AbstractLPCMFormat) = deserialize_lpcm(format, read(path))
+
+function read_lpcm(path, format::AbstractLPCMFormat, sample_offset, sample_count)
+    deserialize_requested_samples,
+    required_byte_offset,
+    required_byte_count = deserialize_lpcm_callback(format,
+                                                    sample_offset,
+                                                    sample_count)
+    bytes = read_byte_range(path, required_byte_offset, required_byte_count)
+    return deserialize_requested_samples(bytes)
+end
+
+write_lpcm(path, format::AbstractLPCMFormat, data) = write_path(path, serialize_lpcm(format, data))
+
+#####
 ##### `LPCM`
 #####
 
-const LPCM_SAMPLE_TYPE_UNION = Union{Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64}
+const LPCM_SAMPLE_TYPE_UNION = Union{Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64,Float32,Float64}
 
 """
     LPCM{S}(channel_count)
@@ -237,7 +207,7 @@ end
 
 LPCM(signal::Signal) = LPCM{signal.sample_type}(length(signal.channel_names))
 
-file_format_constructor(::Val{:lpcm}) = LPCM
+register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCM : nothing)
 
 function _validate_lpcm_samples(format::LPCM{S}, samples::AbstractMatrix) where {S}
     if format.channel_count != size(samples, 1)
@@ -332,7 +302,7 @@ end
 
 LPCMZst(signal::Signal; kwargs...) = LPCMZst(LPCM(signal); kwargs...)
 
-file_format_constructor(::Val{Symbol("lpcm.zst")}) = LPCMZst
+register_lpcm_format!(file_format -> file_format == "lpcm.zst" ? LPCMZst : nothing)
 
 function deserialize_lpcm(format::LPCMZst, bytes, args...)
     decompressed_bytes = zstd_decompress(unsafe_vec_uint8(bytes))

@@ -40,7 +40,7 @@ end
 FLAC(signal::Signal; kwargs...) = FLAC(LPCM(signal); sample_rate=signal.sample_rate,
                                        kwargs...)
 
-Onda.format_constructor_for_file_extension(::Val{:flac}) = FLAC
+Onda.file_format_constructor(::Val{:flac}) = FLAC
 
 function flac_raw_specification_flags(serializer::FLAC{S}) where {S}
     return (level="--compression-level-$(serializer.level)",

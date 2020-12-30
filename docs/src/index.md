@@ -102,7 +102,7 @@ AbstractLPCMStream
 deserializing_lpcm_stream
 serializing_lpcm_stream
 finalize_lpcm_stream
-Onda.format_constructor_for_file_extension
+Onda.file_format_constructor
 format
 deserialize_lpcm
 deserialize_lpcm_callback
