@@ -6,14 +6,14 @@ struct Signal{R} <: Tables.AbstractRow
     _row::R
 end
 
-const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :file_path, :file_format, :kind, :channel_names, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
-                                  Tuple{UUID,String,String,String,Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
+const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :file_path, :file_format, :kind, :channels, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+                                  Tuple{UUID,Any,String,String,Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
 
 function Signal(; recording_uuid::UUID,
                 file_path,
                 file_format,
                 kind,
-                channel_names,
+                channels,
                 start_nanosecond,
                 stop_nanosecond,
                 sample_unit,
@@ -21,11 +21,10 @@ function Signal(; recording_uuid::UUID,
                 sample_offset_in_unit,
                 sample_type,
                 sample_rate)
-    return Signal{SIGNAL_FIELDS}((; recording_uuid,
-                                  file_path=String(file_path),
+    return Signal{SIGNAL_FIELDS}((; recording_uuid, file_path,
                                   file_format=String(file_format),
                                   kind=String(kind),
-                                  channel_names=convert(Vector{String}, channel_names),
+                                  channels=convert(Vector{String}, channels),
                                   start_nanosecond=Nanosecond(start_nanosecond),
                                   stop_nanosecond=Nanosecond(stop_nanosecond),
                                   sample_unit=String(sample_unit),
@@ -46,6 +45,28 @@ Tables.schema(::AbstractVector{<:Signal}) = Tables.Schema(fieldnames(SIGNAL_FIEL
 is_valid_signals_schema(::Nothing) = true
 is_valid_signals_schema(::Tables.Schema) = false
 is_valid_signals_schema(::Tables.Schema{fieldnames(SIGNAL_FIELDS),<:Tuple{fieldtypes(SIGNAL_FIELDS)...}}) = true
+
+TimeSpans.istimespan(::Signal) = true
+TimeSpans.start(signal::Signal) = signal.start_nanosecond
+TimeSpans.stop(signal::Signal) = signal.stop_nanosecond
+
+"""
+    sample_count(signal::Signal)
+
+Return the number of multichannel samples that fit within `duration(signal)`
+given `signal.sample_rate`.
+"""
+sample_count(signal::Signal) = index_from_time(signal.sample_rate, TimeSpans.duration(signal)) - 1
+
+"""
+    sizeof_samples(signal::Signal)
+
+Returns the expected size (in bytes) of the encoded `Samples` object corresponding
+to the entirety of `signal`:
+
+    sample_count(signal) * channel_count(signal) * sizeof(signal.sample_type)
+"""
+sizeof_samples(signal::Signal) = sample_count(signal) * channel_count(signal) * sizeof(signal.sample_type)
 
 #####
 ##### Signals <: Tables.AbstractColumns
@@ -77,46 +98,3 @@ Tables.getcolumn(signals::Signals, ::Type{T}, i::Int, nm::Symbol) where {T} = Ta
 Base.show(io::IO, signals::Signals) = pretty_table(io, signals)
 
 read_signals(io_or_path; materialize::Bool=false) = Signals(read_onda_table(io_or_path; materialize))
-
-#####
-##### load
-#####
-
-"""
-    load(signal::Signal)
-
-Return the `Samples` object described by `signal`.
-"""
-function load(signal::Signal; encoded::Bool=false)
-    samples = Samples(read_lpcm(signal.file_path, format(signal)), true, signal)
-    return encoded ? samples : decode(samples)
-end
-
-"""
-    load(signal::Signal, timespan)
-
-Return `load(signal)[:, timespan]`, but attempt to avoid reading unreturned intermediate
-sample data. Note that the effectiveness of this method over the aforementioned primitive
-expression depends on the types of both `signal.file_path` and `format(signal)`.
-"""
-function load(signal::Signal, timespan; encoded::Bool=false)
-    sample_range = TimeSpans.index_from_time(signal.sample_rate, timespan)
-    sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
-    sample_data = read_lpcm(signal.file_path, format(signal), sample_offset, sample_count)
-    samples = Samples(sample_data, true, signal)
-    return encoded ? samples : decode(samples)
-end
-
-#####
-##### store
-#####
-
-function store(recording_uuid, file_path, file_format, samples::Samples; kwargs...)
-    signal = Signal(; recording_uuid, file_path, file_format, samples.kind, samples.channel_names,
-                    samples.sample_unit, samples.sample_resolution_in_unit, samples.sample_offset_in_unit,
-                    sample_type=onda_sample_type_from_julia_type(samples.sample_type),
-                    samples.sample_rate)
-    write_lpcm(file_path, encode(samples).data, format(signal; kwargs...))
-    return signal
-end
-

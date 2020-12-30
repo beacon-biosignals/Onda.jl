@@ -24,6 +24,7 @@ end
 
 Base.propertynames(::Annotation) = fieldnames(_annotation_fields(Any))
 Base.getproperty(annotation::Annotation{V}, name::Symbol) where {V} = getproperty(getfield(annotation, :_row), name)::fieldtype(_annotation_fields(V), name)
+
 Tables.columnnames(::Annotation) = fieldnames(_annotation_fields(Any))
 Tables.getcolumn(ann::Annotation{V}, i::Int) where {V} = Tables.getcolumn(getfield(ann, :_row), i)::fieldtype(_annotation_fields(V), i)
 Tables.getcolumn(ann::Annotation{V}, nm::Symbol) where {V} = Tables.getcolumn(getfield(ann, :_row), nm)::fieldtype(_annotation_fields(V), nm)
@@ -33,6 +34,10 @@ function Tables.schema(::AbstractVector{<:Annotation{V}}) where {V}
     F = _annotation_fields(V)
     return Tables.Schema(fieldnames(F), fieldtypes(F))
 end
+
+TimeSpans.istimespan(::Annotation) = true
+TimeSpans.start(annotation::Annotation) = annotation.start_nanosecond
+TimeSpans.stop(annotation::Annotation) = annotation.stop_nanosecond
 
 #####
 ##### Annotations <: Tables.AbstractColumns

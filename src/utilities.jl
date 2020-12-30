@@ -102,6 +102,31 @@ function onda_sample_type_from_julia_type(T::Type)
 end
 
 #####
+##### utility functions for values with a `channels` field
+#####
+
+"""
+    channel(x, name)
+
+Return `i` where `x.channels[i] == name`.
+"""
+channel(x, name) = findfirst(isequal(name), x.channels)
+
+"""
+    channel(x, i::Integer)
+
+Return `x.channels[i]`.
+"""
+channel(x, i::Integer) = x.channels[i]
+
+"""
+    channel_count(x)
+
+Return `length(x.channels)`.
+"""
+channel_count(x) = length(x.channels)
+
+#####
 ##### read/write/bytes/streams
 #####
 

@@ -1,8 +1,9 @@
 module Onda
 
 using UUIDs, Dates, Random
-using TimeSpans
-using Arrow, Tables, PrettyTables, MsgPack, TranscodingStreams, CodecZstd
+using TimeSpans, ConstructionBase
+using Arrow, Tables, PrettyTables
+using MsgPack, TranscodingStreams, CodecZstd
 
 #####
 ##### includes/exports
@@ -38,7 +39,7 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
                                   file_path=signal_file_path(recording_uuid, type, signal["file_extension"]),
                                   file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
                                   type,
-                                  channel_names=signal["channel_names"],
+                                  channels=signal["channels"],
                                   start_nanosecond=signal["start_nanosecond"],
                                   stop_nanosecond=signal["stop_nanosecond"],
                                   sample_unit=signal["sample_unit"],
