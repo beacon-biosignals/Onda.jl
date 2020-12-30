@@ -2,7 +2,8 @@
     Samples(data::AbstractMatrix, encoded::Bool, signal::Signal;
             validate::Bool=Onda.validate_on_construction())
 
-    Samples(data::AbstractMatrix, encoded::Bool,
+    Samples(data::AbstractMatrix,
+            encoded::Bool,
             kind::String,
             channels::Vector{String}
             sample_unit::String
@@ -43,7 +44,7 @@ indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
 values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
 
-See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
+See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
 struct Samples{D<:AbstractMatrix,S<:LPCM_SAMPLE_TYPE_UNION}
     data::D
@@ -134,9 +135,9 @@ for f in (:getindex, :view)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
             return setproperties(samples;
-                                 validated=false,
                                  data=$f(samples.data, rows, columns),
-                                 channels=rows isa Colon ? samples.channels : samples.channels[rows])
+                                 channels=rows isa Colon ? samples.channels : samples.channels[rows],
+                                 validated=false)
         end
     end
 end
@@ -158,7 +159,7 @@ function _column_arguments(samples::Samples, x)
 end
 
 #####
-##### load
+##### load/store
 #####
 
 """
@@ -186,10 +187,9 @@ function load(signal::Signal, timespan; encoded::Bool=false)
     return encoded ? samples : decode(samples)
 end
 
-#####
-##### store
-#####
-
+"""
+TODO
+"""
 function store(recording_uuid, file_path, file_format, samples::Samples; kwargs...)
     signal = Signal(; recording_uuid, file_path, file_format, samples.kind, samples.channels,
                     samples.sample_unit, samples.sample_resolution_in_unit, samples.sample_offset_in_unit,
@@ -347,7 +347,8 @@ function encode(samples::Samples, dither_storage=nothing)
                                      samples.sample_resolution_in_unit,
                                      samples.sample_offset_in_unit,
                                      samples.data, dither_storage),
-                         encoded=true)
+                         encoded=true,
+                         validated=false)
 end
 
 """
@@ -373,64 +374,79 @@ function encode!(result_storage, samples::Samples, dither_storage=nothing)
                 samples.signal.sample_offset_in_unit,
                 samples.data, dither_storage)
     end
-    return setproperties(samples; data=result_storage, encoded=true)
+    return setproperties(samples; data=result_storage, encoded=true, validated=false)
 end
 
-# #####
-# ##### `decode`/`decode!`
-# #####
+#####
+##### `decode`/`decode!`
+#####
 
-# """
-#     decode(sample_resolution_in_unit, sample_offset_in_unit, samples)
+"""
+    decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
 
-# Return `sample_resolution_in_unit .* samples .+ sample_offset_in_unit`
-# """
-# function decode(sample_resolution_in_unit, sample_offset_in_unit, samples)
-#     return sample_resolution_in_unit .* samples .+ sample_offset_in_unit
-# end
+Return `sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit`.
 
-# """
-#     decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, samples)
+If:
 
-# Similar to `decode(sample_resolution_in_unit, sample_offset_in_unit, samples)`, but
-# write decoded values to `result_storage` rather than allocating new storage.
-# """
-# function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, samples)
-#     f = x -> sample_resolution_in_unit * x + sample_offset_in_unit
-#     return broadcast!(f, result_storage, samples)
-# end
+```
+sample_data isa AbstractArray &&
+sample_resolution_in_unit == 1 &&
+sample_offset_in_unit == 0
+```
 
-# """
-#     decode(samples::Samples)
+then this function is the identity and will return `sample_data` directly without copying.
+"""
+function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
+    if sample_data isa AbstractArray
+        sample_resolution_in_unit == 1 && sample_offset_in_unit == 0 && return sample_data
+    end
+    return sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit
+end
 
-# If `samples.encoded` is `true`, return a `Samples` instance that wraps
-# `decode(samples.signal.sample_resolution_in_unit, samples.signal.sample_offset_in_unit, samples.data)`.
+"""
+    decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, sample_data)
 
-# If `samples.encoded` is `false`, this function is the identity.
-# """
-# function decode(samples::Samples)
-#     samples.encoded || return samples
-#     data = decode(samples.signal.sample_resolution_in_unit,
-#                   samples.signal.sample_offset_in_unit,
-#                   samples.data)
-#     return Samples(samples.signal, false, data)
-# end
+Similar to `decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)`, but
+write decoded values to `result_storage` rather than allocating new storage.
+"""
+function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, sample_data)
+    f = x -> sample_resolution_in_unit * x + sample_offset_in_unit
+    return broadcast!(f, result_storage, sample_data)
+end
 
-# """
-#     decode!(result_storage, samples::Samples)
+"""
+    decode(samples::Samples)
 
-# If `samples.encoded` is `true`, return a `Samples` instance that wraps
-# `decode!(result_storage, samples.signal.sample_resolution_in_unit, samples.signal.sample_offset_in_unit, samples.data)`.
+If `samples.encoded` is `true`, return a `Samples` instance that wraps
+`decode(samples.sample_resolution_in_unit, samples.sample_offset_in_unit, samples.data)`.
 
-# If `samples.encoded` is `false`, return a `Samples` instance that wraps
-# `copyto!(result_storage, samples.data)`.
-# """
-# function decode!(result_storage, samples::Samples)
-#     if samples.encoded
-#         decode!(result_storage, samples.signal.sample_resolution_in_unit,
-#                 samples.signal.sample_offset_in_unit, samples.data)
-#         return Samples(samples.signal, false, result_storage)
-#     end
-#     copyto!(result_storage, samples.data)
-#     return Samples(samples.signal, samples.encoded, result_storage)
-# end
+If `samples.encoded` is `false`, this function is the identity.
+"""
+function decode(samples::Samples)
+    samples.encoded || return samples
+    return setproperties(samples;
+                         data=decode(samples.sample_resolution_in_unit,
+                                     samples.sample_offset_in_unit,
+                                     samples.data),
+                         encoded=false,
+                         validated=false)
+end
+
+"""
+    decode!(result_storage, samples::Samples)
+
+If `samples.encoded` is `true`, return a `Samples` instance that wraps
+`decode!(result_storage, samples.sample_resolution_in_unit, samples.sample_offset_in_unit, samples.data)`.
+
+If `samples.encoded` is `false`, return a `Samples` instance that wraps
+`copyto!(result_storage, samples.data)`.
+"""
+function decode!(result_storage, samples::Samples)
+    if samples.encoded
+        decode!(result_storage, samples.sample_resolution_in_unit,
+                samples.sample_offset_in_unit, samples.data)
+    else
+        copyto!(result_storage, samples.data)
+    end
+    return setproperties(samples; data=result_storage, encoded=false, validated=false)
+end
