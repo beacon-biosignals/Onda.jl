@@ -2,14 +2,14 @@
     Samples(data::AbstractMatrix, encoded::Bool, signal::Signal;
             validate::Bool=Onda.validate_on_construction())
 
-    Samples(data::AbstractMatrix,
-            encoded::Bool,
+    Samples(data::AbstractMatrix;
+            encoded::Bool = false,
             kind::String,
-            channels::Vector{String}
-            sample_unit::String
-            sample_resolution_in_unit::Float64
-            sample_offset_in_unit::Float64
-            sample_type::Type{S}
+            channels::Vector{String},
+            sample_unit::String,
+            sample_resolution_in_unit::Float64 = 1.0,
+            sample_offset_in_unit::Float64 = 0.0,
+            sample_type::Type{S} = eltype(data),
             sample_rate::Float64,
             validated::Bool=Onda.validate_on_construction())
 
@@ -69,11 +69,22 @@ struct Samples{D<:AbstractMatrix,S<:LPCM_SAMPLE_TYPE_UNION}
     end
 end
 
-function Samples(data, encoded::Bool, signal::Signal; validate::Bool=validate_on_construction())
+function Samples(data; encoded=false, kind, channels,
+                 sample_unit,
+                 sample_resolution_in_unit=1.0, sample_offset_in_unit=0.0,
+                 sample_type=eltype(data), sample_rate,
+                 validated=validate_on_construction())
+    return Samples(data, encoded, kind, channels,
+                   sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
+                   sample_type, sample_rate,
+                   validated)
+end
+
+function Samples(data, encoded::Bool, signal::Signal; validated=validate_on_construction())
     return Samples(data, encoded, signal.kind, signal.channels,
                    signal.sample_unit, signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
                    julia_type_from_onda_sample_type(signal.sample_type), signal.sample_rate,
-                   validate)
+                   validated)
 end
 
 function Base.:(==)(a::Samples, b::Samples)
