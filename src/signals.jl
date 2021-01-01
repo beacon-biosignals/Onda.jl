@@ -1,6 +1,49 @@
 
 
 #=
+
+#####
+##### load/store
+#####
+
+"""
+    load(file_path, format, )
+
+Return the `Samples` object described by `signal`.
+"""
+function load(signal::Signal; encoded::Bool=false)
+    samples = Samples(read_lpcm(signal.file_path, format(signal)), true, signal)
+    return encoded ? samples : decode(samples)
+end
+
+"""
+    load(signal::Signal, timespan)
+
+Return `load(signal)[:, timespan]`, but attempt to avoid reading unreturned intermediate
+sample data. Note that the effectiveness of this method over the aforementioned primitive
+expression depends on the types of both `signal.file_path` and `format(signal)`.
+"""
+function load(signal::Signal, timespan; encoded::Bool=false)
+    sample_range = TimeSpans.index_from_time(signal.sample_rate, timespan)
+    sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
+    sample_data = read_lpcm(signal.file_path, format(signal), sample_offset, sample_count)
+    samples = Samples(sample_data, true, signal)
+    return encoded ? samples : decode(samples)
+end
+
+"""
+TODO
+"""
+function store(recording_uuid, file_path, file_format, samples::Samples; kwargs...)
+    signal = Signal(; recording_uuid, file_path, file_format, samples.kind, samples.channels,
+                    samples.sample_unit, samples.sample_resolution_in_unit, samples.sample_offset_in_unit,
+                    sample_type=onda_sample_type_from_julia_type(samples.sample_type),
+                    samples.sample_rate)
+    write_lpcm(file_path, encode(samples).data, format(signal; kwargs...))
+    return signal
+end
+
+
 #####
 ##### SignalsRow <: Tables.AbstractRow
 #####
