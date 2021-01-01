@@ -1,122 +1,43 @@
-#####
-##### SamplesMetadata
-#####
-
-struct SamplesMetadata{K<:AbstractString,
-                       C<:AbstractVector{<:AbstractString},
-                       U<:AbstractString,
-                       T<:LPCM_SAMPLE_TYPE_UNION,
-                       S<:LPCM_SAMPLE_TYPE_UNION}
-    kind::K
-    channels::C
-    sample_unit::U
-    sample_resolution_in_unit::T
-    sample_offset_in_unit::T
-    sample_type::Type{S}
-    sample_rate::Float64
-    function SamplesMetadata(kind::K, channels::C, sample_unit::U,
-                             sample_resolution_in_unit::SRU,
-                             sample_offset_in_unit::SOU,
-                             sample_type, sample_rate;
-                             validate::Bool=Onda.validate_on_construction()) where {K,C,U,SRU,SOU}
-        T = typeintersect(promote_type(SRU, SOU), LPCM_SAMPLE_TYPE_UNION)
-        S = sample_type isa Type ? sample_type : julia_type_from_onda_sample_type(sample_type)
-        metadata = new{K,C,U,T,S}(kind, channels, sample_unit,
-                                  convert(T, sample_resolution_in_unit),
-                                  convert(T, sample_offset_in_unit),
-                                  S, convert(Float64, sample_rate))
-        validate && Onda.validate(metadata)
-        return metadata
-    end
-end
-
-function SamplesMetadata(; kind, channels, sample_unit,
-                         sample_resolution_in_unit, sample_offset_in_unit,
-                         sample_type, sample_rate,
-                         validate::Bool=Onda.validate_on_construction())
-    return SamplesMetadata(kind, channels, sample_unit,
-                           sample_resolution_in_unit, sample_offset_in_unit,
-                           sample_type, sample_rate; validate)
-end
-
 """
-    validate(metadata::SamplesMetadata)
-
-Returns `nothing`, checking that the given `metadata.sample_unit` and `metadata.channels` are
-valid w.r.t. the Onda specification. If a violation is found, an `ArgumentError` is thrown.
-"""
-function validate(metadata::SamplesMetadata)
-    is_lower_snake_case_alphanumeric(metadata.sample_unit) || throw(ArgumentError("invalid sample unit (must be lowercase/snakecase/alphanumeric): $(metadata.sample_unit)"))
-    for c in metadata.channel_names
-        is_lower_snake_case_alphanumeric(c, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
-    end
-    return nothing
-end
-
-function Base.:(==)(a::SamplesMetadata, b::SamplesMetadata)
-    return all(name -> getfield(a, name) == getfield(b, name), fieldnames(SamplesMetadata))
-end
-
-"""
-    channel(m::SamplesMetadata, name)
-
-Return `i` where `m.channels[i] == name`.
-"""
-channel(m::SamplesMetadata, name) = findfirst(isequal(name), m.channels)
-
-"""
-    channel(m::SamplesMetadata, i::Integer)
-
-Return `m.channels[i]`.
-"""
-channel(m::SamplesMetadata, i::Integer) = m.channels[i]
-
-"""
-    channel_count(m::SamplesMetadata)
-
-Return `length(m.channels)`.
-"""
-channel_count(m::SamplesMetadata) = length(m.channels)
-
-"""
-    sample_count(m::SamplesMetadata, duration::Period)
-
-Return the number of multichannel samples that fit within `duration` given `m.sample_rate`.
-"""
-sample_count(m::SamplesMetadata, duration::Period) = TimeSpans.index_from_time(m.sample_rate, duration) - 1
-
-"""
-    sizeof_samples(m::SamplesMetadata, duration::Period)
-
-Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `m` and `duration`:
-
-    sample_count(m, duration) * channel_count(m) * sizeof(m.sample_type)
-"""
-sizeof_samples(m::SamplesMetadata, duration::Period) = sample_count(m, duration) * channel_count(m) * sizeof(m.sample_type)
-
-#####
-##### Samples
-#####
-
-"""
-    Samples(data::AbstractMatrix, metadata::SamplesMetadata, encoded::Bool;
+    Samples(data::AbstractMatrix, encoded::Bool, signal::Signal;
             validate::Bool=Onda.validate_on_construction())
+
+    Samples(data::AbstractMatrix;
+            encoded::Bool = false,
+            kind::String,
+            channels::Vector{String},
+            sample_unit::String,
+            sample_resolution_in_unit::Float64 = 1.0,
+            sample_offset_in_unit::Float64 = 0.0,
+            sample_type::Type{S} = eltype(data),
+            sample_rate::Float64,
+            validated::Bool=Onda.validate_on_construction())
 
 Return a `Samples` instance with the following fields:
 
 - `data::AbstractMatrix`: A matrix of sample data. The `i` th row of the matrix
-  corresponds to the `i`th channel in `metadata.channels`, while the `j`th
-  column corresponds to the `j`th multichannel sample.
+   corresponds to the `i`th channel in `signal.channels`, while the `j`th
+   column corresponds to the `j`th multichannel sample.
 
-- `metadata::SamplesMetadata`: The `SamplesMetadata` object that describes the
-  `Samples` instance.
+- `encoded::Bool`: If `true`, the values in `data` are LPCM-encoded as
+   prescribed by the `Samples` instance's `signal`. If `false`, the values in
+   `data` have been decoded into the `signal`'s canonical units.
 
-- `encoded::Bool`: If `true`, the values in `data` are LPCM-encoded as prescribed
-  by the `Samples` instance's `metadata`. If `false`, the values in `data` have
-  been decoded into the `metadata`'s canonical units.
+- `kind::String`: The `kind` field of the `Signal` object that describes the `Samples` instance.
 
-If `validate` is `true`, [`Onda.validate`](@ref) is called on the constructed `Samples`
-instance before it is returned.
+- `channels::Vector{String}`: The `channels` field of the `Signal` object that describes the `Samples` instance
+
+- `sample_unit::String`: The `sample_unit` field of the `Signal` object that describes the `Samples` instance
+
+- `sample_resolution_in_unit::Float64`: The `sample_resolution_in_unit` field of the `Signal` object that describes the `Samples` instance
+
+- `sample_offset_in_unit::Float64`: The `sample_offset_in_unit` field of the `Signal` object that describes the `Samples` instance
+
+- `sample_type::Type{S}`: The `sample_type` field of the `Signal` object that describes the `Samples` instance
+
+- `sample_rate::Float64`: The `sample_rate` field of the `Signal` object that describes the `Samples` instance
+
+- `validated::Bool`: If `true`, [`validate_samples`](@ref) was called on the `Samples` instance when it was constructed.
 
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
 indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
@@ -125,77 +46,88 @@ set of indexing examples.
 
 See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
-struct Samples{D<:AbstractMatrix,M<:SamplesMetadata}
+struct Samples{D<:AbstractMatrix,S<:LPCM_SAMPLE_TYPE_UNION}
     data::D
-    metadata::M
     encoded::Bool
-    function Samples(data, metadata::SamplesMetadata, encoded::Bool;
-                     validate::Bool=validate_on_construction())
-        samples = new{typeof(data),typeof(metadata)}(data, metadata, encoded)
-        validate && Onda.validate(samples)
+    kind::String
+    channels::Vector{String}
+    sample_unit::String
+    sample_resolution_in_unit::Float64
+    sample_offset_in_unit::Float64
+    sample_type::Type{S}
+    sample_rate::Float64
+    validated::Bool
+    function Samples(data::D, encoded::Bool, kind, channels, sample_unit,
+                     sample_resolution_in_unit, sample_offset_in_unit,
+                     sample_type::Type{S}, sample_rate,
+                     validated::Bool=validate_on_construction()) where {D,S}
+        samples = new{typeof(data),S}(signal, encoded, kind, channels, sample_unit,
+                                      sample_resolution_in_unit, sample_offset_in_unit,
+                                      sample_type, sample_rate, validated)
+        validated && validate_samples(samples)
         return samples
     end
 end
 
-"""
-    ==(a::Samples, b::Samples)
+function Samples(data; encoded=false, kind, channels,
+                 sample_unit,
+                 sample_resolution_in_unit=1.0, sample_offset_in_unit=0.0,
+                 sample_type=eltype(data), sample_rate,
+                 validated=validate_on_construction())
+    return Samples(data, encoded, kind, channels,
+                   sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
+                   sample_type, sample_rate,
+                   validated)
+end
 
-Returns `a.encoded == b.encoded && a.metadata == b.metadata && a.data == b.data`.
-"""
-Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.metadata == b.metadata && a.data == b.data
+function Samples(data, encoded::Bool, signal::Signal; validated=validate_on_construction())
+    return Samples(data, encoded, signal.kind, signal.channels,
+                   signal.sample_unit, signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
+                   julia_type_from_onda_sample_type(signal.sample_type), signal.sample_rate,
+                   validated)
+end
+
+function Base.:(==)(a::Samples, b::Samples)
+    return a.encoded == b.encoded &&
+           a.kind == b.kind &&
+           a.channels == b.channels &&
+           a.sample_unit == b.sample_unit &&
+           a.sample_resolution_in_unit == b.sample_resolution_in_unit &&
+           a.sample_offset_in_unit == b.sample_offset_in_unit &&
+           a.sample_type == b.sample_type &&
+           a.sample_rate == b.sample_rate &&
+           a.data == b.data
+end
 
 """
-    validate(samples::Samples)
+    validate_samples(samples::Samples)
 
 Returns `nothing`, checking that the given `samples` are valid w.r.t. the
-underlying `samples.metadata` and the Onda specification's canonical LPCM
+underlying `samples.signal` and the Onda specification's canonical LPCM
 representation. If a violation is found, an `ArgumentError` is thrown.
 
 Properties that are validated by this function include:
 
-- encoded element type matches `samples.metadata.sample_type`
+- encoded element type matches `samples.signal.sample_type`
 - the number of rows of `samples.data` matches the number of channels in `samples.signal`
 """
-function validate(samples::Samples)
-    n_channels = channel_count(samples.metadata)
+function validate_samples(samples::Samples)
+    n_channels = channel_count(samples)
     n_rows = size(samples.data, 1)
     if n_channels != n_rows
         throw(ArgumentError("number of channels in signal ($n_channels) " *
                             "does not match number of rows in data matrix " *
                             "($n_rows)"))
     end
-    if samples.encoded && !(eltype(samples.data) === samples.metadata.sample_type)
-        throw(ArgumentError("encoded `samples.data` matrix eltype does not match `samples.metadata.sample_type`"))
+    if samples.encoded && !(eltype(samples.data) === samples.sample_type)
+        throw(ArgumentError("signal and encoded data matrix have mismatched element types"))
     end
     return nothing
 end
 
 TimeSpans.istimespan(::Samples) = true
 TimeSpans.start(::Samples) = Nanosecond(0)
-TimeSpans.stop(samples::Samples) = TimeSpans.time_from_index(samples.metadata.sample_rate, size(samples.data, 2) + 1)
-
-"""
-    channel(samples::Samples, name::Symbol)
-
-Return `channel(samples.metadata, name)`.
-
-This function is useful for indexing rows of `samples.data` by channel names.
-"""
-channel(samples::Samples, name::Symbol) = channel(samples.metadata, name)
-
-"""
-    channel(samples::Samples, i::Integer)
-
-Return `channel(samples.metadata, i)`.
-"""
-channel(samples::Samples, i::Integer) = channel(samples.metadata, i)
-
-"""
-    channel_count(samples::Samples)
-
-Return `channel_count(samples.metadata)`.
-"""
-channel_count(samples::Samples) = channel_count(samples.metadata)
+TimeSpans.stop(samples::Samples) = TimeSpans.time_from_index(samples.sample_rate, size(samples.data, 2) + 1)
 
 """
     sample_count(samples::Samples)
@@ -213,8 +145,10 @@ for f in (:getindex, :view)
         @inline function Base.$f(samples::Samples, rows, columns)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
-            metadata = setproperties(samples.metadata; channels=rows isa Colon ? samples.channels : samples.channels[rows])
-            return Samples($f(samples.data, rows, columns), metadata, samples.encoded; validate=false)
+            return setproperties(samples;
+                                 data=$f(samples.data, rows, columns),
+                                 channels=rows isa Colon ? samples.channels : samples.channels[rows],
+                                 validated=false)
         end
     end
 end
@@ -235,7 +169,6 @@ function _column_arguments(samples::Samples, x)
     return _indices_fallback(_column_arguments, samples, x)
 end
 
-#=
 #####
 ##### load/store
 #####
@@ -528,4 +461,3 @@ function decode!(result_storage, samples::Samples)
     end
     return setproperties(samples; data=result_storage, encoded=false, validated=false)
 end
-=#

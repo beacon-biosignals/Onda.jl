@@ -1,27 +1,30 @@
+
+
+#=
 #####
-##### Signal <: Tables.AbstractRow
+##### SignalsRow <: Tables.AbstractRow
 #####
 
-struct Signal{R} <: Tables.AbstractRow
+struct SignalsRow{R} <: Tables.AbstractRow
     _row::R
 end
 
 const SIGNAL_FIELDS = NamedTuple{(:recording_uuid, :file_path, :file_format, :kind, :channels, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
                                   Tuple{UUID,Any,String,String,Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
 
-function Signal(; recording_uuid::UUID,
-                file_path,
-                file_format,
-                kind,
-                channels,
-                start_nanosecond,
-                stop_nanosecond,
-                sample_unit,
-                sample_resolution_in_unit,
-                sample_offset_in_unit,
-                sample_type,
-                sample_rate)
-    return Signal{SIGNAL_FIELDS}((; recording_uuid, file_path,
+function SignalsRow(; recording_uuid::UUID,
+                    file_path,
+                    file_format,
+                    kind,
+                    channels,
+                    start_nanosecond,
+                    stop_nanosecond,
+                    sample_unit,
+                    sample_resolution_in_unit,
+                    sample_offset_in_unit,
+                    sample_type,
+                    sample_rate)
+    return SignalsRow{SIGNAL_FIELDS}((; recording_uuid, file_path,
                                   file_format=String(file_format),
                                   kind=String(kind),
                                   channels=convert(Vector{String}, channels),
@@ -49,24 +52,6 @@ is_valid_signals_schema(::Tables.Schema{fieldnames(SIGNAL_FIELDS),<:Tuple{fieldt
 TimeSpans.istimespan(::Signal) = true
 TimeSpans.start(signal::Signal) = signal.start_nanosecond
 TimeSpans.stop(signal::Signal) = signal.stop_nanosecond
-
-"""
-    sample_count(signal::Signal)
-
-Return the number of multichannel samples that fit within `duration(signal)`
-given `signal.sample_rate`.
-"""
-sample_count(signal::Signal) = index_from_time(signal.sample_rate, TimeSpans.duration(signal)) - 1
-
-"""
-    sizeof_samples(signal::Signal)
-
-Returns the expected size (in bytes) of the encoded `Samples` object corresponding
-to the entirety of `signal`:
-
-    sample_count(signal) * channel_count(signal) * sizeof(signal.sample_type)
-"""
-sizeof_samples(signal::Signal) = sample_count(signal) * channel_count(signal) * sizeof(signal.sample_type)
 
 #####
 ##### Signals <: Tables.AbstractColumns
@@ -98,3 +83,4 @@ Tables.getcolumn(signals::Signals, ::Type{T}, i::Int, nm::Symbol) where {T} = Ta
 Base.show(io::IO, signals::Signals) = pretty_table(io, signals)
 
 read_signals(io_or_path; materialize::Bool=false) = Signals(read_onda_table(io_or_path; materialize))
+=#

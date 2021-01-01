@@ -10,9 +10,9 @@ using MsgPack, TranscodingStreams, CodecZstd
 #####
 
 include("utilities.jl")
-include("signals.jl")
-include("annotations.jl")
-include("lpcm.jl")
+# include("signals.jl")
+# include("annotations.jl")
+# include("lpcm.jl")
 include("samples.jl")
 
 #####
