@@ -1,4 +1,11 @@
+#####
+##### SignalsRow <: Tables.AbstractRow
+#####
 
+# struct Signal{R} <: Tables.AbstractRow
+#     NamedTuple{(:recording_uuid, :file_path, :file_format, :kind, :channels, :start_nanosecond, :stop_nanosecond, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+#                                   Tuple{UUID,Any,String,String,Vector{String},Nanosecond,Nanosecond,String,Float64,Float64,String,Float64}}
+# end
 
 #=
 

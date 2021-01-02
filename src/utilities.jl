@@ -39,21 +39,6 @@ function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
 end
 
 #####
-##### tables
-#####
-
-function table_has_supported_onda_format_version(table)
-    m = Arrow.getmetadata(table)
-    return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
-end
-
-function read_onda_table(io_or_path; materialize::Bool=false)
-    table = Arrow.Table(io_or_path)
-    table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
-    return materialize ? map(collect, Tables.columntable(table)) : table
-end
-
-#####
 ##### zstd_compress/zstd_decompress
 #####
 
@@ -100,31 +85,6 @@ function onda_sample_type_from_julia_type(T::Type)
     T === Float64 && return "float64"
     throw(ArgumentError("sample type $T is not supported by Onda"))
 end
-
-#####
-##### utility functions for values with a `channels` field
-#####
-
-"""
-    channel(x, name)
-
-Return `i` where `x.channels[i] == name`.
-"""
-channel(x, name) = findfirst(isequal(name), x.channels)
-
-"""
-    channel(x, i::Integer)
-
-Return `x.channels[i]`.
-"""
-channel(x, i::Integer) = x.channels[i]
-
-"""
-    channel_count(x)
-
-Return `length(x.channels)`.
-"""
-channel_count(x) = length(x.channels)
 
 #####
 ##### read/write/bytes/streams
