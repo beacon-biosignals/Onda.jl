@@ -20,6 +20,10 @@ function AnnotationsRow(; recording_uuid, uuid, start_nanosecond, stop_nanosecon
     return AnnotationsRow(recording_uuid, uuid, start_nanosecond, stop_nanosecond, value)
 end
 
+function AnnotationsRow(row)
+    return AnnotationsRow(row.recording_uuid, row.uuid, row.start_nanosecond, row.stop_nanosecond, row.value)
+end
+
 Tables.schema(::AbstractVector{A}) where {A<:AnnotationsRow} = Tables.Schema(fieldnames(A), fieldtypes(A))
 
 TimeSpans.istimespan(::AnnotationsRow) = true

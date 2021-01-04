@@ -163,7 +163,7 @@ struct SignalsRow{P}
     sample_rate::Float64
 end
 
-function SignalsRow(recording_uuid, file_path, file_format,
+function SignalsRow(recording_uuid, file_path::P, file_format,
                     start_nanosecond, stop_nanosecond,
                     kind, channels, sample_unit,
                     sample_resolution_in_unit,
@@ -204,6 +204,13 @@ function SignalsRow(signal::Signal; recording_uuid,
                       signal.sample_offset_in_unit,
                       signal.sample_type, signal.sample_rate)
 end
+
+SignalsRow(row) = SignalsRow(row.recording_uuid, row.file_path, row.file_format,
+                             row.start_nanosecond, row.stop_nanosecond,
+                             row.kind, row.channels, row.sample_unit,
+                             row.sample_resolution_in_unit,
+                             row.sample_offset_in_unit,
+                             row.sample_type, row.sample_rate)
 
 Tables.schema(::AbstractVector{S}) where {S<:SignalsRow} = Tables.Schema(fieldnames(S), fieldtypes(S))
 
