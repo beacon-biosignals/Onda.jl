@@ -10,21 +10,21 @@ TODO precompile issues?
 register_lpcm_format!(create_constructor) = push!(LPCM_FORMAT_REGISTRY, create_constructor)
 
 """
-format(signal::Signal; kwargs...)
+format(file_format::AbstractString, signal::Signal; kwargs...)
 
 Return `f(signal; kwargs...)` where `f` constructs the `AbstractLPCMFormat` instance that
-corresponds to `signal.file_format`. `f` is determined by matching `signal.file_format` to
-a suitable format constuctor registered via [`register_lpcm_format!`](@ref).
+corresponds to `file_format`. `f` is determined by matching `file_format` to a suitable
+format constuctor registered via [`register_lpcm_format!`](@ref).
 
 See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
 """
-function format(signal::Signal; kwargs...)
+function format(file_format::AbstractString, signal::Signal; kwargs...)
     for create_constructor in LPCM_FORMAT_REGISTRY
-        f = create_constructor(signal.file_format)
+        f = create_constructor(file_format)
         f === nothing && continue
         return f(signal; kwargs...)
     end
-    throw(ArgumentError("unrecognized file_format for signal: $signal"))
+    throw(ArgumentError("unrecognized file_format: \"$file_format\""))
 end
 
 """
@@ -33,9 +33,8 @@ end
 A type whose subtypes represents byte/stream formats that can be (de)serialized
 to/from Onda's standard interleaved LPCM representation.
 
-All subtypes of the form `F<:AbstractLPCMFormat` must support a constructor of
-the form `F(::Signal)` and overload `Onda.file_format_constructor`
-with the appropriate file extension.
+All subtypes of the form `F<:AbstractLPCMFormat` must call [`Onda.register_lpcm_format!`](@ref)
+and define an appropriate [`file_format_string`](@ref) method.
 
 See also:
 
@@ -163,6 +162,13 @@ deserialize_lpcm(format, serialize_lpcm(format, samples)) == samples
 """
 function serialize_lpcm end
 
+"""
+    file_format_string(format::AbstractLPCMFormat)
+
+Return the `String` representation of `format` to be written to the `file_format` field of a `*.signals` file.
+"""
+function file_format_string end
+
 #####
 ##### read_lpcm/write_lpcm
 #####
@@ -207,6 +213,8 @@ end
 LPCM(signal::Signal) = LPCM(length(signal.channels), signal.sample_type)
 
 register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCM : nothing)
+
+file_format_string(::LPCM) = "lpcm"
 
 function _validate_lpcm_samples(format::LPCM{S}, samples::AbstractMatrix) where {S}
     if format.channel_count != size(samples, 1)
@@ -302,6 +310,8 @@ end
 LPCMZst(signal::Signal; kwargs...) = LPCMZst(LPCM(signal); kwargs...)
 
 register_lpcm_format!(file_format -> file_format == "lpcm.zst" ? LPCMZst : nothing)
+
+file_format_string(::LPCMZst) = "lpcm.zst"
 
 function deserialize_lpcm(format::LPCMZst, bytes, args...)
     decompressed_bytes = zstd_decompress(unsafe_vec_uint8(bytes))
