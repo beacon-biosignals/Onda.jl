@@ -14,7 +14,6 @@ include("annotations.jl")
 include("signals.jl")
 include("formats.jl")
 include("samples.jl")
-include("dataset.jl")
 
 #####
 ##### upgrades/deprecations
