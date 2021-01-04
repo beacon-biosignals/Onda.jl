@@ -53,6 +53,27 @@ function read_onda_table(io_or_path; materialize::Bool=false)
     return materialize ? map(collect, Tables.columntable(table)) : table
 end
 
+function validate_schema(is_valid_schema, schema; error_on_invalid_schema::Bool=true)
+    if schema === nothing
+        message = "schema is not determinable (schema is `nothing`)"
+        if error_on_invalid_schema
+            throw(ArgumentError(message))
+        else
+            @warn message
+        end
+    elseif !is_valid_schema(schema)
+        message = "table does not have appropriate schema: $schema"
+        if error_on_invalid_schema
+            throw(ArgumentError(message))
+        else
+            @warn message
+        end
+    end
+    return nothing
+end
+
+span(row) = TimeSpan(row.start_nanosecond, row.stop_nanosecond)
+
 #####
 ##### zstd_compress/zstd_decompress
 #####

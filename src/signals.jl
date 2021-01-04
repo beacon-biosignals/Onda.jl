@@ -137,8 +137,16 @@ sizeof_samples(s::Signal, duration::Period) = sample_count(s, duration) * channe
 ##### `*.signals` table
 #####
 
-const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format, :start_nanosecond, :stop_nanosecond, :kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate)
-const SIGNALS_COLUMN_SUPERTYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,Nanosecond,Nanosecond,AbstractString,AbstractVector{<:AbstractString},AbstractString,LPCM_SAMPLE_TYPE_UNION,LPCM_SAMPLE_TYPE_UNION,AbstractString,Real}
+const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format,
+                              :start_nanosecond, :stop_nanosecond,
+                              :kind, :channels, :sample_unit,
+                              :sample_resolution_in_unit, :sample_offset_in_unit,
+                              :sample_type, :sample_rate)
+const SIGNALS_COLUMN_ACCEPTABLE_SUPERTYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,
+                                                   Nanosecond,Nanosecond,
+                                                   AbstractString,AbstractVector{<:AbstractString},AbstractString,
+                                                   LPCM_SAMPLE_TYPE_UNION,LPCM_SAMPLE_TYPE_UNION,
+                                                   AbstractString,Real}
 
 struct SignalsRow{P}
     recording_uuid::UUID
@@ -197,34 +205,17 @@ function SignalsRow(signal::Signal; recording_uuid,
                       signal.sample_type, signal.sample_rate)
 end
 
+Tables.schema(::AbstractVector{S}) where {S<:SignalsRow} = Tables.Schema(fieldnames(S), fieldtypes(S))
+
 TimeSpans.istimespan(::SignalsRow) = true
 TimeSpans.start(row::SignalsRow) = row.start_nanosecond
 TimeSpans.stop(row::SignalsRow) = row.stop_nanosecond
 
 is_valid_signals_schema(::Any) = false
-is_valid_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_COLUMN_SUPERTYPES}) = true
-
-function validate_signals_schema(schema; error_on_invalid_schema::Bool=true)
-    if schema === nothing
-        message = "schema is not determinable (schema is `nothing`)"
-        if error_on_invalid_schema
-            throw(ArgumentError(message))
-        else
-            @warn message
-        end
-    elseif !is_valid_signals_schema(schema)
-        message = "table does not have appropriate schema for `*.signals`: $schema"
-        if error_on_invalid_schema
-            throw(ArgumentError(message))
-        else
-            @warn message
-        end
-    end
-    return nothing
-end
+is_valid_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_COLUMN_ACCEPTABLE_SUPERTYPES}) = true
 
 function read_signals(io_or_path; materialize::Bool=false, error_on_invalid_schema::Bool=false)
     table = read_onda_table(io_or_path; materialize)
-    validate_signals_schema(Tables.schema(table); error_on_invalid_schema)
+    validate_schema(is_valid_signals_schema, Tables.schema(table); error_on_invalid_schema)
     return table
 end
