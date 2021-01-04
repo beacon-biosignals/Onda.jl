@@ -53,20 +53,26 @@ function read_onda_table(io_or_path; materialize::Bool=false)
     return materialize ? map(collect, Tables.columntable(table)) : table
 end
 
-function validate_schema(is_valid_schema, schema; error_on_invalid_schema::Bool=true)
+function write_onda_table(io_or_path, table; kwargs...)
+    columns = Tables.columns(table)
+    Arrow.setmetadata!(columns, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
+    Arrow.write(io_or_path, columns; kwargs...)
+    return columns
+end
+
+function validate_schema(is_valid_schema, schema; invalid_schema_error_message=nothing)
     if schema === nothing
         message = "schema is not determinable (schema is `nothing`)"
-        if error_on_invalid_schema
-            throw(ArgumentError(message))
-        else
-            @warn message
-        end
     elseif !is_valid_schema(schema)
         message = "table does not have appropriate schema: $schema"
-        if error_on_invalid_schema
-            throw(ArgumentError(message))
-        else
+    else
+        message = nothing
+    end
+    if message !== nothing
+        if invalid_schema_error_message === nothing
             @warn message
+        else
+            throw(ArgumentError(message * " | " * invalid_schema_error_message))
         end
     end
     return nothing

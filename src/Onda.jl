@@ -12,8 +12,8 @@ using MsgPack, TranscodingStreams, CodecZstd
 include("utilities.jl")
 include("annotations.jl")
 include("signals.jl")
-include("samples.jl")
 include("formats.jl")
+include("samples.jl")
 include("dataset.jl")
 
 #####
@@ -58,14 +58,10 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
         end
     end
     verbose && log("writing out onda.signals file...")
-    signals = Tables.columntable(signals)
-    Arrow.setmetadata!(signals, Dict("onda_format_version" => "v0.5.0"))
-    Arrow.write(joinpath(dataset_path, "onda.signals"), signals; compress)
+    write_signals(joinpath(dataset_path, "onda.signals"), signals; compress)
     verbose && log("onda.signals file written.")
     verbose && log("writing out onda.annotations file...")
-    annotations = Tables.columntable(annotations)
-    Arrow.setmetadata!(annotations, Dict("onda_format_version" => "v0.5.0"))
-    Arrow.write(joinpath(dataset_path, "onda.annotations"), annotations; compress)
+    write_annotations(joinpath(dataset_path, "onda.annotations"), annotations; compress)
     verbose && log("onda.annotations file written.")
     return signals, annotations
 end

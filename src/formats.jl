@@ -10,7 +10,7 @@ TODO precompile issues?
 register_lpcm_format!(create_constructor) = push!(LPCM_FORMAT_REGISTRY, create_constructor)
 
 """
-format(file_format::AbstractString, signal::Signal; kwargs...)
+    format(file_format::AbstractString, signal::Signal; kwargs...)
 
 Return `f(signal; kwargs...)` where `f` constructs the `AbstractLPCMFormat` instance that
 corresponds to `file_format`. `f` is determined by matching `file_format` to a suitable

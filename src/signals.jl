@@ -137,17 +137,6 @@ sizeof_samples(s::Signal, duration::Period) = sample_count(s, duration) * channe
 ##### `*.signals` table
 #####
 
-const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format,
-                              :start_nanosecond, :stop_nanosecond,
-                              :kind, :channels, :sample_unit,
-                              :sample_resolution_in_unit, :sample_offset_in_unit,
-                              :sample_type, :sample_rate)
-const SIGNALS_COLUMN_ACCEPTABLE_SUPERTYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,
-                                                   Nanosecond,Nanosecond,
-                                                   AbstractString,AbstractVector{<:AbstractString},AbstractString,
-                                                   LPCM_SAMPLE_TYPE_UNION,LPCM_SAMPLE_TYPE_UNION,
-                                                   AbstractString,Real}
-
 struct SignalsRow{P}
     recording_uuid::UUID
     file_path::P
@@ -212,17 +201,46 @@ SignalsRow(row) = SignalsRow(row.recording_uuid, row.file_path, row.file_format,
                              row.sample_offset_in_unit,
                              row.sample_type, row.sample_rate)
 
+
 Tables.schema(::AbstractVector{S}) where {S<:SignalsRow} = Tables.Schema(fieldnames(S), fieldtypes(S))
 
 TimeSpans.istimespan(::SignalsRow) = true
 TimeSpans.start(row::SignalsRow) = row.start_nanosecond
 TimeSpans.stop(row::SignalsRow) = row.stop_nanosecond
 
-is_valid_signals_schema(::Any) = false
-is_valid_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_COLUMN_ACCEPTABLE_SUPERTYPES}) = true
+const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format,
+                              :start_nanosecond, :stop_nanosecond,
+                              :kind, :channels, :sample_unit,
+                              :sample_resolution_in_unit, :sample_offset_in_unit,
+                              :sample_type, :sample_rate)
+
+const SIGNALS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,
+                                            Nanosecond,Nanosecond,
+                                            AbstractString,AbstractVector{<:AbstractString},AbstractString,
+                                            LPCM_SAMPLE_TYPE_UNION,LPCM_SAMPLE_TYPE_UNION,
+                                            AbstractString,Real}
+
+const SIGNALS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,String,Nanosecond,Nanosecond,
+                                            String,Vector{String},String,Float64,Float64,String,Float64}
+
+is_readable_signals_schema(::Any) = false
+is_readable_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_READABLE_COLUMN_TYPES}) = true
+
+is_writable_signals_schema(::Any) = false
+is_writable_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_WRITABLE_COLUMN_TYPES}) = true
 
 function read_signals(io_or_path; materialize::Bool=false, error_on_invalid_schema::Bool=false)
     table = read_onda_table(io_or_path; materialize)
-    validate_schema(is_valid_signals_schema, Tables.schema(table); error_on_invalid_schema)
+    invalid_schema_error_message = error_on_invalid_schema ? "schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_READABLE_COLUMN_TYPES`" : nothing
+    validate_schema(is_readable_signals_schema, Tables.schema(table); invalid_schema_error_message)
     return table
+end
+
+function write_signals(io_or_path, table; kwargs...)
+    invalid_schema_error_message = """
+                                   schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_WRITABLE_COLUMN_TYPES`.
+                                   Try calling `Onda.SignalsRow.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
+                                   """
+    validate_schema(is_writable_signals_schema, Tables.schema(table); invalid_schema_error_message)
+    return write_onda_table(io_or_path, table; kwargs...)
 end
