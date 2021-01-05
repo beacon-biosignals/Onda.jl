@@ -5,7 +5,20 @@
 const LPCM_FORMAT_REGISTRY = Any[]
 
 """
-TODO precompile issues?
+    Onda.register_lpcm_format!(create_constructor)
+
+Register an `AbstractLPCMFormat` constructor so that it can automatically be used when
+[`format`](@ref) is called. Authors of new `AbstractLPCMFormat` subtypes should call this
+function for their subtype.
+
+`create_constructor` should be a unary function that accepts a single `file_format::AbstractString`
+argument, and return either a matching `AbstractLPCMFormat` constructor or `nothing`. Any returned
+`AbstractLPCMFormat` constructor `f` should be of the form `f(signal::Signal; kwargs...)::AbstractLPCMFormat`.
+
+Note that if `Onda.register_lpcm_format!` is called in a downstream package, it must be called
+within the `__init__` function of the package's top-level module to ensure that the function
+is always invoked when the module is loaded (not just during precompilation). For details,
+see https://docs.julialang.org/en/v1/manual/modules/#Module-initialization-and-precompilation.
 """
 register_lpcm_format!(create_constructor) = push!(LPCM_FORMAT_REGISTRY, create_constructor)
 
