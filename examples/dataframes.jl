@@ -2,7 +2,7 @@
 ##### basic Onda + DataFrames patterns
 #####
 
-using Onda, DataFrames
+using Onda, DataFrames, Dates
 using Onda: span
 using TimeSpans: duration
 
@@ -17,3 +17,7 @@ Dict(k.recording_uuid => s for (k, s) in pairs(groupby(signals, :recording_uuid)
 
 # count number of signals in each recording
 combine(groupby(signals, :recording_uuid), nrow)
+
+# grab the longest signal in each recording
+combine(s -> s[argmax(duration.(span.(eachrow(s)))), :], groupby(signals, :recording_uuid))
+
