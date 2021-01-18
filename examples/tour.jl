@@ -52,7 +52,7 @@ Onda.log("`*.signals` file written at $path_to_signals_file")
 ##### basic Onda + DataFrames patterns
 #####
 
-# load a `*.signals` file into `DataFrame`
+# read a `*.signals` file into `DataFrame`
 signals = DataFrame(Onda.read_signals(path_to_signals_file))
 
 # grab all multichannel signals greater than 5 minutes long
@@ -67,6 +67,12 @@ combine(groupby(signals, :recording_uuid), nrow)
 # grab the longest signal in each recording
 combine(s -> s[argmax(duration.(span.(eachrow(s)))), :], groupby(signals, :recording_uuid))
 
-# remove a recording from the dataset
-filter!(s -> s.recording_uuid == target_uuid && (rm(s.file_path); true), signals)
+# load all sample data for a given recording
+target_uuid = rand(signals.recording_uuid)
+target_signals = view(signals, findall(==(target_uuid), signals.recording_uuid), :)
+Onda.load.(eachrow(target_signals))
 
+# delete all sample data for a given recording
+signals = copy(signals) # Arrow.jl types aren't necessarily mutable, so we `copy` here to get a mutable representation
+target_uuid = rand(signals.recording_uuid)
+filter!(s -> s.recording_uuid != target_uuid || (rm(s.file_path); false), signals)
