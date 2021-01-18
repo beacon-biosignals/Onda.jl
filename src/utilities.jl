@@ -78,7 +78,7 @@ function validate_schema(is_valid_schema, schema; invalid_schema_error_message=n
     return nothing
 end
 
-span(row) = TimeSpan(row.start_nanosecond, row.stop_nanosecond)
+span(x) = TimeSpan(x.start_nanosecond, x.stop_nanosecond)
 
 #####
 ##### zstd_compress/zstd_decompress

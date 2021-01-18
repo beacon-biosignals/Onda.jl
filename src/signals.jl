@@ -33,14 +33,14 @@ function onda_sample_type_from_julia_type(T::Type)
 end
 
 #####
-##### `Signal`
+##### `SamplesInfo`
 #####
 
-struct Signal{K<:AbstractString,
-              C<:AbstractVector{<:AbstractString},
-              U<:AbstractString,
-              T<:LPCM_SAMPLE_TYPE_UNION,
-              S<:LPCM_SAMPLE_TYPE_UNION}
+struct SamplesInfo{K<:AbstractString,
+                   C<:AbstractVector{<:AbstractString},
+                   U<:AbstractString,
+                   T<:LPCM_SAMPLE_TYPE_UNION,
+                   S<:LPCM_SAMPLE_TYPE_UNION}
     kind::K
     channels::C
     sample_unit::U
@@ -48,96 +48,96 @@ struct Signal{K<:AbstractString,
     sample_offset_in_unit::T
     sample_type::Type{S}
     sample_rate::Float64
-    function Signal(kind::K, channels::C, sample_unit::U,
-                    sample_resolution_in_unit::SRU,
-                    sample_offset_in_unit::SOU,
-                    sample_type, sample_rate;
-                    validate::Bool=Onda.validate_on_construction()) where {K,C,U,SRU,SOU}
+    function SamplesInfo(kind::K, channels::C, sample_unit::U,
+                         sample_resolution_in_unit::SRU,
+                         sample_offset_in_unit::SOU,
+                         sample_type, sample_rate;
+                         validate::Bool=Onda.validate_on_construction()) where {K,C,U,SRU,SOU}
         T = typeintersect(promote_type(SRU, SOU), LPCM_SAMPLE_TYPE_UNION)
         S = sample_type isa Type ? sample_type : julia_type_from_onda_sample_type(sample_type)
-        signal = new{K,C,U,T,S}(kind, channels, sample_unit,
+        info = new{K,C,U,T,S}(kind, channels, sample_unit,
                                 convert(T, sample_resolution_in_unit),
                                 convert(T, sample_offset_in_unit),
                                 S, convert(Float64, sample_rate))
-        validate && Onda.validate(signal)
-        return signal
+        validate && Onda.validate(info)
+        return info
     end
 end
 
-function Signal(; kind, channels, sample_unit,
-                sample_resolution_in_unit, sample_offset_in_unit,
-                sample_type, sample_rate,
-                validate::Bool=Onda.validate_on_construction())
-    return Signal(kind, channels, sample_unit,
+function SamplesInfo(; kind, channels, sample_unit,
+                     sample_resolution_in_unit, sample_offset_in_unit,
+                     sample_type, sample_rate,
+                     validate::Bool=Onda.validate_on_construction())
+    return SamplesInfo(kind, channels, sample_unit,
                   sample_resolution_in_unit, sample_offset_in_unit,
                   sample_type, sample_rate; validate)
 end
 
-function Signal(row; validate::Bool=Onda.validate_on_construction())
-    return Signal(row.kind, row.channels, row.sample_unit,
-                  row.sample_resolution_in_unit, row.sample_offset_in_unit,
-                  row.sample_type, row.sample_rate; validate)
+function SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
+    return SamplesInfo(row.kind, row.channels, row.sample_unit,
+                       row.sample_resolution_in_unit, row.sample_offset_in_unit,
+                       row.sample_type, row.sample_rate; validate)
 end
 
 """
-    validate(signal::Signal)
+    validate(info::SamplesInfo)
 
-Returns `nothing`, checking that the given `signal.sample_unit` and `signal.channels` are
+Returns `nothing`, checking that the given `info.sample_unit` and `info.channels` are
 valid w.r.t. the Onda specification. If a violation is found, an `ArgumentError` is thrown.
 """
-function validate(signal::Signal)
-    is_lower_snake_case_alphanumeric(signal.sample_unit) || throw(ArgumentError("invalid sample unit (must be lowercase/snakecase/alphanumeric): $(signal.sample_unit)"))
-    for c in signal.channel_names
+function validate(info::SamplesInfo)
+    is_lower_snake_case_alphanumeric(info.sample_unit) || throw(ArgumentError("invalid sample unit (must be lowercase/snakecase/alphanumeric): $(info.sample_unit)"))
+    for c in info.channel_names
         is_lower_snake_case_alphanumeric(c, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
     end
     return nothing
 end
 
-Base.:(==)(a::Signal, b::Signal) = all(name -> getfield(a, name) == getfield(b, name), fieldnames(Signal))
+Base.:(==)(a::SamplesInfo, b::SamplesInfo) = all(name -> getfield(a, name) == getfield(b, name), fieldnames(SamplesInfo))
 
 """
-    channel(m::Signal, name)
+    channel(info::SamplesInfo, name)
 
-Return `i` where `m.channels[i] == name`.
+Return `i` where `info.channels[i] == name`.
 """
-channel(s::Signal, name) = findfirst(isequal(name), s.channels)
-
-"""
-    channel(s::Signal, i::Integer)
-
-Return `s.channels[i]`.
-"""
-channel(s::Signal, i::Integer) = s.channels[i]
+channel(info::SamplesInfo, name) = findfirst(isequal(name), info.channels)
 
 """
-    channel_count(s::Signal)
+    channel(info::SamplesInfo, i::Integer)
 
-Return `length(s.channels)`.
+Return `info.channels[i]`.
 """
-channel_count(s::Signal) = length(s.channels)
-
-"""
-    sample_count(s::Signal, duration::Period)
-
-Return the number of multichannel samples that fit within `duration` given `s.sample_rate`.
-"""
-sample_count(s::Signal, duration::Period) = TimeSpans.index_from_time(s.sample_rate, duration) - 1
+channel(info::SamplesInfo, i::Integer) = info.channels[i]
 
 """
-    sizeof_samples(s::Signal, duration::Period)
+    channel_count(info::SamplesInfo)
 
-Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `s` and `duration`:
-
-    sample_count(s, duration) * channel_count(s) * sizeof(s.sample_type)
+Return `length(info.channels)`.
+"""
+channel_count(info::SamplesInfo) = length(info.channels)
 
 """
-sizeof_samples(s::Signal, duration::Period) = sample_count(s, duration) * channel_count(s) * sizeof(s.sample_type)
+    sample_count(info::SamplesInfo, duration::Period)
+
+Return the number of multichannel samples that fit within `duration` given `info.sample_rate`.
+"""
+sample_count(info::SamplesInfo, duration::Period) = TimeSpans.index_from_time(info.sample_rate, duration) - 1
+
+"""
+    sizeof_samples(info::SamplesInfo, duration::Period)
+
+Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `info` and `duration`:
+
+    sample_count(info, duration) * channel_count(info) * sizeof(info.sample_type)
+
+"""
+sizeof_samples(info::SamplesInfo, duration::Period) = sample_count(info, duration) * channel_count(info) * sizeof(info.sample_type)
 
 #####
 ##### `*.signals` table
 #####
 
-struct SignalsRow{P}
+struct Signal{P}
     recording_uuid::UUID
     file_path::P
     file_format::String
@@ -152,61 +152,61 @@ struct SignalsRow{P}
     sample_rate::Float64
 end
 
-function SignalsRow(recording_uuid, file_path::P, file_format,
-                    start_nanosecond, stop_nanosecond,
-                    kind, channels, sample_unit,
-                    sample_resolution_in_unit,
-                    sample_offset_in_unit,
-                    sample_type, sample_rate) where {P}
+function Signal(recording_uuid, file_path::P, file_format,
+                start_nanosecond, stop_nanosecond,
+                kind, channels, sample_unit,
+                sample_resolution_in_unit,
+                sample_offset_in_unit,
+                sample_type, sample_rate) where {P}
     recording_uuid = recording_uuid isa UUID ? recording_uuid : UUID(recording_uuid)
     sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
     file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
-    return SignalsRow{P}(recording_uuid, file_path, file_format,
-                         Nanosecond(start_nanosecond), Nanosecond(stop_nanosecond),
-                         String(kind), convert(Vector{String}, channels), String(sample_unit),
-                         convert(Float64, sample_resolution_in_unit),
-                         convert(Float64, sample_offset_in_unit),
-                         sample_type, convert(Float64, sample_rate))
+    return Signal{P}(recording_uuid, file_path, file_format,
+                     Nanosecond(start_nanosecond), Nanosecond(stop_nanosecond),
+                     String(kind), convert(Vector{String}, channels), String(sample_unit),
+                     convert(Float64, sample_resolution_in_unit),
+                     convert(Float64, sample_offset_in_unit),
+                     sample_type, convert(Float64, sample_rate))
 end
 
-function SignalsRow(; recording_uuid, file_path, file_format,
-                    start_nanosecond, stop_nanosecond,
-                    kind, channels, sample_unit,
-                    sample_resolution_in_unit,
-                    sample_offset_in_unit,
-                    sample_type, sample_rate)
-    return SignalsRow(recording_uuid, file_path, file_format,
-                      start_nanosecond, stop_nanosecond,
-                      kind, channels, sample_unit,
-                      sample_resolution_in_unit,
-                      sample_offset_in_unit,
-                      sample_type, sample_rate)
+function Signal(; recording_uuid, file_path, file_format,
+                start_nanosecond, stop_nanosecond,
+                kind, channels, sample_unit,
+                sample_resolution_in_unit,
+                sample_offset_in_unit,
+                sample_type, sample_rate)
+    return Signal(recording_uuid, file_path, file_format,
+                  start_nanosecond, stop_nanosecond,
+                  kind, channels, sample_unit,
+                  sample_resolution_in_unit,
+                  sample_offset_in_unit,
+                  sample_type, sample_rate)
 end
 
-function SignalsRow(signal::Signal; recording_uuid,
-                    file_path, file_format,
-                    start_nanosecond, stop_nanosecond)
-    return SignalsRow(; recording_uuid, file_path, file_format,
-                      start_nanosecond, stop_nanosecond,
-                      signal.kind, signal.channels, signal.sample_unit,
-                      signal.sample_resolution_in_unit,
-                      signal.sample_offset_in_unit,
-                      signal.sample_type, signal.sample_rate)
+function Signal(info::SamplesInfo; recording_uuid,
+                file_path, file_format,
+                start_nanosecond, stop_nanosecond)
+    return Signal(; recording_uuid, file_path, file_format,
+                  start_nanosecond, stop_nanosecond,
+                  info.kind, info.channels, info.sample_unit,
+                  info.sample_resolution_in_unit,
+                  info.sample_offset_in_unit,
+                  info.sample_type, info.sample_rate)
 end
 
-SignalsRow(row) = SignalsRow(row.recording_uuid, row.file_path, row.file_format,
-                             row.start_nanosecond, row.stop_nanosecond,
-                             row.kind, row.channels, row.sample_unit,
-                             row.sample_resolution_in_unit,
-                             row.sample_offset_in_unit,
-                             row.sample_type, row.sample_rate)
+Signal(x) = Signal(x.recording_uuid, x.file_path, x.file_format,
+                   x.start_nanosecond, x.stop_nanosecond,
+                   x.kind, x.channels, x.sample_unit,
+                   x.sample_resolution_in_unit,
+                   x.sample_offset_in_unit,
+                   x.sample_type, x.sample_rate)
 
 
-Tables.schema(::AbstractVector{S}) where {S<:SignalsRow} = Tables.Schema(fieldnames(S), fieldtypes(S))
+Tables.schema(::AbstractVector{S}) where {S<:Signal} = Tables.Schema(fieldnames(S), fieldtypes(S))
 
-TimeSpans.istimespan(::SignalsRow) = true
-TimeSpans.start(row::SignalsRow) = row.start_nanosecond
-TimeSpans.stop(row::SignalsRow) = row.stop_nanosecond
+TimeSpans.istimespan(::Signal) = true
+TimeSpans.start(signal::Signal) = signal.start_nanosecond
+TimeSpans.stop(signal::Signal) = signal.stop_nanosecond
 
 const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format,
                               :start_nanosecond, :stop_nanosecond,
@@ -239,7 +239,7 @@ end
 function write_signals(io_or_path, table; kwargs...)
     invalid_schema_error_message = """
                                    schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_WRITABLE_COLUMN_TYPES`.
-                                   Try calling `Onda.SignalsRow.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
+                                   Try calling `Onda.Signal.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
                                    """
     validate_schema(is_writable_signals_schema, Tables.schema(table); invalid_schema_error_message)
     return write_onda_table(io_or_path, table; kwargs...)

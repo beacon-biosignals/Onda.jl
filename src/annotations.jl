@@ -1,4 +1,4 @@
-struct AnnotationsRow{V}
+struct Annotation{V}
     recording_uuid::UUID
     uuid::UUID
     start_nanosecond::Nanosecond
@@ -6,25 +6,25 @@ struct AnnotationsRow{V}
     value::V
 end
 
-function AnnotationsRow(recording_uuid, uuid, start_nanosecond, stop_nanosecond, value::V) where {V}
+function Annotation(recording_uuid, uuid, start_nanosecond, stop_nanosecond, value::V) where {V}
     recording_uuid = recording_uuid isa UUID ? recording_uuid : UUID(recording_uuid)
     uuid = uuid isa UUID ? uuid : UUID(uuid)
-    return AnnotationsRow{V}(recording_uuid, uuid, Nanosecond(start_nanosecond), Nanosecond(stop_nanosecond), value)
+    return Annotation{V}(recording_uuid, uuid, Nanosecond(start_nanosecond), Nanosecond(stop_nanosecond), value)
 end
 
-function AnnotationsRow(; recording_uuid, uuid, start_nanosecond, stop_nanosecond, value)
-    return AnnotationsRow(recording_uuid, uuid, start_nanosecond, stop_nanosecond, value)
+function Annotation(; recording_uuid, uuid, start_nanosecond, stop_nanosecond, value)
+    return Annotation(recording_uuid, uuid, start_nanosecond, stop_nanosecond, value)
 end
 
-function AnnotationsRow(row)
-    return AnnotationsRow(row.recording_uuid, row.uuid, row.start_nanosecond, row.stop_nanosecond, row.value)
+function Annotation(x)
+    return Annotation(x.recording_uuid, x.uuid, x.start_nanosecond, x.stop_nanosecond, x.value)
 end
 
-Tables.schema(::AbstractVector{A}) where {A<:AnnotationsRow} = Tables.Schema(fieldnames(A), fieldtypes(A))
+Tables.schema(::AbstractVector{A}) where {A<:Annotation} = Tables.Schema(fieldnames(A), fieldtypes(A))
 
-TimeSpans.istimespan(::AnnotationsRow) = true
-TimeSpans.start(row::AnnotationsRow) = row.start_nanosecond
-TimeSpans.stop(row::AnnotationsRow) = row.stop_nanosecond
+TimeSpans.istimespan(::Annotation) = true
+TimeSpans.start(x::Annotation) = x.start_nanosecond
+TimeSpans.stop(x::Annotation) = x.stop_nanosecond
 
 const ANNOTATIONS_COLUMN_NAMES = (:recording_uuid, :uuid, :start_nanosecond, :stop_nanosecond, :value)
 
@@ -43,7 +43,7 @@ end
 function write_annotations(io_or_path, table; kwargs...)
     invalid_schema_error_message = """
                                    schema must have names matching `Onda.ANNOTATIONS_COLUMN_NAMES` and types matching `Onda.ANNOTATIONS_COLUMN_TYPES`.
-                                   Try calling `Onda.AnnotationsRow.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
+                                   Try calling `Onda.Annotation.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
                                    """
     validate_schema(is_valid_annotations_schema, Tables.schema(table); invalid_schema_error_message)
     return write_onda_table(io_or_path, table; kwargs...)
