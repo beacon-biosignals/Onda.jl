@@ -1,3 +1,5 @@
+log(message) = println(now(), " | ", message)
+
 #####
 ##### validation
 #####

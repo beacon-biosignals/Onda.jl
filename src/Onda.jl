@@ -19,8 +19,6 @@ include("samples.jl")
 ##### upgrades/deprecations
 #####
 
-log(message) = println(now(), " | ", message)
-
 function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
                                                 verbose=true,
                                                 compress=nothing,

@@ -8,20 +8,18 @@
 # before and/or alongside the completion of this tour.
 
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
-using Onda: Signal, SignalsRow, Samples, span
+using Onda: Signal, SamplesInfo, Samples, span, channel_count, sample_count
 using TimeSpans: duration
 
 #####
 ##### generate some mock data
 #####
 
-saws(signal) = [(j + i) % 100 * signal.sample_resolution_in_unit for
-                i in 1:channel_count(signal), j in 1:sample_count(signal)]
+saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
+                        i in 1:channel_count(info), j in 1:sample_count(info, duration)]
 
 root = mktempdir()
-path_to_signals_file = joinpath(root, "test.signals")
-signals = SignalsRow{String}[]
-
+signals = Signal{String}[]
 for recording_uuid in (uuid4() for _ in 1:10)
     for (kind, channels) in ("eeg" => ["fp1", "f3", "c3", "p3",
                                        "f7", "t3", "t5", "o1",
@@ -30,26 +28,25 @@ for recording_uuid in (uuid4() for _ in 1:10)
                                        "f8", "t4", "t6", "o2"],
                              "ecg" => ["avl", "avr"],
                              "spo2" => ["spo2"])
-        start_nanosecond = Nanosecond(Minute(rand(0:10)))
-        stop_nanosecond = start_nanosecond + Nanosecond(Minute(rand(0:10)))
         file_format = rand(("lpcm", "lpcm.zst"))
-        row = SignalsRow(; recording_uuid,
-                         file_path=joinpath(root, string(recording_uuid, "_", kind, ".", file_format)),
-                         file_format,
-                         start_nanosecond,
-                         stop_nanosecond,
-                         kind, channels,
-                         sample_unit="microvolt",
-                         sample_resolution_in_unit=rand((0.25, 1)),
-                         sample_offset_in_unit=rand((-1, 0, 1)),
-                         sample_type=rand((Float32, Int16, Int32)),
-                         sample_rate=rand((128, 256, 143.5)))
-        signal = Signal(row)
-        samples = Samples(saws(signal), signal, true)
-        push!(signals_rows, row)
+        file_path = joinpath(root, string(recording_uuid, "_", kind, ".", file_format))
+        Onda.log("generating $file_path...")
+        info = SamplesInfo(; kind, channels,
+                           sample_unit="microvolt",
+                           sample_resolution_in_unit=rand((0.25, 1)),
+                           sample_offset_in_unit=rand((-1, 0, 1)),
+                           sample_type=rand((Float32, Int16, Int32)),
+                           sample_rate=rand((128, 256, 143.5)))
+        data = saws(info, Nanosecond(Minute(rand(1:10))))
+        samples = Samples(data, info, false)
+        start_nanosecond = Nanosecond(Minute(rand(0:10)))
+        signal = Onda.store(recording_uuid, file_path, file_format, start_nanosecond, samples)
+        push!(signals, signal)
     end
 end
+path_to_signals_file = joinpath(root, "test.signals")
 Onda.write_signals(path_to_signals_file, signals)
+Onda.log("`*.signals` file written at $path_to_signals_file")
 
 #####
 ##### basic Onda + DataFrames patterns

@@ -78,13 +78,13 @@ TimeSpans.start(::Samples) = Nanosecond(0)
 TimeSpans.stop(samples::Samples) = TimeSpans.time_from_index(samples.info.sample_rate, size(samples.data, 2) + 1)
 
 """
-    channel(samples::Samples, name::Symbol)
+    channel(samples::Samples, name)
 
 Return `channel(samples.info, name)`.
 
 This function is useful for indexing rows of `samples.data` by channel names.
 """
-channel(samples::Samples, name::Symbol) = channel(samples.info, name)
+channel(samples::Samples, name) = channel(samples.info, name)
 
 """
     channel(samples::Samples, i::Integer)
@@ -116,7 +116,8 @@ for f in (:getindex, :view)
         @inline function Base.$f(samples::Samples, rows, columns)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
-            info = setproperties(samples.info; channels=rows isa Colon ? samples.channels : samples.channels[rows])
+            channels = rows isa Colon ? samples.info.channels : samples.info.channels[rows]
+            info = setproperties(samples.info; channels)
             return Samples($f(samples.data, rows, columns), info, samples.encoded; validate=false)
         end
     end
@@ -136,7 +137,7 @@ _row_arguments(samples::Samples, name::AbstractString) = channel(samples, name)
 column_arguments(samples::Samples, x) = _rangify(_column_arguments(samples, x))
 
 function _column_arguments(samples::Samples, x)
-    TimeSpans.istimespan(x) && return TimeSpans.index_from_time(samples.sample_rate, TimeSpan(x))
+    TimeSpans.istimespan(x) && return TimeSpans.index_from_time(samples.info.sample_rate, TimeSpan(x))
     return _indices_fallback(_column_arguments, samples, x)
 end
 
@@ -204,7 +205,7 @@ then this function will simply return `sample_data` directly without copying/dit
 """
 function encode(::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
                 sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
-    if (sample_type === eltype(sample_data) &&
+    if (S === eltype(sample_data) &&
         sample_resolution_in_unit == 1 &&
         sample_offset_in_unit == 0)
         return sample_data
@@ -241,7 +242,7 @@ end
 
 function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
                  sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
-    if (sample_type === eltype(sample_data) &&
+    if (S === eltype(sample_data) &&
         sample_resolution_in_unit == 1 &&
         sample_offset_in_unit == 0)
         copyto!(result_storage, sample_data)
@@ -424,9 +425,65 @@ end
 """
 TODO
 """
-function store(recording_uuid, file_path, file_format, samples::Samples; kwargs...)
-    signal = Signal(samples.info; recording_uuid, file_path, file_format)
-    lpcm_format = file_format isa AbstractLPCMFormat ? file_format : format(file_format, info; kwargs...)
-    write_lpcm(file_path, encode(samples).data, lpcm_format)
+function store(recording_uuid, file_path, file_format, start_nanosecond, samples::Samples; kwargs...)
+    signal = Signal(samples.info; recording_uuid, file_path, file_format, start_nanosecond,
+                    stop_nanosecond=(start_nanosecond + TimeSpans.duration(samples)))
+    write_lpcm(file_path,
+               file_format isa AbstractLPCMFormat ? file_format : format(file_format, samples.info; kwargs...),
+               encode(samples).data)
     return signal
+end
+
+#####
+##### pretty printing
+#####
+
+#####
+##### utilities
+#####
+
+function channel_names_string(channel_names)
+    return string('[', join(map(repr, channel_names), ", "), ']')
+end
+
+function nanosecond_to_periods(ns::Integer)
+    μs, ns = divrem(ns, 1000)
+    ms, μs = divrem(μs, 1000)
+    s, ms = divrem(ms, 1000)
+    m, s = divrem(s, 60)
+    hr, m = divrem(m, 60)
+    return (hr, m, s, ms, μs, ns)
+end
+
+format_duration(t::Period) = format_duration(convert(Nanosecond, t).value)
+
+function format_duration(ns::Integer)
+    hr, m, s, ms, μs, ns = nanosecond_to_periods(ns)
+    hr = lpad(hr, 2, '0')
+    m = lpad(m, 2, '0')
+    s = lpad(s, 2, '0')
+    ms = lpad(ms, 3, '0')
+    μs = lpad(μs, 3, '0')
+    ns = lpad(ns, 3, '0')
+    return string(hr, ':', m, ':', s, '.', ms, μs, ns)
+end
+
+function Base.show(io::IO, samples::Samples)
+    if get(io, :compact, false)
+        print(io, "Samples(", summary(samples.data), ')')
+    else
+        duration_in_seconds = size(samples.data, 2) / samples.info.sample_rate
+        duration_in_nanoseconds = round(Int, duration_in_seconds * 1_000_000_000)
+        println(io, "Samples (", format_duration(duration_in_nanoseconds), "):")
+        println(io, "  info.kind: ", samples.info.kind)
+        println(io, "  info.channels: ", channel_names_string(samples.info.channels))
+        println(io, "  info.sample_unit: ", repr(samples.info.sample_unit))
+        println(io, "  info.sample_resolution_in_unit: ", samples.info.sample_resolution_in_unit)
+        println(io, "  info.sample_offset_in_unit: ", samples.info.sample_offset_in_unit)
+        println(io, "  info.sample_type: ", samples.info.sample_type)
+        println(io, "  info.sample_rate: ", samples.info.sample_rate, " Hz")
+        println(io, "  encoded: ", samples.encoded)
+        println(io, "  data:")
+        show(io, "text/plain", samples.data)
+    end
 end

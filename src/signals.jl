@@ -87,7 +87,7 @@ valid w.r.t. the Onda specification. If a violation is found, an `ArgumentError`
 """
 function validate(info::SamplesInfo)
     is_lower_snake_case_alphanumeric(info.sample_unit) || throw(ArgumentError("invalid sample unit (must be lowercase/snakecase/alphanumeric): $(info.sample_unit)"))
-    for c in info.channel_names
+    for c in info.channels
         is_lower_snake_case_alphanumeric(c, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
     end
     return nothing
@@ -161,8 +161,9 @@ function Signal(recording_uuid, file_path::P, file_format,
     recording_uuid = recording_uuid isa UUID ? recording_uuid : UUID(recording_uuid)
     sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
     file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
+    timespan = TimeSpan(start_nanosecond, stop_nanosecond)
     return Signal{P}(recording_uuid, file_path, file_format,
-                     Nanosecond(start_nanosecond), Nanosecond(stop_nanosecond),
+                     TimeSpans.start(timespan), TimeSpans.stop(timespan),
                      String(kind), convert(Vector{String}, channels), String(sample_unit),
                      convert(Float64, sample_resolution_in_unit),
                      convert(Float64, sample_offset_in_unit),
