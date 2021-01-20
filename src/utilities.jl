@@ -80,7 +80,7 @@ function validate_schema(is_valid_schema, schema; invalid_schema_error_message=n
     return nothing
 end
 
-function _locations(collections::NTuple{N}) where {N}
+function locations(collections::NTuple{N}) where {N}
     K = promote_type(eltype.(collections)...)
     results = Dict{K,NTuple{N,Vector{Int}}}()
     for (c, collection) in enumerate(collections)
@@ -91,15 +91,15 @@ function _locations(collections::NTuple{N}) where {N}
     return results
 end
 
-function _index_by(tables::NTuple{N}, name) where {N}
+function by_column(tables::NTuple{N}, name) where {N}
     cols = ntuple(i -> Tables.getcolumn(tables[i], name), N)
-    return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in _locations(cols))
+    return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in locations(cols))
 end
 
 """
 TODO
 """
-by_recording(tables...) = _index_by(tables, :recording_uuid)::Dict{UUID}
+by_recording(tables...) = by_column(tables, :recording_uuid)::Dict{UUID}
 
 """
 TODO
