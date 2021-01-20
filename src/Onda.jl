@@ -38,8 +38,8 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
                                       file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
                                       kind,
                                       channels=signal["channel_names"],
-                                      start_nanosecond=signal["start_nanosecond"],
-                                      stop_nanosecond=signal["stop_nanosecond"],
+                                      start=signal["start"],
+                                      stop=signal["stop"],
                                       sample_unit=signal["sample_unit"],
                                       sample_resolution_in_unit=signal["sample_resolution_in_unit"],
                                       sample_offset_in_unit=signal["sample_offset_in_unit"],
@@ -49,8 +49,8 @@ function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
         for ann in recording["annotations"]
             push!(annotations, AnnotationsRow(; recording_uuid,
                                               uuid=uuid_from_annotation(ann),
-                                              start_nanosecond=ann["start_nanosecond"],
-                                              stop_nanosecond=ann["stop_nanosecond"],
+                                              start=ann["start"],
+                                              stop=ann["stop"],
                                               value=ann["value"]))
         end
     end

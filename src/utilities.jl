@@ -80,7 +80,31 @@ function validate_schema(is_valid_schema, schema; invalid_schema_error_message=n
     return nothing
 end
 
-span(x) = TimeSpan(x.start_nanosecond, x.stop_nanosecond)
+function _locations(collections::NTuple{N}) where {N}
+    K = promote_type(eltype.(collections)...)
+    results = Dict{K,NTuple{N,Vector{Int}}}()
+    for (c, collection) in enumerate(collections)
+        for (i, item) in enumerate(collection)
+            push!(get!(() -> ntuple(_ -> Int[], N), results, item)[c], i)
+        end
+    end
+    return results
+end
+
+function _index_by(tables::NTuple{N}, name) where {N}
+    cols = ntuple(i -> Tables.getcolumn(tables[i], name), N)
+    return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in _locations(cols))
+end
+
+"""
+TODO
+"""
+by_recording(tables...) = _index_by(tables, :recording_uuid)::Dict{UUID}
+
+"""
+TODO
+"""
+span(x) = TimeSpan(x.start, x.stop)
 
 #####
 ##### zstd_compress/zstd_decompress

@@ -425,9 +425,9 @@ end
 """
 TODO
 """
-function store(recording_uuid, file_path, file_format, start_nanosecond, samples::Samples; kwargs...)
-    signal = Signal(samples.info; recording_uuid, file_path, file_format, start_nanosecond,
-                    stop_nanosecond=(start_nanosecond + TimeSpans.duration(samples)))
+function store(recording_uuid, file_path, file_format, start, samples::Samples; kwargs...)
+    signal = Signal(samples.info; recording_uuid, file_path, file_format, start,
+                    stop=(Nanosecond(start) + TimeSpans.duration(samples)))
     write_lpcm(file_path,
                file_format isa AbstractLPCMFormat ? file_format : format(file_format, samples.info; kwargs...),
                encode(samples).data)
@@ -436,10 +436,6 @@ end
 
 #####
 ##### pretty printing
-#####
-
-#####
-##### utilities
 #####
 
 function channel_names_string(channel_names)

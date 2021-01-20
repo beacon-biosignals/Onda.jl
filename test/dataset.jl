@@ -236,20 +236,20 @@ end
         @test string(uuid) == first(keys(new_customs)) == first(keys(old_recordings))
         @test first(values(new_customs)) == old_recording["custom"]
         sorted_annotations = sort(collect(recording.annotations); by=first)
-        sorted_old_annotations = sort(old_recording["annotations"]; by=(x -> x["start_nanosecond"]))
+        sorted_old_annotations = sort(old_recording["annotations"]; by=(x -> x["start"]))
         @test length(sorted_annotations) == length(sorted_old_annotations)
         for (ann, old_ann) in zip(sorted_annotations, sorted_old_annotations)
             @test ann.value == string(old_ann["key"], '.', old_ann["value"])
-            @test ann.start_nanosecond.value == old_ann["start_nanosecond"]
-            @test ann.stop_nanosecond.value == old_ann["stop_nanosecond"]
+            @test ann.start.value == old_ann["start"]
+            @test ann.stop.value == old_ann["stop"]
         end
         old_signals = old_recording["signals"]
         @test keys(recording.signals) == Set(Symbol.(keys(old_signals)))
         for (signal_name, signal) in recording.signals
             old_signal = old_signals[string(signal_name)]
             @test signal.channel_names == Symbol.(old_signal["channel_names"])
-            @test signal.start_nanosecond == Nanosecond(0)
-            @test signal.stop_nanosecond == Nanosecond(old_recording["duration_in_nanoseconds"])
+            @test signal.start == Nanosecond(0)
+            @test signal.stop == Nanosecond(old_recording["duration_in_nanoseconds"])
             @test signal.sample_unit == Symbol(old_signal["sample_unit"])
             @test signal.sample_resolution_in_unit == old_signal["sample_resolution_in_unit"]
             @test signal.sample_offset_in_unit == 0.0
@@ -263,8 +263,8 @@ end
 
 @testset "validate_on_construction" begin
     signal = Signal(channel_names=[:a, :b, :c],
-                    start_nanosecond=Nanosecond(1000),
-                    stop_nanosecond=Nanosecond(11000),
+                    start=Nanosecond(1000),
+                    stop=Nanosecond(11000),
                     sample_unit=:microvolt,
                     sample_resolution_in_unit=1.0,
                     sample_offset_in_unit=0.0,
@@ -273,7 +273,7 @@ end
                     file_extension=:lpcm,
                     file_options=nothing)
     @test Onda.validate_on_construction()
-    @test_throws ArgumentError signal_from_template(signal; start_nanosecond=Nanosecond(12000))
+    @test_throws ArgumentError signal_from_template(signal; start=Nanosecond(12000))
     @test_throws ArgumentError signal_from_template(signal; sample_unit=Symbol("Ha Ha"))
     @test_throws ArgumentError signal_from_template(signal; sample_type=Complex{Float64})
     @test_throws ArgumentError signal_from_template(signal; channel_names=[Symbol("Ha Ha")])
@@ -281,13 +281,13 @@ end
     @test_throws ArgumentError Samples(signal, true, rand(Int32, 3, 10))
 
     Onda.validate_on_construction() = false
-    @test signal_from_template(signal; start_nanosecond=Nanosecond(12000)) isa Signal
+    @test signal_from_template(signal; start=Nanosecond(12000)) isa Signal
     @test signal_from_template(signal; sample_unit=Symbol("Ha Ha")) isa Signal
     @test signal_from_template(signal; sample_type=Complex{Float64}) isa Signal
     @test signal_from_template(signal; channel_names=[Symbol("Ha Ha")]) isa Signal
     @test Samples(signal, false, rand(4, 10)) isa Samples
     @test Samples(signal, true, rand(Int32, 3, 10)) isa Samples
-    @test_throws ArgumentError validate_signal(signal_from_template(signal; start_nanosecond=Nanosecond(12000)))
+    @test_throws ArgumentError validate_signal(signal_from_template(signal; start=Nanosecond(12000)))
     @test_throws ArgumentError validate_signal(signal_from_template(signal; sample_unit=Symbol("Ha Ha")))
     @test_throws ArgumentError validate_signal(signal_from_template(signal; sample_type=Complex{Float64}))
     @test_throws ArgumentError validate_signal(signal_from_template(signal; channel_names=[Symbol("Ha Ha")]))
@@ -295,7 +295,7 @@ end
     @test_throws ArgumentError validate_samples(Samples(signal, true, rand(Int32, 3, 10)))
 
     Onda.validate_on_construction() = true
-    @test_throws ArgumentError signal_from_template(signal; start_nanosecond=Nanosecond(12000))
+    @test_throws ArgumentError signal_from_template(signal; start=Nanosecond(12000))
     @test_throws ArgumentError signal_from_template(signal; sample_unit=Symbol("Ha Ha"))
     @test_throws ArgumentError signal_from_template(signal; sample_type=Complex{Float64})
     @test_throws ArgumentError signal_from_template(signal; channel_names=[Symbol("Ha Ha")])

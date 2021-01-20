@@ -36,6 +36,9 @@ end
 ##### `SamplesInfo`
 #####
 
+"""
+TODO
+"""
 struct SamplesInfo{K<:AbstractString,
                    C<:AbstractVector{<:AbstractString},
                    U<:AbstractString,
@@ -69,8 +72,8 @@ function SamplesInfo(; kind, channels, sample_unit,
                      sample_type, sample_rate,
                      validate::Bool=Onda.validate_on_construction())
     return SamplesInfo(kind, channels, sample_unit,
-                  sample_resolution_in_unit, sample_offset_in_unit,
-                  sample_type, sample_rate; validate)
+                       sample_resolution_in_unit, sample_offset_in_unit,
+                       sample_type, sample_rate; validate)
 end
 
 function SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
@@ -137,12 +140,15 @@ sizeof_samples(info::SamplesInfo, duration::Period) = sample_count(info, duratio
 ##### `*.signals` table
 #####
 
+"""
+TODO
+"""
 struct Signal{P}
     recording_uuid::UUID
     file_path::P
     file_format::String
-    start_nanosecond::Nanosecond
-    stop_nanosecond::Nanosecond
+    start::Nanosecond
+    stop::Nanosecond
     kind::String
     channels::Vector{String}
     sample_unit::String
@@ -152,16 +158,13 @@ struct Signal{P}
     sample_rate::Float64
 end
 
-function Signal(recording_uuid, file_path::P, file_format,
-                start_nanosecond, stop_nanosecond,
-                kind, channels, sample_unit,
-                sample_resolution_in_unit,
-                sample_offset_in_unit,
-                sample_type, sample_rate) where {P}
+function Signal(recording_uuid, file_path::P, file_format, start, stop,
+                kind, channels, sample_unit, sample_resolution_in_unit,
+                sample_offset_in_unit, sample_type, sample_rate) where {P}
     recording_uuid = recording_uuid isa UUID ? recording_uuid : UUID(recording_uuid)
     sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
     file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
-    timespan = TimeSpan(start_nanosecond, stop_nanosecond)
+    timespan = TimeSpan(start, stop)
     return Signal{P}(recording_uuid, file_path, file_format,
                      TimeSpans.start(timespan), TimeSpans.stop(timespan),
                      String(kind), convert(Vector{String}, channels), String(sample_unit),
@@ -170,56 +173,37 @@ function Signal(recording_uuid, file_path::P, file_format,
                      sample_type, convert(Float64, sample_rate))
 end
 
-function Signal(; recording_uuid, file_path, file_format,
-                start_nanosecond, stop_nanosecond,
-                kind, channels, sample_unit,
-                sample_resolution_in_unit,
-                sample_offset_in_unit,
-                sample_type, sample_rate)
-    return Signal(recording_uuid, file_path, file_format,
-                  start_nanosecond, stop_nanosecond,
-                  kind, channels, sample_unit,
-                  sample_resolution_in_unit,
-                  sample_offset_in_unit,
-                  sample_type, sample_rate)
+function Signal(; recording_uuid, file_path, file_format, start, stop,
+                kind, channels, sample_unit, sample_resolution_in_unit,
+                sample_offset_in_unit, sample_type, sample_rate)
+    return Signal(recording_uuid, file_path, file_format, start, stop,
+                  kind, channels, sample_unit, sample_resolution_in_unit,
+                  sample_offset_in_unit, sample_type, sample_rate)
 end
 
-function Signal(info::SamplesInfo; recording_uuid,
-                file_path, file_format,
-                start_nanosecond, stop_nanosecond)
-    return Signal(; recording_uuid, file_path, file_format,
-                  start_nanosecond, stop_nanosecond,
-                  info.kind, info.channels, info.sample_unit,
-                  info.sample_resolution_in_unit,
-                  info.sample_offset_in_unit,
-                  info.sample_type, info.sample_rate)
+function Signal(info::SamplesInfo; recording_uuid, file_path, file_format, start, stop)
+    return Signal(; recording_uuid, file_path, file_format, start, stop,
+                  info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
+                  info.sample_offset_in_unit, info.sample_type, info.sample_rate)
 end
 
-Signal(x) = Signal(x.recording_uuid, x.file_path, x.file_format,
-                   x.start_nanosecond, x.stop_nanosecond,
-                   x.kind, x.channels, x.sample_unit,
-                   x.sample_resolution_in_unit,
-                   x.sample_offset_in_unit,
-                   x.sample_type, x.sample_rate)
-
+Signal(x) = Signal(x.recording_uuid, x.file_path, x.file_format, x.start, x.stop,
+                   x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit,
+                   x.sample_offset_in_unit, x.sample_type, x.sample_rate)
 
 Tables.schema(::AbstractVector{S}) where {S<:Signal} = Tables.Schema(fieldnames(S), fieldtypes(S))
 
 TimeSpans.istimespan(::Signal) = true
-TimeSpans.start(signal::Signal) = signal.start_nanosecond
-TimeSpans.stop(signal::Signal) = signal.stop_nanosecond
+TimeSpans.start(signal::Signal) = signal.start
+TimeSpans.stop(signal::Signal) = signal.stop
 
-const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format,
-                              :start_nanosecond, :stop_nanosecond,
-                              :kind, :channels, :sample_unit,
-                              :sample_resolution_in_unit, :sample_offset_in_unit,
-                              :sample_type, :sample_rate)
+const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format, :start, :stop,
+                              :kind, :channels, :sample_unit, :sample_resolution_in_unit,
+                              :sample_offset_in_unit, :sample_type, :sample_rate)
 
-const SIGNALS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,
-                                            Nanosecond,Nanosecond,
-                                            AbstractString,AbstractVector{<:AbstractString},AbstractString,
-                                            LPCM_SAMPLE_TYPE_UNION,LPCM_SAMPLE_TYPE_UNION,
-                                            AbstractString,Real}
+const SIGNALS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,Period,Period,
+                                            AbstractString,AbstractVector{<:AbstractString},AbstractString,LPCM_SAMPLE_TYPE_UNION,
+                                            LPCM_SAMPLE_TYPE_UNION,AbstractString,Real}
 
 const SIGNALS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,String,Nanosecond,Nanosecond,
                                             String,Vector{String},String,Float64,Float64,String,Float64}
@@ -230,6 +214,9 @@ is_readable_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_READAB
 is_writable_signals_schema(::Any) = false
 is_writable_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_WRITABLE_COLUMN_TYPES}) = true
 
+"""
+TODO
+"""
 function read_signals(io_or_path; materialize::Bool=false, error_on_invalid_schema::Bool=false)
     table = read_onda_table(io_or_path; materialize)
     invalid_schema_error_message = error_on_invalid_schema ? "schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_READABLE_COLUMN_TYPES`" : nothing
@@ -237,6 +224,9 @@ function read_signals(io_or_path; materialize::Bool=false, error_on_invalid_sche
     return table
 end
 
+"""
+TODO
+"""
 function write_signals(io_or_path, table; kwargs...)
     invalid_schema_error_message = """
                                    schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_WRITABLE_COLUMN_TYPES`.

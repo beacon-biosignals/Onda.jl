@@ -8,8 +8,8 @@ using Test, Onda, Dates, Random, UUIDs
     @test sprint(show, signal) == """
                                   Signal:
                                     channel_names: [:a, :b, Symbol(\"c-d\")]
-                                    start_nanosecond: 3 nanoseconds (00:00:00.000000003)
-                                    stop_nanosecond: 12345000000000 nanoseconds (03:25:45.000000000)
+                                    start: 3 nanoseconds (00:00:00.000000003)
+                                    stop: 12345000000000 nanoseconds (03:25:45.000000000)
                                     sample_unit: :unit
                                     sample_resolution_in_unit: 0.25
                                     sample_offset_in_unit: -0.5
@@ -23,8 +23,8 @@ using Test, Onda, Dates, Random, UUIDs
     @test sprint(show, samples) == """
                                    Samples (00:00:00.099601594):
                                      signal.channel_names: [:a, :b, Symbol(\"c-d\")]
-                                     signal.start_nanosecond: 3 nanoseconds (00:00:00.000000003)
-                                     signal.stop_nanosecond: 12345000000000 nanoseconds (03:25:45.000000000)
+                                     signal.start: 3 nanoseconds (00:00:00.000000003)
+                                     signal.stop: 12345000000000 nanoseconds (03:25:45.000000000)
                                      signal.sample_unit: :unit
                                      signal.sample_resolution_in_unit: 0.25
                                      signal.sample_offset_in_unit: -0.5
