@@ -22,9 +22,9 @@ include("samples.jl")
 function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
                                                 verbose=true,
                                                 compress=nothing,
-                                                uuid_from_annotation = _ -> uuid4(),
-                                                signal_file_path = (uuid, kind, ext) -> joinpath("samples", string(uuid), kind * "." * ext),
-                                                signal_file_format = (ext, opts) -> ext)
+                                                uuid_from_annotation=(_ -> uuid4()),
+                                                signal_file_path=((uuid, kind, ext) -> joinpath("samples", string(uuid), kind * "." * ext)),
+                                                signal_file_format=((ext, opts) -> ext))
     raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
     v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
     signals = SignalsRow{String}[]
