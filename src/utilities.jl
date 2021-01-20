@@ -1,4 +1,4 @@
-log(message) = println(now(), " | ", message)
+log(message) = @info "$(now()) | $message"
 
 #####
 ##### validation
