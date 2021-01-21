@@ -9,7 +9,7 @@
 # purpose/structure of the format.
 
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
-using Onda: Annotation, Signal, SamplesInfo, Samples, span, channel_count, sample_count
+using Onda: Annotation, Signal, SamplesInfo, Samples, channel_count, sample_count
 using TimeSpans: duration
 
 #####
@@ -33,7 +33,7 @@ Onda specification, these entities are:
 
 Signals and annotations are serialized as Arrow tables, while each sample data file is serialized to
 the file format specified by its corresponding signal's metadata. A "recording" is simply the collection
-of signals and annotations that share a common `recording_uuid` field.
+of signals and annotations that share a common `recording` field.
 
 Below, we generate a bunch of signals/annotations across 10 recordings, writing the corresponding
 Arrow tables and sample data files to a temporary directory.
@@ -45,8 +45,8 @@ saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
 root = mktempdir()
 
 signals = Signal{String}[]
-signals_recording_uuids = [uuid4() for _ in 1:10]
-for recording_uuid in signals_recording_uuids
+signals_recordings = [uuid4() for _ in 1:10]
+for recording in signals_recordings
     for (kind, channels) in ("eeg" => ["fp1", "f3", "c3", "p3",
                                        "f7", "t3", "t5", "o1",
                                        "fz", "cz", "pz",
@@ -55,7 +55,7 @@ for recording_uuid in signals_recording_uuids
                              "ecg" => ["avl", "avr"],
                              "spo2" => ["spo2"])
         file_format = rand(("lpcm", "lpcm.zst"))
-        file_path = joinpath(root, string(recording_uuid, "_", kind, ".", file_format))
+        file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
         Onda.log("generating $file_path...")
         info = SamplesInfo(; kind, channels,
                            sample_unit="microvolt",
@@ -66,7 +66,7 @@ for recording_uuid in signals_recording_uuids
         data = saws(info, Minute(rand(1:10)))
         samples = Samples(data, info, false)
         start = Minute(rand(0:10))
-        signal = Onda.store(recording_uuid, file_path, file_format, start, samples)
+        signal = Onda.store(recording, file_path, file_format, start, samples)
         push!(signals, signal)
     end
 end
@@ -76,12 +76,11 @@ Onda.log("`*.signals` file written at $path_to_signals_file")
 
 annotations = Annotation{NamedTuple{(:a, :b, :source),Tuple{Int64,String,UUID}}}[]
 sources = (uuid4(), uuid4(), uuid4())
-annotations_recording_uuids = vcat(signals_recording_uuids[1:end-1], uuid4()) # overlapping but not equal to signals_recording_uuids
-for recording_uuid in annotations_recording_uuids
+annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
+for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:600))
-        stop = start + Second(rand(1:30))
-        annotation = Annotation(recording_uuid, uuid4(), start, stop,
+        annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30))),
                                 (a=rand(1:100), b=rand(("good", "bad")), source=rand(sources)))
         push!(annotations,  annotation)
     end
@@ -109,37 +108,39 @@ signals = DataFrame(Onda.read_signals(path_to_signals_file))
 annotations = DataFrame(Onda.read_annotations(path_to_annotations_file))
 
 # grab all multichannel signals greater than 5 minutes long
-filter(s -> length(s.channels) > 1 && duration(span(s)) > Minute(5), signals)
+filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
 
-# get signal by recording_uuid
-target_uuid = rand(signals.recording_uuid)
-view(signals, findall(==(target_uuid), signals.recording_uuid), :)
+# get signal by recording
+target = rand(signals.recording)
+view(signals, findall(==(target), signals.recording), :)
 
-# group/index signals by recording_uuid
-target_uuid = rand(signals.recording_uuid)
-grouped = groupby(signals, :recording_uuid)
-grouped[(; recording_uuid=target_uuid)]
+# group/index signals by recording
+target = rand(signals.recording)
+grouped = groupby(signals, :recording)
+grouped[(; recording=target)]
 
-# group/index signals + annotations by recording_uuid
-Onda.by_recording(signals, annotations)
+# group/index signals + annotations by recording
+target = rand(signals.recording)
+dict = Onda.by_column(:recording, signals, annotations)
+dict[target]
 
 # count number of signals in each recording
-combine(groupby(signals, :recording_uuid), nrow)
+combine(groupby(signals, :recording), nrow)
 
 # grab the longest signal in each recording
-combine(s -> s[argmax(duration.(span.(eachrow(s)))), :], groupby(signals, :recording_uuid))
+combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
 
 # load all sample data for a given recording
-target_uuid = rand(signals.recording_uuid)
-target_signals = view(signals, findall(==(target_uuid), signals.recording_uuid), :)
-Onda.load.(eachrow(target_signals))
+target = rand(signals.recording)
+transform(view(signals, findall(==(target), signals.recording), :),
+          AsTable(:) => ByRow(Onda.load) => :samples)
 
 # delete all sample data for a given recording (uncomment the
 # inline-commented section to actual delete filtered signals'
 # sample data!)
-target_uuid = rand(signals.recording_uuid)
+target = rand(signals.recording)
 signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
-filter!(s -> s.recording_uuid != target_uuid #=|| (rm(s.file_path); false)=#, signals_copy)
+filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
 
 #####
 ##### working with `Samples`

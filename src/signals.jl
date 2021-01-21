@@ -144,11 +144,10 @@ sizeof_samples(info::SamplesInfo, duration::Period) = sample_count(info, duratio
 TODO
 """
 struct Signal{P}
-    recording_uuid::UUID
+    recording::UUID
     file_path::P
     file_format::String
-    start::Nanosecond
-    stop::Nanosecond
+    span::TimeSpan
     kind::String
     channels::Vector{String}
     sample_unit::String
@@ -158,54 +157,52 @@ struct Signal{P}
     sample_rate::Float64
 end
 
-function Signal(recording_uuid, file_path::P, file_format, start, stop,
+function Signal(recording, file_path::P, file_format, span,
                 kind, channels, sample_unit, sample_resolution_in_unit,
                 sample_offset_in_unit, sample_type, sample_rate) where {P}
-    recording_uuid = recording_uuid isa UUID ? recording_uuid : UUID(recording_uuid)
+    recording = recording isa UUID ? recording : UUID(recording)
     sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
     file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
-    timespan = TimeSpan(start, stop)
-    return Signal{P}(recording_uuid, file_path, file_format,
-                     TimeSpans.start(timespan), TimeSpans.stop(timespan),
+    return Signal{P}(recording, file_path, file_format, TimeSpan(span),
                      String(kind), convert(Vector{String}, channels), String(sample_unit),
                      convert(Float64, sample_resolution_in_unit),
                      convert(Float64, sample_offset_in_unit),
                      sample_type, convert(Float64, sample_rate))
 end
 
-function Signal(; recording_uuid, file_path, file_format, start, stop,
+function Signal(; recording, file_path, file_format, span,
                 kind, channels, sample_unit, sample_resolution_in_unit,
                 sample_offset_in_unit, sample_type, sample_rate)
-    return Signal(recording_uuid, file_path, file_format, start, stop,
+    return Signal(recording, file_path, file_format, span,
                   kind, channels, sample_unit, sample_resolution_in_unit,
                   sample_offset_in_unit, sample_type, sample_rate)
 end
 
-function Signal(info::SamplesInfo; recording_uuid, file_path, file_format, start, stop)
-    return Signal(; recording_uuid, file_path, file_format, start, stop,
+function Signal(info::SamplesInfo; recording, file_path, file_format, span)
+    return Signal(; recording, file_path, file_format, span,
                   info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
                   info.sample_offset_in_unit, info.sample_type, info.sample_rate)
 end
 
-Signal(x) = Signal(x.recording_uuid, x.file_path, x.file_format, x.start, x.stop,
+Signal(x) = Signal(x.recording, x.file_path, x.file_format, x.span,
                    x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit,
                    x.sample_offset_in_unit, x.sample_type, x.sample_rate)
 
 Tables.schema(::AbstractVector{S}) where {S<:Signal} = Tables.Schema(fieldnames(S), fieldtypes(S))
 
 TimeSpans.istimespan(::Signal) = true
-TimeSpans.start(signal::Signal) = signal.start
-TimeSpans.stop(signal::Signal) = signal.stop
+TimeSpans.start(signal::Signal) = TimeSpans.start(signal.span)
+TimeSpans.stop(signal::Signal) = TimeSpans.stop(signal.span)
 
-const SIGNALS_COLUMN_NAMES = (:recording_uuid, :file_path, :file_format, :start, :stop,
+const SIGNALS_COLUMN_NAMES = (:recording, :file_path, :file_format, :span,
                               :kind, :channels, :sample_unit, :sample_resolution_in_unit,
                               :sample_offset_in_unit, :sample_type, :sample_rate)
 
-const SIGNALS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,Period,Period,
+const SIGNALS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,Any,
                                             AbstractString,AbstractVector{<:AbstractString},AbstractString,LPCM_SAMPLE_TYPE_UNION,
                                             LPCM_SAMPLE_TYPE_UNION,AbstractString,Real}
 
-const SIGNALS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,String,Nanosecond,Nanosecond,
+const SIGNALS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,String,TimeSpan,
                                             String,Vector{String},String,Float64,Float64,String,Float64}
 
 is_readable_signals_schema(::Any) = false

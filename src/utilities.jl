@@ -80,6 +80,9 @@ function validate_schema(is_valid_schema, schema; invalid_schema_error_message=n
     return nothing
 end
 
+"""
+TODO
+"""
 function locations(collections::NTuple{N}) where {N}
     K = promote_type(eltype.(collections)...)
     results = Dict{K,NTuple{N,Vector{Int}}}()
@@ -91,20 +94,13 @@ function locations(collections::NTuple{N}) where {N}
     return results
 end
 
-function by_column(tables::NTuple{N}, name) where {N}
+"""
+TODO
+"""
+function by_column(name, tables::Vararg{Any,N}) where {N}
     cols = ntuple(i -> Tables.getcolumn(tables[i], name), N)
     return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in locations(cols))
 end
-
-"""
-TODO
-"""
-by_recording(tables...) = by_column(tables, :recording_uuid)::Dict{UUID}
-
-"""
-TODO
-"""
-span(x) = TimeSpan(x.start, x.stop)
 
 #####
 ##### zstd_compress/zstd_decompress

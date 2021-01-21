@@ -389,24 +389,24 @@ end
 #####
 
 """
-    load(signal[, timespan]; encoded::Bool=false)
-    load(file_path, file_format::AbstractString, info::SamplesInfo[, timespan]; encoded::Bool=false)
-    load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo[, timespan]; encoded::Bool=false)
+    load(signal[, span]; encoded::Bool=false)
+    load(file_path, file_format::AbstractString, info::SamplesInfo[, span]; encoded::Bool=false)
+    load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo[, span]; encoded::Bool=false)
 
 Return the `Samples` object described by `signal`/`file_path`/`file_format`/`info`.
 
-If `timespan` is present, return `load(...)[:, timespan]`, but attempt to avoid reading
+If `span` is present, return `load(...)[:, span]`, but attempt to avoid reading
 unreturned intermediate sample data. Note that the effectiveness of this optimized method
 versus the naive approach depends on the types of `file_path` and `file_format`.
 
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
-function load(signal, timespan...; encoded::Bool=false)
-    return load(signal.file_path, signal.file_format, SamplesInfo(signal), timespan...; encoded)
+function load(signal, span...; encoded::Bool=false)
+    return load(signal.file_path, signal.file_format, SamplesInfo(signal), span...; encoded)
 end
 
-function load(file_path, file_format::AbstractString, info::SamplesInfo, timespan...; encoded::Bool=false)
-    return load(file_path, format(file_format, info), info, timespan...; encoded)
+function load(file_path, file_format::AbstractString, info::SamplesInfo, span...; encoded::Bool=false)
+    return load(file_path, format(file_format, info), info, span...; encoded)
 end
 
 function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; encoded::Bool=false)
@@ -414,8 +414,8 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; enc
     return encoded ? samples : decode(samples)
 end
 
-function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, timespan; encoded::Bool=false)
-    sample_range = TimeSpans.index_from_time(info.sample_rate, timespan)
+function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, span; encoded::Bool=false)
+    sample_range = TimeSpans.index_from_time(info.sample_rate, span)
     sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
     sample_data = read_lpcm(file_path, file_format, sample_offset, sample_count)
     samples = Samples(sample_data, info, true)
@@ -425,9 +425,9 @@ end
 """
 TODO
 """
-function store(recording_uuid, file_path, file_format, start, samples::Samples; kwargs...)
-    signal = Signal(samples.info; recording_uuid, file_path, file_format, start,
-                    stop=(Nanosecond(start) + TimeSpans.duration(samples)))
+function store(recording, file_path, file_format, start, samples::Samples; kwargs...)
+    span = TimeSpan(start, Nanosecond(start) + TimeSpans.duration(samples))
+    signal = Signal(samples.info; recording, file_path, file_format, span)
     write_lpcm(file_path,
                file_format isa AbstractLPCMFormat ? file_format : format(file_format, samples.info; kwargs...),
                encode(samples).data)

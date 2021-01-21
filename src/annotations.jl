@@ -1,31 +1,30 @@
 struct Annotation{V}
-    recording_uuid::UUID
-    uuid::UUID
-    start::Nanosecond
-    stop::Nanosecond
+    recording::UUID
+    id::UUID
+    span::TimeSpan
     value::V
 end
 
-function Annotation(recording_uuid, uuid, start, stop, value::V) where {V}
-    recording_uuid = recording_uuid isa UUID ? recording_uuid : UUID(recording_uuid)
-    uuid = uuid isa UUID ? uuid : UUID(uuid)
-    return Annotation{V}(recording_uuid, uuid, Nanosecond(start), Nanosecond(stop), value)
+function Annotation(recording, id, span, value::V) where {V}
+    recording = recording isa UUID ? recording : UUID(recording)
+    id = id isa UUID ? id : UUID(id)
+    return Annotation{V}(recording, id, TimeSpan(span), value)
 end
 
-Annotation(; recording_uuid, uuid, start, stop, value) = Annotation(recording_uuid, uuid, start, stop, value)
-Annotation(x) = Annotation(x.recording_uuid, x.uuid, x.start, x.stop, x.value)
+Annotation(; recording, id, span, value) = Annotation(recording, id, span, value)
+Annotation(x) = Annotation(x.recording, x.id, x.span, x.value)
 
 Tables.schema(::AbstractVector{A}) where {A<:Annotation} = Tables.Schema(fieldnames(A), fieldtypes(A))
 
 TimeSpans.istimespan(::Annotation) = true
-TimeSpans.start(x::Annotation) = x.start
-TimeSpans.stop(x::Annotation) = x.stop
+TimeSpans.start(x::Annotation) = TimeSpans.start(x.span)
+TimeSpans.stop(x::Annotation) = TimeSpans.stop(x.span)
 
-const ANNOTATIONS_COLUMN_NAMES = (:recording_uuid, :uuid, :start, :stop, :value)
+const ANNOTATIONS_COLUMN_NAMES = (:recording, :id, :span, :value)
 
-const ANNOTATIONS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Union{UUID,UInt128},Period,Period,Any}
+const ANNOTATIONS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Union{UUID,UInt128},Any,Any}
 
-const ANNOTATIONS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Union{UUID,UInt128},Nanosecond,Nanosecond,Any}
+const ANNOTATIONS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Union{UUID,UInt128},TimeSpan,Any}
 
 is_readable_annotations_schema(::Any) = false
 is_readable_annotations_schema(::Tables.Schema{ANNOTATIONS_COLUMN_NAMES,<:ANNOTATIONS_READABLE_COLUMN_TYPES}) = true
