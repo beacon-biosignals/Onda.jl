@@ -97,8 +97,8 @@ end
 """
 TODO
 """
-function by_column(name, tables::Vararg{Any,N}) where {N}
-    cols = ntuple(i -> Tables.getcolumn(tables[i], name), N)
+function gather(column_name, tables::Vararg{Any,N}) where {N}
+    cols = ntuple(i -> Tables.getcolumn(tables[i], column_name), N)
     return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in locations(cols))
 end
 

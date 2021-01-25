@@ -121,7 +121,7 @@ grouped[(; recording=target)]
 
 # group/index signals + annotations by recording
 target = rand(signals.recording)
-dict = Onda.by_column(:recording, signals, annotations)
+dict = Onda.gather(:recording, signals, annotations)
 dict[target]
 
 # count number of signals in each recording
