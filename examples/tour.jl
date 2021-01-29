@@ -74,14 +74,14 @@ path_to_signals_file = joinpath(root, "test.signals")
 Onda.write_signals(path_to_signals_file, signals)
 Onda.log("`*.signals` file written at $path_to_signals_file")
 
-annotations = Annotation{NamedTuple{(:a, :b, :source),Tuple{Int64,String,UUID}}}[]
+annotations = Annotation{NamedTuple{(:rating, :quality, :source),Tuple{Int64,String,UUID}}}[]
 sources = (uuid4(), uuid4(), uuid4())
 annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
 for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:600))
-        annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30))),
-                                (a=rand(1:100), b=rand(("good", "bad")), source=rand(sources)))
+        annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30)));
+                                rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
         push!(annotations,  annotation)
     end
 end
@@ -119,7 +119,7 @@ target = rand(signals.recording)
 grouped = groupby(signals, :recording)
 grouped[(; recording=target)]
 
-# group/index signals + annotations by recording
+# group/index signals + annotations by recording together
 target = rand(signals.recording)
 dict = Onda.gather(:recording, signals, annotations)
 dict[target]
@@ -141,6 +141,21 @@ transform(view(signals, findall(==(target), signals.recording), :),
 target = rand(signals.recording)
 signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
 filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
+
+# merge overlapping annotations of the same `quality` in the same recording
+# output is an annotation table whose value is a vector of merged uuids and whose span is the union of spans
+# combine(groupby(annotations, :recording)) do df
+#     sorted = sort(df, :span; by=TimeSpans.start)
+#     grouped = groupby(transform(sorted, :value => ByRow(x -> x.quality) => :quality), :quality)
+#     merged = Annotation{eltype(df.value)}[]
+#     return merged
+# end
+
+# combine(groupby(annotations, :recording)) do df
+#     grouped = groupby(sort(df, :span; by=TimeSpans.start), :quality)
+#     merged = Annotation{eltype(df.value)}[]
+#     return merged
+# end
 
 #####
 ##### working with `Samples`
