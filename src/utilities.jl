@@ -41,40 +41,35 @@ function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
 end
 
 #####
+##### arrrrr i'm a pirate
+#####
+
+const NamedTupleTimeSpan = NamedTuple{(:start, :stop),Tuple{Nanosecond,Nanosecond}}
+
+TimeSpans.istimespan(::NamedTupleTimeSpan) = true
+TimeSpans.start(x::NamedTupleTimeSpan) = x.start
+TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
+
+#####
 ##### tables
 #####
 
-# function Tables.schema(::AbstractVector{A}) where {R,A<:Annotation{R}}
-#     isconcretetype(R) && return nothing
-#     return Tables.Schema(fieldnames(R), fieldtypes(R))
-# end
+function table_has_supported_onda_format_version(table)
+    m = Arrow.getmetadata(table)
+    return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
+end
 
-# function table_has_supported_onda_format_version(table)
-#     m = Arrow.getmetadata(table)
-#     return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
-# end
+function read_onda_table(io_or_path; materialize::Bool=false)
+    table = Arrow.Table(io_or_path)
+    table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
+    return materialize ? map(collect, Tables.columntable(table)) : table
+end
 
-# function read_onda_table(io_or_path; materialize::Bool=false)
-#     table = Arrow.Table(io_or_path)
-#     table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
-#     return materialize ? map(collect, Tables.columntable(table)) : table
-# end
-
-# function write_onda_table(io_or_path, table; kwargs...)
-#     Arrow.setmetadata!(table, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
-#     Arrow.write(io_or_path, table; kwargs...)
-#     return columns
-# end
-
-
-
-
-# function write_onda_table(io_or_path, table; kwargs...)
-#     columns = Tables.columns(table)
-#     Arrow.setmetadata!(columns, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
-#     Arrow.write(io_or_path, columns; kwargs...)
-#     return columns
-# end
+function write_onda_table(io_or_path, table; kwargs...)
+    Arrow.setmetadata!(table, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
+    Arrow.write(io_or_path, table; kwargs...)
+    return columns
+end
 
 # function validate_schema(is_valid_schema, schema; invalid_schema_error_message=nothing)
 #     if schema === nothing

@@ -33,6 +33,133 @@ function onda_sample_type_from_julia_type(T::Type)
 end
 
 #####
+##### validation
+#####
+
+# manually unrolling the accesses here seems to enable better constant propagation
+@inline function _validate_signal_fields(names, types)
+    names[1] === :recording || throw(ArgumentError("invalid `Signal` fields: field 1 must be named `:recording`, got $(names[1])"))
+    names[2] === :file_path || throw(ArgumentError("invalid `Signal` fields: field 2 must be named `:file_path`, got $(names[2])"))
+    names[3] === :file_format || throw(ArgumentError("invalid `Signal` fields: field 3 must be named `:file_format`, got $(names[3])"))
+    names[4] === :span || throw(ArgumentError("invalid `Signal` fields: field 4 must be named `:span`, got $(names[4])"))
+    names[5] === :kind || throw(ArgumentError("invalid `Signal` fields: field 5 must be named `:kind`, got $(names[5])"))
+    names[6] === :channels || throw(ArgumentError("invalid `Signal` fields: field 6 must be named `:channels`, got $(names[6])"))
+    names[7] === :sample_unit || throw(ArgumentError("invalid `Signal` fields: field 7 must be named `:sample_unit`, got $(names[7])"))
+    names[8] === :sample_resolution_in_unit || throw(ArgumentError("invalid `Signal` fields: field 8 must be named `:sample_resolution_in_unit`, got $(names[8])"))
+    names[9] === :sample_offset_in_unit || throw(ArgumentError("invalid `Signal` fields: field 9 must be named `:sample_offset_in_unit`, got $(names[9])"))
+    names[10] === :sample_type || throw(ArgumentError("invalid `Signal` fields: field 10 must be named `:sample_type`, got $(names[10])"))
+    names[11] === :sample_rate || throw(ArgumentError("invalid `Signal` fields: field 11 must be named `:sample_rate`, got $(names[11])"))
+    types[1] <: Union{UInt128,UUID} || throw(ArgumentError("invalid `Signal` fields: invalid `:recording` field type: $(types[1])"))
+    # types[2] <: Any || throw(ArgumentError("invalid `Signal` fields: invalid `:file_path` field type: $(types[2])"))
+    types[3] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:file_format` field type: $(types[3])"))
+    types[4] <: Union{NamedTupleTimeSpan,TimeSpan} || throw(ArgumentError("invalid `Signal` fields: invalid `:span` field type: $(types[4])"))
+    types[5] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:kind` field type: $(types[5])"))
+    types[6] <: Vector{String} || throw(ArgumentError("invalid `Signal` fields: invalid `:channels` field type: $(types[6])"))
+    types[7] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_unit` field type: $(types[7])"))
+    types[8] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_resolution_in_unit` field type: $(types[8])"))
+    types[9] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_offset_in_unit` field type: $(types[9])"))
+    types[10] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_type` field type: $(types[10])"))
+    types[11] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_rate` field type: $(types[11])"))
+   return nothing
+end
+
+@inline _validate_signal_field_count(n) = n >= 11 || throw(ArgumentError("invalid `Signal` fields: need at least 11 fields, input has $n"))
+
+function validate_signal_row(row)
+    names = Tables.columnnames(row)
+    _validate_signal_field_count(length(names))
+    types = (typeof(Tables.getcolumn(row, 1)),
+             typeof(Tables.getcolumn(row, 2)),
+             typeof(Tables.getcolumn(row, 3)),
+             typeof(Tables.getcolumn(row, 4)),
+             typeof(Tables.getcolumn(row, 5)),
+             typeof(Tables.getcolumn(row, 6)),
+             typeof(Tables.getcolumn(row, 7)),
+             typeof(Tables.getcolumn(row, 8)),
+             typeof(Tables.getcolumn(row, 9)),
+             typeof(Tables.getcolumn(row, 10)),
+             typeof(Tables.getcolumn(row, 11)))
+    _validate_signal_fields(names, types)
+    return nothing
+end
+
+validate_signal_schema(::Nothing) = @warn "`schema == nothing`; skipping schema validation"
+
+function validate_signal_schema(schema::Tables.Schema)
+    _validate_signal_field_count(length(schema.names))
+    _validate_signal_fields(schema.names, schema.types)
+    return nothing
+end
+
+#####
+##### Signal
+#####
+
+struct Signal{R}
+    _row::R
+    function Signal(_row::R) where {R}
+        validate_signal_row(_row)
+        return new{R}(_row)
+    end
+    function Signal(recording, file_path, file_format, span,
+                    kind, channels, sample_unit, sample_resolution_in_unit,
+                    sample_offset_in_unit, sample_type, sample_rate; custom...)
+        recording = recording isa UUID ? recording : UUID(recording)
+        sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
+        file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
+        _row = (; recording, file_path, file_format, TimeSpan(span),
+                String(kind), convert(Vector{String}, channels), String(sample_unit),
+                convert(Float64, sample_resolution_in_unit),
+                convert(Float64, sample_offset_in_unit),
+                sample_type, convert(Float64, sample_rate), custom...)
+        return new{typeof(_row)}(_row)
+    end
+end
+
+function Signal(; recording, file_path, file_format, span,
+                kind, channels, sample_unit, sample_resolution_in_unit,
+                sample_offset_in_unit, sample_type, sample_rate, custom...)
+    return Signal(recording, file_path, file_format, span,
+                  kind, channels, sample_unit, sample_resolution_in_unit,
+                  sample_offset_in_unit, sample_type, sample_rate, custom...)
+end
+
+Base.propertynames(x::Signal) = propertynames(getfield(x, :_row))
+Base.getproperty(x::Signal, name::Symbol) = getproperty(getfield(x, :_row), name)
+
+Tables.getcolumn(x::Signal, i::Int) = Tables.getcolumn(getfield(x, :_row), i)
+Tables.getcolumn(x::Signal, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
+Tables.columnnames(x::Signal) = Tables.columnnames(getfield(x, :_row))
+
+TimeSpans.istimespan(::Signal) = true
+TimeSpans.start(x::Signal) = TimeSpans.start(x.span)
+TimeSpans.stop(x::Signal) = TimeSpans.stop(x.span)
+
+#####
+##### read/write
+#####
+
+function read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+    table = read_onda_table(io_or_path; materialize)
+    validate_schema && validate_signal_schema(Tables.schema(table))
+    return table
+end
+
+function write_signals(io_or_path, table; kwargs...)
+    columns = Tables.columns(table)
+    schema = Tables.schema(columns)
+    try
+        validate_signal_schema(schema)
+    catch
+        @warn "Invalid schema in input `table`. Try calling `Onda.Signal.(Tables.rows(table))` to see if it is convertible to the required schema."
+        rethrow()
+    end
+    return write_onda_table(io_or_path, table; kwargs...)
+end
+
+
+#=
+#####
 ##### `SamplesInfo`
 #####
 
@@ -135,7 +262,10 @@ Returns the expected size (in bytes) of an encoded `Samples` object correspondin
 
 """
 sizeof_samples(info::SamplesInfo, duration::Period) = sample_count(info, duration) * channel_count(info) * sizeof(info.sample_type)
+=#
 
+
+#=
 #####
 ##### `*.signals` table
 #####
@@ -232,3 +362,4 @@ function write_signals(io_or_path, table; kwargs...)
     validate_schema(is_writable_signals_schema, Tables.schema(table); invalid_schema_error_message)
     return write_onda_table(io_or_path, table; kwargs...)
 end
+=#

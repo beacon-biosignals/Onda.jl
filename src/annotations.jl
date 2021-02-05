@@ -1,12 +1,3 @@
-#####
-##### arrrrr i'm a pirate
-#####
-
-const NamedTupleTimeSpan = NamedTuple{(:start, :stop),Tuple{Nanosecond,Nanosecond}}
-
-TimeSpans.istimespan(::NamedTupleTimeSpan) = true
-TimeSpans.start(x::NamedTupleTimeSpan) = x.start
-TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
 
 #####
 ##### validation
@@ -14,16 +5,16 @@ TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
 
 # manually unrolling the accesses here seems to enable better constant propagation
 @inline function _validate_annotation_fields(names, types)
-    names[1] === :recording || error("invalid `Annotation` fields: field 1 must be named `:recording`, got $(names[1])")
-    names[2] === :id || error("invalid `Annotation` fields: field 2 must be named `:id`, got $(names[2])")
-    names[3] === :span || error("invalid `Annotation` fields: field 3 must be named `:span`, got $(names[3])")
-    types[1] <: Union{UInt128,UUID} || error("invalid `Annotation` fields: invalid `:recording` field type: $(types[1])")
-    types[2] <: Union{UInt128,UUID} || error("invalid `Annotation` fields: invalid `:id` field type: $(types[2])")
-    types[3] <: Union{NamedTupleTimeSpan,TimeSpan} || error("invalid `Annotation` fields: invalid `:span` field type: $(types[3])")
+    names[1] === :recording || throw(ArgumentError("invalid `Annotation` fields: field 1 must be named `:recording`, got $(names[1])"))
+    names[2] === :id || throw(ArgumentError("invalid `Annotation` fields: field 2 must be named `:id`, got $(names[2])"))
+    names[3] === :span || throw(ArgumentError("invalid `Annotation` fields: field 3 must be named `:span`, got $(names[3])"))
+    types[1] <: Union{UInt128,UUID} || throw(ArgumentError("invalid `Annotation` fields: invalid `:recording` field type: $(types[1])"))
+    types[2] <: Union{UInt128,UUID} || throw(ArgumentError("invalid `Annotation` fields: invalid `:id` field type: $(types[2])"))
+    types[3] <: Union{NamedTupleTimeSpan,TimeSpan} || throw(ArgumentError("invalid `Annotation` fields: invalid `:span` field type: $(types[3])"))
     return nothing
 end
 
-@inline _validate_annotation_field_count(n) = n >= 3 || error("invalid `Annotation` fields: need at least 3 fields, input has $n")
+@inline _validate_annotation_field_count(n) = n >= 3 || throw(ArgumentError("invalid `Annotation` fields: need at least 3 fields, input has $n"))
 
 function validate_annotation_row(row)
     names = Tables.columnnames(row)
@@ -51,12 +42,12 @@ struct Annotation{R}
         validate_annotation_row(_row)
         return new{R}(_row)
     end
-end
-
-function Annotation(recording, id, span; custom...) where {V}
-    recording = recording isa UUID ? recording : UUID(recording)
-    id = id isa UUID ? id : UUID(id)
-    return Annotation((; recording, id, span=TimeSpan(span), custom...))
+    function Annotation(recording, id, span; custom...)
+        recording = recording isa UUID ? recording : UUID(recording)
+        id = id isa UUID ? id : UUID(id)
+        _row = (; recording, id, span=TimeSpan(span), custom...)
+        return new{typeof(_row)}(_row)
+    end
 end
 
 Annotation(; recording, id, span, custom...) = Annotation(recording, id, span; custom...)
@@ -73,7 +64,7 @@ TimeSpans.start(x::Annotation) = TimeSpans.start(x.span)
 TimeSpans.stop(x::Annotation) = TimeSpans.stop(x.span)
 
 #####
-##### `*.annotations`
+##### read/write
 #####
 
 function read_annotations(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
@@ -93,4 +84,3 @@ function write_annotations(io_or_path, table; kwargs...)
     end
     return write_onda_table(io_or_path, table; kwargs...)
 end
-
