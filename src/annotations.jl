@@ -9,24 +9,46 @@ TimeSpans.start(x::NamedTupleTimeSpan) = x.start
 TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
 
 #####
+##### validation
+#####
+
+# manually unrolling the accesses here seems to enable better constant propagation
+@inline function _validate_annotation_fields(names, types)
+    names[1] === :recording || error("invalid `Annotation` fields: field 1 must be named `:recording`, got $(names[1])")
+    names[2] === :id || error("invalid `Annotation` fields: field 2 must be named `:id`, got $(names[2])")
+    names[3] === :span || error("invalid `Annotation` fields: field 3 must be named `:span`, got $(names[3])")
+    types[1] <: Union{UInt128,UUID} || error("invalid `Annotation` fields: invalid `:recording` field type: $(types[1])")
+    types[2] <: Union{UInt128,UUID} || error("invalid `Annotation` fields: invalid `:id` field type: $(types[2])")
+    types[3] <: Union{NamedTupleTimeSpan,TimeSpan} || error("invalid `Annotation` fields: invalid `:span` field type: $(types[3])")
+    return nothing
+end
+
+@inline _validate_annotation_field_count(n) = n >= 3 || error("invalid `Annotation` fields: need at least 3 fields, input has $n")
+
+function validate_annotation_row(row)
+    names = Tables.columnnames(row)
+    _validate_annotation_field_count(length(names))
+    types = (typeof(Tables.getcolumn(row, 1)), typeof(Tables.getcolumn(row, 2)), typeof(Tables.getcolumn(row, 3)))
+    _validate_annotation_fields(names, types)
+    return nothing
+end
+
+validate_annotation_schema(::Nothing) = @warn "`schema == nothing`; skipping schema validation"
+
+function validate_annotation_schema(schema::Tables.Schema)
+    _validate_annotation_field_count(length(schema.names))
+    _validate_annotation_fields(schema.names, schema.types)
+    return nothing
+end
+
+#####
 ##### Annotation
 #####
 
 struct Annotation{R}
     _row::R
     function Annotation(_row::R) where {R}
-        fields = Tables.columnnames(_row)
-        length(fields) > 2 || error("invalid `Annotation` input: need at least 3 fields, has $(length(fields))")
-        for (i, name) in enumerate((:recording, :id, :span))
-            fields[i] == name || error("invalid `Annotation` input: field $i must be $name, got $(fields[i])")
-        end
-        if !(Tables.getcolumn(_row, :recording) isa Union{UInt128,UUID})
-            error("invalid `Annotation` input: invalid `recording` field type")
-        elseif !(Tables.getcolumn(_row, :id) isa Union{UInt128,UUID})
-            error("invalid `Annotation` input: invalid `id` field type")
-        elseif !(Tables.getcolumn(_row, :span) isa Union{NamedTupleTimeSpan,TimeSpan})
-            error("invalid `Annotation` input: invalid `span` field type")
-        end
+        validate_annotation_row(_row)
         return new{R}(_row)
     end
 end
@@ -46,11 +68,6 @@ Tables.getcolumn(x::Annotation, i::Int) = Tables.getcolumn(getfield(x, :_row), i
 Tables.getcolumn(x::Annotation, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
 Tables.columnnames(x::Annotation) = Tables.columnnames(getfield(x, :_row))
 
-function Tables.schema(::AbstractVector{A}) where {R,A<:Annotation{R}}
-    isconcretetype(R) && return nothing
-    return Tables.Schema(fieldnames(R), fieldtypes(R))
-end
-
 TimeSpans.istimespan(::Annotation) = true
 TimeSpans.start(x::Annotation) = TimeSpans.start(x.span)
 TimeSpans.stop(x::Annotation) = TimeSpans.stop(x.span)
@@ -59,28 +76,21 @@ TimeSpans.stop(x::Annotation) = TimeSpans.stop(x.span)
 ##### `*.annotations`
 #####
 
-const ANNOTATIONS_COLUMN_NAMES = (:recording, :id, :span)
+function read_annotations(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+    table = read_onda_table(io_or_path; materialize)
+    validate_schema && validate_annotation_schema(Tables.schema(table))
+    return table
+end
 
-const ANNOTATIONS_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Union{UUID,UInt128},Union{NamedTupleTimeSpan,TimeSpan},Vararg{Any}}
+function write_annotations(io_or_path, table; kwargs...)
+    columns = Tables.columns(table)
+    schema = Tables.schema(columns)
+    try
+        validate_annotation_schema(schema)
+    catch
+        @warn "Invalid schema in input `table`. Try calling `Onda.Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
+        rethrow()
+    end
+    return write_onda_table(io_or_path, table; kwargs...)
+end
 
-# is_readable_annotations_schema(::Any) = false
-# is_readable_annotations_schema(::Tables.Schema{ANNOTATIONS_COLUMN_NAMES,<:ANNOTATIONS_READABLE_COLUMN_TYPES}) = true
-
-# is_writable_annotations_schema(::Any) = false
-# is_writable_annotations_schema(::Tables.Schema{ANNOTATIONS_COLUMN_NAMES,<:ANNOTATIONS_WRITABLE_COLUMN_TYPES}) = true
-
-# function read_annotations(io_or_path; materialize::Bool=false, error_on_invalid_schema::Bool=false)
-#     table = read_onda_table(io_or_path; materialize)
-#     invalid_schema_error_message = error_on_invalid_schema ? "schema must have names matching `Onda.ANNOTATIONS_COLUMN_NAMES` and types matching `Onda.ANNOTATIONS_COLUMN_TYPES`" : nothing
-#     validate_schema(is_readable_annotations_schema, Tables.schema(table); invalid_schema_error_message)
-#     return table
-# end
-
-# function write_annotations(io_or_path, table; kwargs...)
-#     invalid_schema_error_message = """
-#                                    schema must have names matching `Onda.ANNOTATIONS_COLUMN_NAMES` and types matching `Onda.ANNOTATIONS_COLUMN_TYPES`.
-#                                    Try calling `Onda.Annotation.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
-#                                    """
-#     validate_schema(is_writable_annotations_schema, Tables.schema(table); invalid_schema_error_message)
-#     return write_onda_table(io_or_path, table; kwargs...)
-# end

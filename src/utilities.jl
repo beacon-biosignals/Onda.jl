@@ -44,41 +44,55 @@ end
 ##### tables
 #####
 
-function table_has_supported_onda_format_version(table)
-    m = Arrow.getmetadata(table)
-    return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
-end
+# function Tables.schema(::AbstractVector{A}) where {R,A<:Annotation{R}}
+#     isconcretetype(R) && return nothing
+#     return Tables.Schema(fieldnames(R), fieldtypes(R))
+# end
 
-function read_onda_table(io_or_path; materialize::Bool=false)
-    table = Arrow.Table(io_or_path)
-    table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
-    return materialize ? map(collect, Tables.columntable(table)) : table
-end
+# function table_has_supported_onda_format_version(table)
+#     m = Arrow.getmetadata(table)
+#     return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
+# end
 
-function write_onda_table(io_or_path, table; kwargs...)
-    columns = Tables.columns(table)
-    Arrow.setmetadata!(columns, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
-    Arrow.write(io_or_path, columns; kwargs...)
-    return columns
-end
+# function read_onda_table(io_or_path; materialize::Bool=false)
+#     table = Arrow.Table(io_or_path)
+#     table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
+#     return materialize ? map(collect, Tables.columntable(table)) : table
+# end
 
-function validate_schema(is_valid_schema, schema; invalid_schema_error_message=nothing)
-    if schema === nothing
-        message = "schema is not determinable (schema is `nothing`)"
-    elseif !is_valid_schema(schema)
-        message = "table does not have appropriate schema: $schema"
-    else
-        message = nothing
-    end
-    if message !== nothing
-        if invalid_schema_error_message === nothing
-            @warn message
-        else
-            throw(ArgumentError(message * " | " * invalid_schema_error_message))
-        end
-    end
-    return nothing
-end
+# function write_onda_table(io_or_path, table; kwargs...)
+#     Arrow.setmetadata!(table, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
+#     Arrow.write(io_or_path, table; kwargs...)
+#     return columns
+# end
+
+
+
+
+# function write_onda_table(io_or_path, table; kwargs...)
+#     columns = Tables.columns(table)
+#     Arrow.setmetadata!(columns, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
+#     Arrow.write(io_or_path, columns; kwargs...)
+#     return columns
+# end
+
+# function validate_schema(is_valid_schema, schema; invalid_schema_error_message=nothing)
+#     if schema === nothing
+#         message = "schema is not determinable (schema is `nothing`)"
+#     elseif !is_valid_schema(schema)
+#         message = "table does not have appropriate schema: $schema"
+#     else
+#         message = nothing
+#     end
+#     if message !== nothing
+#         if invalid_schema_error_message === nothing
+#             @warn message
+#         else
+#             throw(ArgumentError(message * " | " * invalid_schema_error_message))
+#         end
+#     end
+#     return nothing
+# end
 
 """
 TODO

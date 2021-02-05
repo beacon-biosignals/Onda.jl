@@ -44,7 +44,7 @@ saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
 
 root = mktempdir()
 
-signals = Signal{String}[]
+signals = Signal[]
 signals_recordings = [uuid4() for _ in 1:10]
 for recording in signals_recordings
     for (kind, channels) in ("eeg" => ["fp1", "f3", "c3", "p3",
@@ -70,11 +70,11 @@ for recording in signals_recordings
         push!(signals, signal)
     end
 end
-path_to_signals_file = joinpath(root, "test.signals")
-Onda.write_signals(path_to_signals_file, signals)
-Onda.log("`*.signals` file written at $path_to_signals_file")
+# path_to_signals_file = joinpath(root, "test.signals")
+# Onda.write_signals(path_to_signals_file, signals)
+# Onda.log("`*.signals` file written at $path_to_signals_file")
 
-annotations = Annotation{NamedTuple{(:rating, :quality, :source),Tuple{Int64,String,UUID}}}[]
+annotations = Annotation[]
 sources = (uuid4(), uuid4(), uuid4())
 annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
 for recording in annotations_recordings
@@ -85,9 +85,9 @@ for recording in annotations_recordings
         push!(annotations,  annotation)
     end
 end
-path_to_annotations_file = joinpath(root, "test.annotations")
-Onda.write_annotations(path_to_annotations_file, annotations)
-Onda.log("`*.annotations` file written at $path_to_annotations_file")
+# path_to_annotations_file = joinpath(root, "test.annotations")
+# Onda.write_annotations(path_to_annotations_file, annotations)
+# Onda.log("`*.annotations` file written at $path_to_annotations_file")
 
 #####
 ##### basic Onda + DataFrames patterns
@@ -102,6 +102,7 @@ Note that most of these operations are only shown here on a single table
 to avoid redundancy, but these examples are generally applicable to both
 signals and annotations tables.
 =#
+#=
 
 # read Onda Arrow files into `DataFrame`s
 signals = DataFrame(Onda.read_signals(path_to_signals_file))
@@ -162,3 +163,4 @@ filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy
 #####
 
 # TODO
+=#
