@@ -71,24 +71,6 @@ function write_onda_table(io_or_path, table; kwargs...)
     return columns
 end
 
-# function validate_schema(is_valid_schema, schema; invalid_schema_error_message=nothing)
-#     if schema === nothing
-#         message = "schema is not determinable (schema is `nothing`)"
-#     elseif !is_valid_schema(schema)
-#         message = "table does not have appropriate schema: $schema"
-#     else
-#         message = nothing
-#     end
-#     if message !== nothing
-#         if invalid_schema_error_message === nothing
-#             @warn message
-#         else
-#             throw(ArgumentError(message * " | " * invalid_schema_error_message))
-#         end
-#     end
-#     return nothing
-# end
-
 """
 TODO
 """

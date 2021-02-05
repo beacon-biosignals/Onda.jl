@@ -55,8 +55,8 @@ See also:
 - [`deserialize_lpcm`](@ref)
 - [`deserialize_lpcm_callback`](@ref)
 - [`serialize_lpcm`](@ref)
-- [`LPCM`](@ref)
-- [`LPCMZst`](@ref)
+- [`LPCMFormat`](@ref)
+- [`LPCMZstFormat`](@ref)
 - [`AbstractLPCMStream`](@ref)
 """
 abstract type AbstractLPCMFormat end
@@ -83,7 +83,7 @@ samples specified by `samples_offset` and `samples_count`.
 
 As a fallback, this function returns `(callback, missing, missing)`, where `callback`
 requires all available bytes. `AbstractLPCMFormat` subtypes that support partial/block-based
-deserialization (e.g. the basic `LPCM` format) can overload this function to only request
+deserialization (e.g. the basic `LPCMFormat`) can overload this function to only request
 exactly the byte range that is required for the sample range requested by the caller.
 
 This allows callers to handle the byte block retrieval themselves while keeping
@@ -201,14 +201,14 @@ end
 write_lpcm(path, format::AbstractLPCMFormat, data) = write_path(path, serialize_lpcm(format, data))
 
 #####
-##### `LPCM`
+##### `LPCMFormat`
 #####
 
 """
-    LPCM(channel_count::Int, sample_type::Type)
-    LPCM(info::SamplesInfo)
+    LPCMFormat(channel_count::Int, sample_type::Type)
+    LPCMFormat(info::SamplesInfo)
 
-Return a `LPCM<:AbstractLPCMFormat` instance corresponding to Onda's default
+Return a `LPCMFormat<:AbstractLPCMFormat` instance corresponding to Onda's default
 interleaved LPCM format assumed for sample data files with the "lpcm"
 extension.
 
@@ -223,13 +223,13 @@ struct LPCM{S<:LPCM_SAMPLE_TYPE_UNION} <: AbstractLPCMFormat
     sample_type::Type{S}
 end
 
-LPCM(info::SamplesInfo) = LPCM(length(info.channels), info.sample_type)
+LPCMFormat(info::SamplesInfo) = LPCMFormat(length(info.channels), info.sample_type)
 
 register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCM : nothing)
 
-file_format_string(::LPCM) = "lpcm"
+file_format_string(::LPCMFormat) = "lpcm"
 
-function _validate_lpcm_samples(format::LPCM{S}, samples::AbstractMatrix) where {S}
+function _validate_lpcm_samples(format::LPCMFormat{S}, samples::AbstractMatrix) where {S}
     if format.channel_count != size(samples, 1)
         throw(ArgumentError("""
                             `samples` row count ($(size(samples, 1))) does not
@@ -244,20 +244,20 @@ function _validate_lpcm_samples(format::LPCM{S}, samples::AbstractMatrix) where 
     return nothing
 end
 
-_bytes_per_sample(format::LPCM{S}) where {S} = sizeof(S) * format.channel_count
+_bytes_per_sample(format::LPCMFormat{S}) where {S} = sizeof(S) * format.channel_count
 
 struct LPCMStream{S<:LPCM_SAMPLE_TYPE_UNION,I} <: AbstractLPCMStream
-    format::LPCM{S}
+    format::LPCMFormat{S}
     io::I
 end
 
-deserializing_lpcm_stream(format::LPCM, io) = LPCMStream(format, io)
+deserializing_lpcm_stream(format::LPCMFormat, io) = LPCMStream(format, io)
 
-serializing_lpcm_stream(format::LPCM, io) = LPCMStream(format, io)
+serializing_lpcm_stream(format::LPCMFormat, io) = LPCMStream(format, io)
 
 finalize_lpcm_stream(::LPCMStream) = true
 
-function deserialize_lpcm(format::LPCM{S}, bytes, sample_offset::Integer=0,
+function deserialize_lpcm(format::LPCMFormat{S}, bytes, sample_offset::Integer=0,
                           sample_count::Integer=typemax(Int)) where {S}
     sample_interpretation = reinterpret(S, bytes)
     sample_start = min((format.channel_count * sample_offset) + 1, length(sample_interpretation))
@@ -269,7 +269,7 @@ function deserialize_lpcm(format::LPCM{S}, bytes, sample_offset::Integer=0,
     return reshape(sample_view, (format.channel_count, timestep_count))
 end
 
-function deserialize_lpcm_callback(format::LPCM{S}, samples_offset, samples_count) where {S}
+function deserialize_lpcm_callback(format::LPCMFormat{S}, samples_offset, samples_count) where {S}
     callback = bytes -> deserialize_lpcm(format, bytes)
     bytes_per_sample = _bytes_per_sample(format)
     return callback, samples_offset * bytes_per_sample, samples_count * bytes_per_sample
@@ -284,7 +284,7 @@ function deserialize_lpcm(stream::LPCMStream, sample_offset::Integer=0,
     return deserialize_lpcm(stream.format, read(stream.io, byte_count))
 end
 
-function serialize_lpcm(format::LPCM, samples::AbstractMatrix)
+function serialize_lpcm(format::LPCMFormat, samples::AbstractMatrix)
     _validate_lpcm_samples(format, samples)
     samples isa Matrix && return reinterpret(UInt8, vec(samples))
     io = IOBuffer()
@@ -298,14 +298,14 @@ function serialize_lpcm(stream::LPCMStream, samples::AbstractMatrix)
 end
 
 #####
-##### `LPCMZst`
+##### `LPCMZstFormat`
 #####
 
 """
-    LPCMZst(lpcm::LPCM; level=3)
-    LPCMZst(info::SamplesInfo; level=3)
+    LPCMZstFormat(lpcm::LPCMFormat; level=3)
+    LPCMZstFormat(info::SamplesInfo; level=3)
 
-Return a `LPCMZst<:AbstractLPCMFormat` instance that corresponds to Onda's
+Return a `LPCMZstFormat<:AbstractLPCMFormat` instance that corresponds to Onda's
 default interleaved LPCM format compressed by `zstd`. This format is assumed
 for sample data files with the "lpcm.zst" extension.
 
@@ -314,24 +314,24 @@ corresponding flag documented by the `zstd` command line utility.
 
 See https://facebook.github.io/zstd/ for details about `zstd`.
 """
-struct LPCMZst{S} <: AbstractLPCMFormat
-    lpcm::LPCM{S}
+struct LPCMZstFormat{S} <: AbstractLPCMFormat
+    lpcm::LPCMFormat{S}
     level::Int
-    LPCMZst(lpcm::LPCM{S}; level=3) where {S} = new{S}(lpcm, level)
+    LPCMZstFormat(lpcm::LPCMFormat{S}; level=3) where {S} = new{S}(lpcm, level)
 end
 
-LPCMZst(info::SamplesInfo; kwargs...) = LPCMZst(LPCM(info); kwargs...)
+LPCMZstFormat(info::SamplesInfo; kwargs...) = LPCMZstFormat(LPCMFormat(info); kwargs...)
 
-register_lpcm_format!(file_format -> file_format == "lpcm.zst" ? LPCMZst : nothing)
+register_lpcm_format!(file_format -> file_format == "lpcm.zst" ? LPCMZstFormat : nothing)
 
-file_format_string(::LPCMZst) = "lpcm.zst"
+file_format_string(::LPCMZstFormat) = "lpcm.zst"
 
-function deserialize_lpcm(format::LPCMZst, bytes, args...)
+function deserialize_lpcm(format::LPCMZstFormat, bytes, args...)
     decompressed_bytes = zstd_decompress(unsafe_vec_uint8(bytes))
     return deserialize_lpcm(format.lpcm, decompressed_bytes, args...)
 end
 
-function serialize_lpcm(format::LPCMZst, samples::AbstractMatrix)
+function serialize_lpcm(format::LPCMZstFormat, samples::AbstractMatrix)
     decompressed_bytes = unsafe_vec_uint8(serialize_lpcm(format.lpcm, samples))
     return zstd_compress(decompressed_bytes, format.level)
 end
@@ -340,12 +340,12 @@ struct LPCMZstStream{L<:LPCMStream} <: AbstractLPCMStream
     stream::L
 end
 
-function deserializing_lpcm_stream(format::LPCMZst, io)
+function deserializing_lpcm_stream(format::LPCMZstFormat, io)
     stream = LPCMStream(format.lpcm, ZstdDecompressorStream(io))
     return LPCMZstStream(stream)
 end
 
-function serializing_lpcm_stream(format::LPCMZst, io)
+function serializing_lpcm_stream(format::LPCMZstFormat, io)
     stream = LPCMStream(format.lpcm, ZstdCompressorStream(io; level=format.level))
     return LPCMZstStream(stream)
 end
