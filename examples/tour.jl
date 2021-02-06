@@ -65,7 +65,7 @@ for recording in signals_recordings
                            sample_rate=rand((128, 256, 143.5)))
         data = saws(info, Minute(rand(1:10)))
         samples = Samples(data, info, false)
-        start = Minute(rand(0:10))
+        start = Second(rand(0:30))
         signal = Onda.store(recording, file_path, file_format, start, samples)
         push!(signals, signal)
     end
@@ -79,7 +79,7 @@ sources = (uuid4(), uuid4(), uuid4())
 annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
 for recording in annotations_recordings
     for i in 1:rand(3:10)
-        start = Second(rand(0:30))
+        start = Second(rand(0:60))
         annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30)));
                                 rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
         push!(annotations,  annotation)
@@ -151,8 +151,18 @@ view(annotations, findall(in(m.from), annotations.id), :)
 # load all the annotated segments that fall within a given signal's timespan
 within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
 sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
-transform(filter(ann -> within_signal(ann, sig), annotations),
-          :span => (span -> Onda.load.(Ref(sig), span)) => :samples)
+anns = filter(ann -> within_signal(ann, sig), annotations)
+transform(anns, :span => (span -> Onda.load.(Ref(sig), span)) => :samples)
+
+# In the above, we called `Onda.load(sig, span)` for each `span`. This invocation attempts to load
+# *only* the sample data corresponding to `span`, which can be very efficient if the sample data
+# file format + storage system supports random access and the full sample data file is very large.
+# However, if random access isn't supported, or the sample data file is relatively small, or the
+# requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
+# the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
+# want to support an optimal batch loader):
+samples = Onda.load(sig)
+transform(anns, :span => (span -> view.(Ref(samples), :, span)) => :samples)
 
 #####
 ##### working with `Samples`
