@@ -218,14 +218,14 @@ corresponds to `info.sample_type`
 Note that bytes (de)serialized to/from this format are little-endian (per the
 Onda specification).
 """
-struct LPCM{S<:LPCM_SAMPLE_TYPE_UNION} <: AbstractLPCMFormat
+struct LPCMFormat{S<:LPCM_SAMPLE_TYPE_UNION} <: AbstractLPCMFormat
     channel_count::Int
     sample_type::Type{S}
 end
 
 LPCMFormat(info::SamplesInfo) = LPCMFormat(length(info.channels), info.sample_type)
 
-register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCM : nothing)
+register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCMFormat : nothing)
 
 file_format_string(::LPCMFormat) = "lpcm"
 

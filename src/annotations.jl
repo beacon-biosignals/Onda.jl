@@ -55,6 +55,8 @@ Annotation(; recording, id, span, custom...) = Annotation(recording, id, span; c
 Base.propertynames(x::Annotation) = propertynames(getfield(x, :_row))
 Base.getproperty(x::Annotation, name::Symbol) = getproperty(getfield(x, :_row), name)
 
+ConstructionBase.setproperties(x::Annotation, patch::NamedTuple) = Annotation(setproperties(getfield(x, :_row), patch))
+
 Tables.getcolumn(x::Annotation, i::Int) = Tables.getcolumn(getfield(x, :_row), i)
 Tables.getcolumn(x::Annotation, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
 Tables.columnnames(x::Annotation) = Tables.columnnames(getfield(x, :_row))
@@ -82,5 +84,27 @@ function write_annotations(io_or_path, table; kwargs...)
         @warn "Invalid schema in input `table`. Try calling `Onda.Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
         rethrow()
     end
-    return write_onda_table(io_or_path, table; kwargs...)
+    return write_onda_table(io_or_path, columns; kwargs...)
+end
+
+#####
+##### utilities
+#####
+
+function merge_overlapping(annotations)
+    columns = Tables.columns(annotations)
+    perm = sortperm(columns.span, by=TimeSpans.start)
+    sorted = Tables.rows((recording=view(columns.recording, perm), id=view(columns.id, perm), span=view(columns.span, perm)))
+    init = first(sorted)
+    merged = [Annotation(init.recording, uuid4(), init.span; from=[init.id])]
+    for next in Iterators.drop(sorted, 1)
+        prev = merged[end]
+        if TimeSpans.overlaps(next.span, prev.span)
+            push!(prev.from, next.id)
+            merged[end] = setproperties(prev, span=TimeSpans.shortest_timespan_containing((prev.span, next.span)))
+        else
+            push!(merged, Annotation(next.recording, uuid4(), next.span; from=[next.id]))
+        end
+    end
+    return merged
 end

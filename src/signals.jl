@@ -50,22 +50,22 @@ end
     names[10] === :sample_type || throw(ArgumentError("invalid `Signal` fields: field 10 must be named `:sample_type`, got $(names[10])"))
     names[11] === :sample_rate || throw(ArgumentError("invalid `Signal` fields: field 11 must be named `:sample_rate`, got $(names[11])"))
     types[1] <: Union{UInt128,UUID} || throw(ArgumentError("invalid `Signal` fields: invalid `:recording` field type: $(types[1])"))
-    # types[2] <: Any || throw(ArgumentError("invalid `Signal` fields: invalid `:file_path` field type: $(types[2])"))
-    types[3] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:file_format` field type: $(types[3])"))
+    # types[2] <: Any
+    types[3] <: AbstractString || throw(ArgumentError("invalid `Signal` fields: invalid `:file_format` field type: $(types[3])"))
     types[4] <: Union{NamedTupleTimeSpan,TimeSpan} || throw(ArgumentError("invalid `Signal` fields: invalid `:span` field type: $(types[4])"))
-    types[5] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:kind` field type: $(types[5])"))
-    types[6] <: Vector{String} || throw(ArgumentError("invalid `Signal` fields: invalid `:channels` field type: $(types[6])"))
-    types[7] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_unit` field type: $(types[7])"))
+    types[5] <: AbstractString || throw(ArgumentError("invalid `Signal` fields: invalid `:kind` field type: $(types[5])"))
+    types[6] <: AbstractVector{<:AbstractString} || throw(ArgumentError("invalid `Signal` fields: invalid `:channels` field type: $(types[6])"))
+    types[7] <: AbstractString || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_unit` field type: $(types[7])"))
     types[8] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_resolution_in_unit` field type: $(types[8])"))
     types[9] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_offset_in_unit` field type: $(types[9])"))
-    types[10] <: String || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_type` field type: $(types[10])"))
+    types[10] <: AbstractString || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_type` field type: $(types[10])"))
     types[11] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_rate` field type: $(types[11])"))
    return nothing
 end
 
 @inline _validate_signal_field_count(n) = n >= 11 || throw(ArgumentError("invalid `Signal` fields: need at least 11 fields, input has $n"))
 
-function validate_signal_row(row)
+function _validate_signal_row(row)
     names = Tables.columnnames(row)
     _validate_signal_field_count(length(names))
     types = (typeof(Tables.getcolumn(row, 1)),
@@ -83,9 +83,9 @@ function validate_signal_row(row)
     return nothing
 end
 
-validate_signal_schema(::Nothing) = @warn "`schema == nothing`; skipping schema validation"
+_validate_signal_schema(::Nothing) = @warn "`schema == nothing`; skipping schema validation"
 
-function validate_signal_schema(schema::Tables.Schema)
+function _validate_signal_schema(schema::Tables.Schema)
     _validate_signal_field_count(length(schema.names))
     _validate_signal_fields(schema.names, schema.types)
     return nothing
@@ -98,7 +98,7 @@ end
 struct Signal{R}
     _row::R
     function Signal(_row::R) where {R}
-        validate_signal_row(_row)
+        _validate_signal_row(_row)
         return new{R}(_row)
     end
     function Signal(recording, file_path, file_format, span,
@@ -107,11 +107,15 @@ struct Signal{R}
         recording = recording isa UUID ? recording : UUID(recording)
         sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
         file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
-        _row = (; recording, file_path, file_format, TimeSpan(span),
-                String(kind), convert(Vector{String}, channels), String(sample_unit),
-                convert(Float64, sample_resolution_in_unit),
-                convert(Float64, sample_offset_in_unit),
-                sample_type, convert(Float64, sample_rate), custom...)
+        _row = (; recording, file_path, file_format,
+                span=TimeSpan(span),
+                kind=String(kind),
+                channels=convert(Vector{String}, channels),
+                sample_unit=String(sample_unit),
+                sample_resolution_in_unit=convert(Float64, sample_resolution_in_unit),
+                sample_offset_in_unit=convert(Float64, sample_offset_in_unit),
+                sample_type,
+                sample_rate=convert(Float64, sample_rate), custom...)
         return new{typeof(_row)}(_row)
     end
 end
@@ -121,11 +125,13 @@ function Signal(; recording, file_path, file_format, span,
                 sample_offset_in_unit, sample_type, sample_rate, custom...)
     return Signal(recording, file_path, file_format, span,
                   kind, channels, sample_unit, sample_resolution_in_unit,
-                  sample_offset_in_unit, sample_type, sample_rate, custom...)
+                  sample_offset_in_unit, sample_type, sample_rate; custom...)
 end
 
 Base.propertynames(x::Signal) = propertynames(getfield(x, :_row))
 Base.getproperty(x::Signal, name::Symbol) = getproperty(getfield(x, :_row), name)
+
+ConstructionBase.setproperties(x::Signal, patch::NamedTuple) = Signal(setproperties(getfield(x, :_row), patch))
 
 Tables.getcolumn(x::Signal, i::Int) = Tables.getcolumn(getfield(x, :_row), i)
 Tables.getcolumn(x::Signal, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
@@ -141,7 +147,7 @@ TimeSpans.stop(x::Signal) = TimeSpans.stop(x.span)
 
 function read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
     table = read_onda_table(io_or_path; materialize)
-    validate_schema && validate_signal_schema(Tables.schema(table))
+    validate_schema && _validate_signal_schema(Tables.schema(table))
     return table
 end
 
@@ -149,46 +155,75 @@ function write_signals(io_or_path, table; kwargs...)
     columns = Tables.columns(table)
     schema = Tables.schema(columns)
     try
-        validate_signal_schema(schema)
+        _validate_signal_schema(schema)
     catch
         @warn "Invalid schema in input `table`. Try calling `Onda.Signal.(Tables.rows(table))` to see if it is convertible to the required schema."
         rethrow()
     end
-    return write_onda_table(io_or_path, table; kwargs...)
+    return write_onda_table(io_or_path, columns; kwargs...)
 end
 
-
-#=
 #####
 ##### `SamplesInfo`
 #####
 
 """
-TODO
+    SamplesInfo(; kind, channels, sample_unit,
+                sample_resolution_in_unit, sample_offset_in_unit,
+                sample_type, sample_rate,
+                validate::Bool=Onda.validate_on_construction())
+
+    SamplesInfo(kind, channels, sample_unit,
+                sample_resolution_in_unit, sample_offset_in_unit,
+                sample_type, sample_rate;
+                validate::Bool=Onda.validate_on_construction())
+
+    SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
+
+Return a `SamplesInfo` instance whose fields are a subset of a `*.signals` row:
+
+- kind
+- channels
+- sample_unit
+- sample_resolution_in_unit
+- sample_offset_in_unit
+- sample_type
+- sample_rate
+
+The `SamplesInfo` struct bundles together the fields of a `*.signals` row that are
+intrinsic to a signal's sample data, leaving out extrinsic file or recording information.
+This is useful when the latter information is irrelevant or does not yet exist (e.g. if
+sample data is being constructed/manipulated in-memory without yet having been serialized).
+
+Bundling these fields together under a common type facilitates dispatch for various Onda API
+functions. Additionally:
+
+- If `validate` is `true`, then `Onda.validate` is called on new instances upon construction.
+
+- The provided `sample_type` may be either an Onda-compliant string or a `DataType`. If it is
+  a string, it will be converted to its corresponding `DataType`.
 """
 struct SamplesInfo{K<:AbstractString,
                    C<:AbstractVector{<:AbstractString},
                    U<:AbstractString,
-                   T<:LPCM_SAMPLE_TYPE_UNION,
+                   R<:LPCM_SAMPLE_TYPE_UNION,
+                   O<:LPCM_SAMPLE_TYPE_UNION,
                    S<:LPCM_SAMPLE_TYPE_UNION}
     kind::K
     channels::C
     sample_unit::U
-    sample_resolution_in_unit::T
-    sample_offset_in_unit::T
+    sample_resolution_in_unit::R
+    sample_offset_in_unit::O
     sample_type::Type{S}
     sample_rate::Float64
     function SamplesInfo(kind::K, channels::C, sample_unit::U,
-                         sample_resolution_in_unit::SRU,
-                         sample_offset_in_unit::SOU,
+                         sample_resolution_in_unit::R,
+                         sample_offset_in_unit::O,
                          sample_type, sample_rate;
-                         validate::Bool=Onda.validate_on_construction()) where {K,C,U,SRU,SOU}
-        T = typeintersect(promote_type(SRU, SOU), LPCM_SAMPLE_TYPE_UNION)
+                         validate::Bool=Onda.validate_on_construction()) where {K,C,U,R,O}
         S = sample_type isa Type ? sample_type : julia_type_from_onda_sample_type(sample_type)
-        info = new{K,C,U,T,S}(kind, channels, sample_unit,
-                                convert(T, sample_resolution_in_unit),
-                                convert(T, sample_offset_in_unit),
-                                S, convert(Float64, sample_rate))
+        info = new{K,C,U,R,O,S}(kind, channels, sample_unit, sample_resolution_in_unit,
+                                sample_offset_in_unit, S, convert(Float64, sample_rate))
         validate && Onda.validate(info)
         return info
     end
@@ -212,10 +247,11 @@ end
 """
     validate(info::SamplesInfo)
 
-Returns `nothing`, checking that the given `info.sample_unit` and `info.channels` are
-valid w.r.t. the Onda specification. If a violation is found, an `ArgumentError` is thrown.
+Returns `nothing`, checking that the given `info.kind`, `info.channels` and `info.sample_unit`
+are valid w.r.t. the Onda specification. If a violation is found, an `ArgumentError` is thrown.
 """
 function validate(info::SamplesInfo)
+    is_lower_snake_case_alphanumeric(info.kind) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $(info.kind)"))
     is_lower_snake_case_alphanumeric(info.sample_unit) || throw(ArgumentError("invalid sample unit (must be lowercase/snakecase/alphanumeric): $(info.sample_unit)"))
     for c in info.channels
         is_lower_snake_case_alphanumeric(c, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
@@ -225,141 +261,50 @@ end
 
 Base.:(==)(a::SamplesInfo, b::SamplesInfo) = all(name -> getfield(a, name) == getfield(b, name), fieldnames(SamplesInfo))
 
-"""
-    channel(info::SamplesInfo, name)
-
-Return `i` where `info.channels[i] == name`.
-"""
-channel(info::SamplesInfo, name) = findfirst(isequal(name), info.channels)
-
-"""
-    channel(info::SamplesInfo, i::Integer)
-
-Return `info.channels[i]`.
-"""
-channel(info::SamplesInfo, i::Integer) = info.channels[i]
-
-"""
-    channel_count(info::SamplesInfo)
-
-Return `length(info.channels)`.
-"""
-channel_count(info::SamplesInfo) = length(info.channels)
-
-"""
-    sample_count(info::SamplesInfo, duration::Period)
-
-Return the number of multichannel samples that fit within `duration` given `info.sample_rate`.
-"""
-sample_count(info::SamplesInfo, duration::Period) = TimeSpans.index_from_time(info.sample_rate, duration) - 1
-
-"""
-    sizeof_samples(info::SamplesInfo, duration::Period)
-
-Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `info` and `duration`:
-
-    sample_count(info, duration) * channel_count(info) * sizeof(info.sample_type)
-
-"""
-sizeof_samples(info::SamplesInfo, duration::Period) = sample_count(info, duration) * channel_count(info) * sizeof(info.sample_type)
-=#
-
-
-#=
-#####
-##### `*.signals` table
-#####
-
-"""
-TODO
-"""
-struct Signal{P}
-    recording::UUID
-    file_path::P
-    file_format::String
-    span::TimeSpan
-    kind::String
-    channels::Vector{String}
-    sample_unit::String
-    sample_resolution_in_unit::Float64
-    sample_offset_in_unit::Float64
-    sample_type::String
-    sample_rate::Float64
-end
-
-function Signal(recording, file_path::P, file_format, span,
-                kind, channels, sample_unit, sample_resolution_in_unit,
-                sample_offset_in_unit, sample_type, sample_rate) where {P}
-    recording = recording isa UUID ? recording : UUID(recording)
-    sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
-    file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
-    return Signal{P}(recording, file_path, file_format, TimeSpan(span),
-                     String(kind), convert(Vector{String}, channels), String(sample_unit),
-                     convert(Float64, sample_resolution_in_unit),
-                     convert(Float64, sample_offset_in_unit),
-                     sample_type, convert(Float64, sample_rate))
-end
-
-function Signal(; recording, file_path, file_format, span,
-                kind, channels, sample_unit, sample_resolution_in_unit,
-                sample_offset_in_unit, sample_type, sample_rate)
+function Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
     return Signal(recording, file_path, file_format, span,
-                  kind, channels, sample_unit, sample_resolution_in_unit,
-                  sample_offset_in_unit, sample_type, sample_rate)
-end
-
-function Signal(info::SamplesInfo; recording, file_path, file_format, span)
-    return Signal(; recording, file_path, file_format, span,
                   info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
-                  info.sample_offset_in_unit, info.sample_type, info.sample_rate)
+                  info.sample_offset_in_unit, info.sample_type, info.sample_rate; custom...)
 end
 
-Signal(x) = Signal(x.recording, x.file_path, x.file_format, x.span,
-                   x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit,
-                   x.sample_offset_in_unit, x.sample_type, x.sample_rate)
-
-Tables.schema(::AbstractVector{S}) where {S<:Signal} = Tables.Schema(fieldnames(S), fieldtypes(S))
-
-TimeSpans.istimespan(::Signal) = true
-TimeSpans.start(signal::Signal) = TimeSpans.start(signal.span)
-TimeSpans.stop(signal::Signal) = TimeSpans.stop(signal.span)
-
-const SIGNALS_COLUMN_NAMES = (:recording, :file_path, :file_format, :span,
-                              :kind, :channels, :sample_unit, :sample_resolution_in_unit,
-                              :sample_offset_in_unit, :sample_type, :sample_rate)
-
-const SIGNALS_READABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,AbstractString,Any,
-                                            AbstractString,AbstractVector{<:AbstractString},AbstractString,LPCM_SAMPLE_TYPE_UNION,
-                                            LPCM_SAMPLE_TYPE_UNION,AbstractString,Real}
-
-const SIGNALS_WRITABLE_COLUMN_TYPES = Tuple{Union{UUID,UInt128},Any,String,TimeSpan,
-                                            String,Vector{String},String,Float64,Float64,String,Float64}
-
-is_readable_signals_schema(::Any) = false
-is_readable_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_READABLE_COLUMN_TYPES}) = true
-
-is_writable_signals_schema(::Any) = false
-is_writable_signals_schema(::Tables.Schema{SIGNALS_COLUMN_NAMES,<:SIGNALS_WRITABLE_COLUMN_TYPES}) = true
+#####
+##### duck-typed utilities
+#####
 
 """
-TODO
+    channel(x, name)
+
+Return `i` where `x.channels[i] == name`.
 """
-function read_signals(io_or_path; materialize::Bool=false, error_on_invalid_schema::Bool=false)
-    table = read_onda_table(io_or_path; materialize)
-    invalid_schema_error_message = error_on_invalid_schema ? "schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_READABLE_COLUMN_TYPES`" : nothing
-    validate_schema(is_readable_signals_schema, Tables.schema(table); invalid_schema_error_message)
-    return table
-end
+channel(x, name) = findfirst(isequal(name), x.channels)
 
 """
-TODO
+    channel(x, i::Integer)
+
+Return `x.channels[i]`.
 """
-function write_signals(io_or_path, table; kwargs...)
-    invalid_schema_error_message = """
-                                   schema must have names matching `Onda.SIGNALS_COLUMN_NAMES` and types matching `Onda.SIGNALS_WRITABLE_COLUMN_TYPES`.
-                                   Try calling `Onda.Signal.(Tables.rows(table))` on your `table` to see if it is convertible to the required schema.
-                                   """
-    validate_schema(is_writable_signals_schema, Tables.schema(table); invalid_schema_error_message)
-    return write_onda_table(io_or_path, table; kwargs...)
-end
-=#
+channel(x, i::Integer) = x.channels[i]
+
+"""
+    channel_count(x)
+
+Return `length(x.channels)`.
+"""
+channel_count(x) = length(x.channels)
+
+"""
+    sample_count(x, duration::Period)
+
+Return the number of multichannel samples that fit within `duration` given `x.sample_rate`.
+"""
+sample_count(x, duration::Period) = TimeSpans.index_from_time(x.sample_rate, duration) - 1
+
+"""
+    sizeof_samples(x, duration::Period)
+
+Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `x` and `duration`:
+
+    sample_count(x, duration) * channel_count(x) * sizeof(x.sample_type)
+
+"""
+sizeof_samples(x, duration::Period) = sample_count(x, duration) * channel_count(x) * sizeof(x.sample_type)

@@ -70,9 +70,9 @@ for recording in signals_recordings
         push!(signals, signal)
     end
 end
-# path_to_signals_file = joinpath(root, "test.signals")
-# Onda.write_signals(path_to_signals_file, signals)
-# Onda.log("`*.signals` file written at $path_to_signals_file")
+path_to_signals_file = joinpath(root, "test.signals")
+Onda.write_signals(path_to_signals_file, signals)
+Onda.log("`*.signals` file written at $path_to_signals_file")
 
 annotations = Annotation[]
 sources = (uuid4(), uuid4(), uuid4())
@@ -85,9 +85,9 @@ for recording in annotations_recordings
         push!(annotations,  annotation)
     end
 end
-# path_to_annotations_file = joinpath(root, "test.annotations")
-# Onda.write_annotations(path_to_annotations_file, annotations)
-# Onda.log("`*.annotations` file written at $path_to_annotations_file")
+path_to_annotations_file = joinpath(root, "test.annotations")
+Onda.write_annotations(path_to_annotations_file, annotations)
+Onda.log("`*.annotations` file written at $path_to_annotations_file")
 
 #####
 ##### basic Onda + DataFrames patterns
@@ -102,7 +102,6 @@ Note that most of these operations are only shown here on a single table
 to avoid redundancy, but these examples are generally applicable to both
 signals and annotations tables.
 =#
-#=
 
 # read Onda Arrow files into `DataFrame`s
 signals = DataFrame(Onda.read_signals(path_to_signals_file))
@@ -143,24 +142,14 @@ target = rand(signals.recording)
 signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
 filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
 
-# merge overlapping annotations of the same `quality` in the same recording
-# output is an annotation table whose value is a vector of merged uuids and whose span is the union of spans
-# combine(groupby(annotations, :recording)) do df
-#     sorted = sort(df, :span; by=TimeSpans.start)
-#     grouped = groupby(transform(sorted, :value => ByRow(x -> x.quality) => :quality), :quality)
-#     merged = Annotation{eltype(df.value)}[]
-#     return merged
-# end
-
-# combine(groupby(annotations, :recording)) do df
-#     grouped = groupby(sort(df, :span; by=TimeSpans.start), :quality)
-#     merged = Annotation{eltype(df.value)}[]
-#     return merged
-# end
+# merge overlapping annotations of the same `quality` in the same recording.
+# `merged` is an annotations table with a custom column of merged ids.
+merged = DataFrame(mapreduce(Onda.merge_overlapping, vcat, groupby(annotations, [:recording, :quality])))
+x = merged[rand(1:10), :] # let's get the original annotation(s) from this merged annotation
+view(annotations, findall(in(x.from), annotations.id), :)
 
 #####
 ##### working with `Samples`
 #####
 
 # TODO
-=#

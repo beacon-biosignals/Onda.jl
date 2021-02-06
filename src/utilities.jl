@@ -7,15 +7,13 @@ log(message) = @info "$(now()) | $message"
 """
     Onda.validate_on_construction()
 
-If this function returns `true`, Onda objects will be validated upon construction
+Returns `true` by default.
+
+If this function returns `true`, various Onda objects will be validated upon construction
 for compliance with the Onda specification.
 
-If this function returns `false`, no such validation will be performed upon construction.
-
-Users may interactively redefine this method in order to attempt to read malformed
-Onda datasets.
-
-Returns `true` by default.
+Users may interactively redefine this method to `false` in order to disable this extra layer
+validation, which can be useful when working with malformed Onda datasets.
 
 See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
 """
@@ -68,7 +66,7 @@ end
 function write_onda_table(io_or_path, table; kwargs...)
     Arrow.setmetadata!(table, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
     Arrow.write(io_or_path, table; kwargs...)
-    return columns
+    return table
 end
 
 """
