@@ -79,7 +79,7 @@ sources = (uuid4(), uuid4(), uuid4())
 annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
 for recording in annotations_recordings
     for i in 1:rand(3:10)
-        start = Second(rand(0:600))
+        start = Second(rand(0:30))
         annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30)));
                                 rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
         push!(annotations,  annotation)
@@ -145,8 +145,14 @@ filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy
 # merge overlapping annotations of the same `quality` in the same recording.
 # `merged` is an annotations table with a custom column of merged ids.
 merged = DataFrame(mapreduce(Onda.merge_overlapping, vcat, groupby(annotations, [:recording, :quality])))
-x = merged[rand(1:10), :] # let's get the original annotation(s) from this merged annotation
-view(annotations, findall(in(x.from), annotations.id), :)
+m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
+view(annotations, findall(in(m.from), annotations.id), :)
+
+# load all the annotated segments that fall within a given signal's timespan
+within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
+sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => (span -> Onda.load.(Ref(signal), span)) => :samples)
 
 #####
 ##### working with `Samples`
