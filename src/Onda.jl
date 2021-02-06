@@ -2,7 +2,7 @@ module Onda
 
 using UUIDs, Dates, Random
 using TimeSpans, ConstructionBase
-using Arrow, Tables, PrettyTables
+using Arrow, Tables
 using MsgPack, TranscodingStreams, CodecZstd
 
 function __init__()
