@@ -10,7 +10,7 @@
 
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
 using Onda: Annotation, Signal, SamplesInfo, Samples, channel_count, sample_count
-using TimeSpans: duration, start, stop
+using TimeSpans: duration, translate, start, stop
 
 #####
 ##### generate some mock data
@@ -151,7 +151,6 @@ view(annotations, findall(in(m.from), annotations.id), :)
 # load all the annotated segments that fall within a given signal's timespan
 within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
 sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
-translate(span, by) = TimeSpan(start(span) + by, stop(span) + by)
 transform(filter(ann -> within_signal(ann, sig), annotations),
           :span => ByRow(span -> Onda.load(sig, translate(span, -start(sig.span)))) => :samples)
 
