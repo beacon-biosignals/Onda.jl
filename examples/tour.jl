@@ -152,7 +152,7 @@ view(annotations, findall(in(m.from), annotations.id), :)
 within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
 sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
 transform(filter(ann -> within_signal(ann, sig), annotations),
-          :span => (span -> Onda.load.(Ref(signal), span)) => :samples)
+          :span => (span -> Onda.load.(Ref(sig), span)) => :samples)
 
 #####
 ##### working with `Samples`
