@@ -10,7 +10,7 @@
 
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
 using Onda: Annotation, Signal, SamplesInfo, Samples, channel_count, sample_count
-using TimeSpans: duration
+using TimeSpans: duration, start, stop
 
 #####
 ##### generate some mock data
@@ -151,8 +151,9 @@ view(annotations, findall(in(m.from), annotations.id), :)
 # load all the annotated segments that fall within a given signal's timespan
 within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
 sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
-anns = filter(ann -> within_signal(ann, sig), annotations)
-transform(anns, :span => (span -> Onda.load.(Ref(sig), span)) => :samples)
+translate(span, by) = TimeSpan(start(span) + by, stop(span) + by)
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => ByRow(span -> Onda.load(sig, translate(span, -start(sig.span)))) => :samples)
 
 # In the above, we called `Onda.load(sig, span)` for each `span`. This invocation attempts to load
 # *only* the sample data corresponding to `span`, which can be very efficient if the sample data
@@ -162,7 +163,8 @@ transform(anns, :span => (span -> Onda.load.(Ref(sig), span)) => :samples)
 # the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
 # want to support an optimal batch loader):
 samples = Onda.load(sig)
-transform(anns, :span => (span -> view.(Ref(samples), :, span)) => :samples)
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => ByRow(span -> view(samples, :, translate(span, -start(sig.span)))) => :samples)
 
 #####
 ##### working with `Samples`
