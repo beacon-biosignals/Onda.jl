@@ -1,4 +1,3 @@
-
 #####
 ##### validation
 #####
@@ -61,10 +60,6 @@ Tables.getcolumn(x::Annotation, i::Int) = Tables.getcolumn(getfield(x, :_row), i
 Tables.getcolumn(x::Annotation, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
 Tables.columnnames(x::Annotation) = Tables.columnnames(getfield(x, :_row))
 
-TimeSpans.istimespan(::Annotation) = true
-TimeSpans.start(x::Annotation) = TimeSpans.start(x.span)
-TimeSpans.stop(x::Annotation) = TimeSpans.stop(x.span)
-
 #####
 ##### read/write
 #####
@@ -81,7 +76,7 @@ function write_annotations(io_or_path, table; kwargs...)
     try
         validate_annotation_schema(schema)
     catch
-        @warn "Invalid schema in input `table`. Try calling `Onda.Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
+        @warn "Invalid schema in input `table`. Try calling `Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
         rethrow()
     end
     return write_onda_table(io_or_path, columns; kwargs...)

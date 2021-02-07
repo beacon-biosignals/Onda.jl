@@ -137,10 +137,6 @@ Tables.getcolumn(x::Signal, i::Int) = Tables.getcolumn(getfield(x, :_row), i)
 Tables.getcolumn(x::Signal, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
 Tables.columnnames(x::Signal) = Tables.columnnames(getfield(x, :_row))
 
-TimeSpans.istimespan(::Signal) = true
-TimeSpans.start(x::Signal) = TimeSpans.start(x.span)
-TimeSpans.stop(x::Signal) = TimeSpans.stop(x.span)
-
 #####
 ##### read/write
 #####

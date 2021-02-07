@@ -69,9 +69,6 @@ function write_onda_table(io_or_path, table; kwargs...)
     return table
 end
 
-"""
-TODO
-"""
 function locations(collections::NTuple{N}) where {N}
     K = promote_type(eltype.(collections)...)
     results = Dict{K,NTuple{N,Vector{Int}}}()

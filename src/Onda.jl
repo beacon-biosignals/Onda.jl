@@ -14,10 +14,21 @@ end
 #####
 
 include("utilities.jl")
+
 include("annotations.jl")
+export Annotation, read_annotations, write_annotations, merge_overlapping
+
 include("signals.jl")
+export Signal, SamplesInfo, read_signals, write_signals,
+       channel, channel_count, sample_count, sizeof_samples
+
 include("formats.jl")
+export AbstractLPCMFormat, AbstractLPCMStream, LPCMFormat, LPCMZstFormat,
+       format, deserialize_lpcm, serialize_lpcm, deserialize_lpcm_callback,
+       deserializing_lpcm_stream, serializing_lpcm_stream, finalize_lpcm_stream
+
 include("samples.jl")
+export Samples, encode, encode!, decode, decode!, load, store
 
 #####
 ##### upgrades/deprecations

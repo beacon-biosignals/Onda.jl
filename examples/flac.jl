@@ -5,49 +5,50 @@
 using Onda, Test, Random, Dates
 
 #####
-##### FLAC
+##### FLACFormat
 #####
 
 """
-     FLAC(lpcm::LPCM; sample_rate, level=5)
-     FLAC(signal::Signal; level=5)
+     FLACFormat(lpcm::LPCMFormat; sample_rate, level=5)
+     FLACFormat(info::SamplesInfo; level=5)
 
-Return a `FLAC<:AbstractLPCMFormat` instance that represents the
-FLAC format assumed for sample data files with the ".flac" extension.
+Return a `FLACFormat<:AbstractLPCMFormat` instance that represents the
+FLAC format corresponding to signals whose `file_format` field is `"flac"`.
 
 The `sample_rate` keyword argument corresponds to `flac`'s `--sample-rate` flag,
 while `level` corresponds to `flac`'s `--compression-level` flag.
 
-Note that FLAC is only applicable for signals where `1 <= signal.channel_count <= 8`
-and `sizeof(signal.sample_type) in (1, 2)`. The corresponding `signal.file_options`
-value may be either `nothing` or `Dict(:level => i)` where `0 <= i <= 8`.
+Note that FLAC is only applicable for `info` where `1 <= channel_count(info) <= 8`
+and `sizeof(info.sample_type) in (1, 2)`.
 
 See https://xiph.org/flac/ for details about FLAC.
 
 See also: [`Zstd`](@ref)
 """
-struct FLAC{S} <: Onda.AbstractLPCMFormat
-    lpcm::LPCM{S}
+struct FLACFormat{S} <: Onda.AbstractLPCMFormat
+    lpcm::LPCMFormat{S}
     sample_rate::Int
     level::Int
-    function FLAC(lpcm::LPCM{S}; sample_rate, level=5) where {S}
+    function FLACFormat(lpcm::LPCMFormat{S}; sample_rate, level=5) where {S}
         sizeof(S) in (1, 2) || throw(ArgumentError("bit depth must be 8 or 16"))
         1 <= lpcm.channel_count <= 8 || throw(ArgumentError("channel count must be between 1 and 8"))
         return new{S}(lpcm, sample_rate, level)
     end
 end
 
-FLAC(signal::Signal; kwargs...) = FLAC(LPCM(signal); sample_rate=signal.sample_rate,
-                                       kwargs...)
+FLACFormat(info::SamplesInfo; kwargs...) = FLACFormat(LPCMFormat(info); sample_rate=info.sample_rate,
+                                                      kwargs...)
 
-Onda.file_format_constructor(::Val{:flac}) = FLAC
+Onda.register_lpcm_format!(file_format -> file_format == "flac" ? FLACFormat : nothing)
 
-function flac_raw_specification_flags(serializer::FLAC{S}) where {S}
-    return (level="--compression-level-$(serializer.level)",
+file_format_string(::FLACFormat) = "flac"
+
+function flac_raw_specification_flags(format::FLACFormat{S}) where {S}
+    return (level="--compression-level-$(format.level)",
             endian="--endian=little",
-            channels="--channels=$(serializer.lpcm.channel_count)",
+            channels="--channels=$(format.lpcm.channel_count)",
             bps="--bps=$(sizeof(S) * 8)",
-            sample_rate="--sample-rate=$(serializer.sample_rate)",
+            sample_rate="--sample-rate=$(format.sample_rate)",
             is_signed=string("--sign=", S <: Signed ? "signed" : "unsigned"))
 end
 
@@ -55,13 +56,13 @@ struct FLACStream{L<:Onda.LPCMStream} <: AbstractLPCMStream
     stream::L
 end
 
-function Onda.deserializing_lpcm_stream(format::FLAC, io)
+function Onda.deserializing_lpcm_stream(format::FLACFormat, io)
     flags = flac_raw_specification_flags(format)
     cmd = open(`flac - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`, io)
     return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
 
-function Onda.serializing_lpcm_stream(format::FLAC, io)
+function Onda.serializing_lpcm_stream(format::FLACFormat, io)
     flags = flac_raw_specification_flags(format)
     cmd = open(`flac --totally-silent $(flags) -`, io; write=true)
     return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
@@ -77,14 +78,14 @@ Onda.deserialize_lpcm(stream::FLACStream, args...) = deserialize_lpcm(stream.str
 
 Onda.serialize_lpcm(stream::FLACStream, args...) = serialize_lpcm(stream.stream, args...)
 
-function Onda.deserialize_lpcm(format::FLAC, bytes, args...)
+function Onda.deserialize_lpcm(format::FLACFormat, bytes, args...)
     stream = deserializing_lpcm_stream(format, IOBuffer(bytes))
     results = deserialize_lpcm(stream, args...)
     finalize_lpcm_stream(stream)
     return results
 end
 
-function Onda.serialize_lpcm(format::FLAC, samples::AbstractMatrix)
+function Onda.serialize_lpcm(format::FLACFormat, samples::AbstractMatrix)
     io = IOBuffer()
     stream = serializing_lpcm_stream(format, io)
     serialize_lpcm(stream, samples)
@@ -96,28 +97,37 @@ end
 ##### tests
 #####
 
+saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
+                        i in 1:channel_count(info), j in 1:sample_count(info, duration)]
+
 if VERSION >= v"1.1.0"
     @testset "FLAC example" begin
-        signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50, :flac, Dict(:level => 2))
-        samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50 * 10))))
-        signal_format = format(signal)
+        info = SamplesInfo(; kind="test", channels=["a", "b", "c"],
+                           sample_unit="unit",
+                           sample_resolution_in_unit=0.25,
+                           sample_offset_in_unit=-0.5,
+                           sample_type=Int16,
+                           sample_rate=50)
+        data = saws(info, Minute(3))
+        samples = encode(Samples(data, info, false))
+        fmt = FLACFormat(info)
 
-        bytes = serialize_lpcm(signal_format, samples.data)
-        @test deserialize_lpcm(signal_format, bytes) == samples.data
-        @test deserialize_lpcm(signal_format, bytes, 99) == view(samples.data, :, 100:size(samples.data, 2))
-        @test deserialize_lpcm(signal_format, bytes, 99, 201) == view(samples.data, :, 100:300)
+        bytes = serialize_lpcm(fmt, samples.data)
+        @test deserialize_lpcm(fmt, bytes) == samples.data
+        @test deserialize_lpcm(fmt, bytes, 99) == view(samples.data, :, 100:size(samples.data, 2))
+        @test deserialize_lpcm(fmt, bytes, 99, 201) == view(samples.data, :, 100:300)
 
         io = IOBuffer()
-        stream = serializing_lpcm_stream(signal_format, io)
+        stream = serializing_lpcm_stream(fmt, io)
         serialize_lpcm(stream, samples.data)
         @test finalize_lpcm_stream(stream)
         seekstart(io)
-        stream = deserializing_lpcm_stream(signal_format, io)
+        stream = deserializing_lpcm_stream(fmt, io)
         @test deserialize_lpcm(stream) == samples.data
         finalize_lpcm_stream(stream) && close(io)
 
         io = IOBuffer(bytes)
-        stream = deserializing_lpcm_stream(signal_format, io)
+        stream = deserializing_lpcm_stream(fmt, io)
         @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 50:100)
         @test deserialize_lpcm(stream, 49, 51) == view(samples.data, :, 150:200)
         @test deserialize_lpcm(stream, 9) == view(samples.data, :, 210:size(samples.data, 2))
