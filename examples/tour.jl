@@ -69,7 +69,7 @@ for recording in signals_recordings
         push!(signals, signal)
     end
 end
-path_to_signals_file = joinpath(root, "test.signals")
+path_to_signals_file = joinpath(root, "test.onda.signals.arrow")
 write_signals(path_to_signals_file, signals)
 Onda.log("`*.signals` file written at $path_to_signals_file")
 
@@ -84,7 +84,7 @@ for recording in annotations_recordings
         push!(annotations,  annotation)
     end
 end
-path_to_annotations_file = joinpath(root, "test.annotations")
+path_to_annotations_file = joinpath(root, "test.onda.annotations.arrow")
 write_annotations(path_to_annotations_file, annotations)
 Onda.log("`*.annotations` file written at $path_to_annotations_file")
 

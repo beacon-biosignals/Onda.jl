@@ -70,10 +70,10 @@ export Samples, encode, encode!, decode, decode!, load, store
 #         end
 #     end
 #     verbose && log("writing out onda.signals file...")
-#     write_signals(joinpath(dataset_path, "onda.signals"), signals; compress)
+#     write_signals(joinpath(dataset_path, "onda.onda.signals.arrow"), signals; compress)
 #     verbose && log("onda.signals file written.")
 #     verbose && log("writing out onda.annotations file...")
-#     write_annotations(joinpath(dataset_path, "onda.annotations"), annotations; compress)
+#     write_annotations(joinpath(dataset_path, "onda.onda.annotations.arrow"), annotations; compress)
 #     verbose && log("onda.annotations file written.")
 #     return signals, annotations
 # end
