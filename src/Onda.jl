@@ -34,48 +34,53 @@ export Samples, encode, encode!, decode, decode!, load, store
 ##### upgrades/deprecations
 #####
 
-# TODO: update
-# function upgrade_onda_format_from_v0_4_to_v0_5!(dataset_path;
-#                                                 verbose=true,
-#                                                 compress=nothing,
-#                                                 uuid_from_annotation=(_ -> uuid4()),
-#                                                 signal_file_path=((uuid, kind, ext) -> joinpath("samples", string(uuid), kind * "." * ext)),
-#                                                 signal_file_format=((ext, opts) -> ext))
-#     raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
-#     v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
-#     signals = SignalsRow{String}[]
-#     annotations = AnnotationsRow{String}[]
-#     for (i, (uuid, raw)) in enumerate(raw_recordings)
-#         verbose && log("($i / $(length(raw_recordings))) converting recording $uuid...")
-#         recording = UUID(uuid)
-#         for (kind, signal) in recording["signals"]
-#             push!(signals, SignalsRow(; recording,
-#                                       file_path=signal_file_path(recording, kind, signal["file_extension"]),
-#                                       file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
-#                                       kind,
-#                                       channels=signal["channel_names"],
-#                                       span=TimeSpan(signal["start_nanoseconds"], signal["stop_nanoseconds"])
-#                                       sample_unit=signal["sample_unit"],
-#                                       sample_resolution_in_unit=signal["sample_resolution_in_unit"],
-#                                       sample_offset_in_unit=signal["sample_offset_in_unit"],
-#                                       sample_type=signal["sample_type"],
-#                                       sample_rate=signal["sample_rate"]))
-#         end
-#         for ann in recording["annotations"]
-#             push!(annotations, AnnotationsRow(; recording,
-#                                               uuid=uuid_from_annotation(ann),
-#                                               start=ann["start"],
-#                                               stop=ann["stop"],
-#                                               value=ann["value"]))
-#         end
-#     end
-#     verbose && log("writing out onda.signals file...")
-#     write_signals(joinpath(dataset_path, "onda.onda.signals.arrow"), signals; compress)
-#     verbose && log("onda.signals file written.")
-#     verbose && log("writing out onda.annotations file...")
-#     write_annotations(joinpath(dataset_path, "onda.onda.annotations.arrow"), annotations; compress)
-#     verbose && log("onda.annotations file written.")
-#     return signals, annotations
-# end
+"""
+To upgrade a v0.3/v0.4 dataset to Onda Format v0.5 format.
+
+To upgrade older datasets, first use an older version of Onda.jl to update them to v0.3 or above, then use this function.
+"""
+function upgrade_onda_dataset_to_v0_5!(dataset_path;
+                                       verbose=true,
+                                       compress=nothing,
+                                       uuid_from_annotation=(_ -> uuid4()),
+                                       signal_file_path=((uuid, kind, ext) -> joinpath("samples", string(uuid), kind * "." * ext)),
+                                       signal_file_format=((ext, opts) -> ext))
+    raw_header, raw_recordings = MsgPack.unpack(zstd_decompress(read(joinpath(dataset_path, "recordings.msgpack.zst"))))
+    v"0.3" <= VersionNumber(raw_header["onda_format_version"]) < v"0.5" || error("unexpected dataset version: $(raw_header["onda_format_version"])")
+    signals = Signal[]
+    annotations = Annotation[]
+    for (i, (uuid, raw)) in enumerate(raw_recordings)
+        verbose && log("($i / $(length(raw_recordings))) converting recording $uuid...")
+        recording = UUID(uuid)
+        for (kind, signal) in raw["signals"]
+            push!(signals, Signal(; recording,
+                                  file_path=signal_file_path(recording, kind, signal["file_extension"]),
+                                  file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
+                                  kind,
+                                  channels=signal["channel_names"],
+                                  span=TimeSpan(signal["start_nanosecond"], signal["stop_nanosecond"]),
+                                  sample_unit=signal["sample_unit"],
+                                  sample_resolution_in_unit=signal["sample_resolution_in_unit"],
+                                  sample_offset_in_unit=signal["sample_offset_in_unit"],
+                                  sample_type=signal["sample_type"],
+                                  sample_rate=signal["sample_rate"]))
+        end
+        for annotation in raw["annotations"]
+            push!(annotations, Annotation(; recording,
+                                          id=uuid_from_annotation(annotation),
+                                          span=TimeSpan(annotation["start_nanosecond"], annotation["stop_nanosecond"]),
+                                          value=annotation["value"]))
+        end
+    end
+    signals_file_path = joinpath(dataset_path, "upgraded.onda.signals.arrow")
+    verbose && log("writing out $signals_file_path...")
+    write_signals(signals_file_path, signals; compress)
+    verbose && log("$signals_file_path written.")
+    annotations_file_path = joinpath(dataset_path, "upgraded.onda.annotations.arrow")
+    verbose && log("writing out $annotations_file_path...")
+    write_annotations(annotations_file_path, annotations; compress)
+    verbose && log("$annotations_file_path written.")
+    return signals, annotations
+end
 
 end # module
