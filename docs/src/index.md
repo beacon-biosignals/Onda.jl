@@ -82,6 +82,7 @@ deserializing_lpcm_stream
 serializing_lpcm_stream
 finalize_lpcm_stream
 Onda.register_lpcm_format!
+Onda.file_format_string
 ```
 
 ## Utilities

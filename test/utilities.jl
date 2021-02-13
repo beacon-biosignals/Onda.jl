@@ -1,5 +1,3 @@
-using Test, Onda, Tables, DataFrames
-
 @testset "Onda.gather" begin
      a = [(x=1, y="a", z="k"),
           (x=2, y="b", z="j"),
