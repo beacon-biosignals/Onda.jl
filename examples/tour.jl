@@ -143,7 +143,7 @@ filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy
 
 # Merge overlapping annotations of the same `quality` in the same recording.
 # `merged` is an annotations table with a custom column of merged ids:
-merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, [:recording, :quality])))
+merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, :quality)))
 m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
 view(annotations, findall(in(m.from), annotations.id), :)
 

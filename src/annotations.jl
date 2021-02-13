@@ -144,17 +144,21 @@ non-overlapping annotation).
 """
 function merge_overlapping_annotations(annotations)
     columns = Tables.columns(annotations)
-    perm = sortperm(columns.span, by=TimeSpans.start)
-    sorted = Tables.rows((recording=view(columns.recording, perm), id=view(columns.id, perm), span=view(columns.span, perm)))
-    init = first(sorted)
-    merged = [Annotation(init.recording, uuid4(), init.span; from=[init.id])]
-    for next in Iterators.drop(sorted, 1)
-        prev = merged[end]
-        if TimeSpans.overlaps(next.span, prev.span)
-            push!(prev.from, next.id)
-            merged[end] = setproperties(prev, span=TimeSpans.shortest_timespan_containing((prev.span, next.span)))
-        else
-            push!(merged, Annotation(next.recording, uuid4(), next.span; from=[next.id]))
+    merged = Annotation[]
+    for (rid, (locs,)) in Onda.locations((columns.recording,))
+        subset = (recording=view(columns.recording, locs), id=view(columns.id, locs), span=view(columns.span, locs))
+        p = sortperm(subset.span, by=TimeSpans.start)
+        sorted = Tables.rows((recording=view(subset.recording, p), id=view(subset.id, p), span=view(subset.span, p)))
+        init = first(sorted)
+        push!(merged, Annotation(rid, uuid4(), init.span; from=[init.id]))
+        for next in Iterators.drop(sorted, 1)
+            prev = merged[end]
+            if next.recording == prev.recording && TimeSpans.overlaps(next.span, prev.span)
+                push!(prev.from, next.id)
+                merged[end] = setproperties(prev, span=TimeSpans.shortest_timespan_containing((prev.span, next.span)))
+            else
+                push!(merged, Annotation(next.recording, uuid4(), next.span; from=[next.id]))
+            end
         end
     end
     return merged

@@ -38,7 +38,7 @@ function locations(collections::NTuple{N}) where {N}
 end
 
 """
-    gather(column_name, tables...)
+    gather(column_name, tables...; extract=((table, idxs) -> view(table, idxs, :)))
 
 Return a `Dict` whose keys are the unique values of `column_name` across tables
 in `tables`, and whose values are tuples of the form:
@@ -47,8 +47,13 @@ in `tables`, and whose values are tuples of the form:
 
 This function facilitates gathering rows from `tables` into a unified cross-table
 index along `column_name`.
+
+The provided `extract` function is used to extract rows from each table; it takes
+as input a table and a `Vector{Int}` of row indices, and returns the corresponding
+subtable. The default definition is sufficient for `DataFrames` tables.
 """
-function gather(column_name, tables::Vararg{Any,N}) where {N}
+function gather(column_name, tables::Vararg{Any,N};
+                extract=((table, idxs) -> view(table, idxs, :))) where {N}
     cols = ntuple(i -> Tables.getcolumn(tables[i], column_name), N)
-    return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in locations(cols))
+    return Dict(id => ntuple(i -> extract(tables[i], locs[i]), N) for (id, locs) in locations(cols))
 end
