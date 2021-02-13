@@ -390,14 +390,15 @@ end
 
 """
     load(signal[, span]; encoded::Bool=false)
-    load(file_path, file_format::AbstractString, info::SamplesInfo[, span]; encoded::Bool=false)
-    load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo[, span]; encoded::Bool=false)
+    load(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, info::SamplesInfo[, span]; encoded::Bool=false)
 
 Return the `Samples` object described by `signal`/`file_path`/`file_format`/`info`.
 
 If `span` is present, return `load(...)[:, span]`, but attempt to avoid reading
 unreturned intermediate sample data. Note that the effectiveness of this optimized method
-versus the naive approach depends on the types of `file_path` and `file_format`.
+versus the naive approach depends on the types of `file_path` (i.e. if there is a fast
+method defined for `Onda.read_byte_range(::typeof(file_path), ...)`) and `file_format`
+(i.e. does the corresponding format support random or chunked access).
 
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
@@ -423,15 +424,27 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, spa
 end
 
 """
-TODO
+    store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, samples::Samples)
+
+Serialize the given `samples` to `file_format` and write the output to `file_path`.
 """
-function store(recording, file_path, file_format, start, samples::Samples; kwargs...)
+function store(file_path, file_format, samples::Samples)
+    fmt = file_format isa AbstractLPCMFormat ? file_format : format(file_format, samples.info)
+    return write_lpcm(file_path, fmt, encode(samples).data)
+end
+
+"""
+    store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, samples::Samples,
+          recording::UUID, start::Period; custom...)
+
+Serialize the given `samples` to `file_format` and write the output to `file_path`, returning
+a `Signal` instance constructed from the provided arguments (any provided `custom` keyword
+arguments are forwarded to an invocation of the `Signal` constructor).
+"""
+function store(file_path, file_format, samples::Samples, recording, start; custom...)
+    store(file_path, file_format, samples)
     span = TimeSpan(start, Nanosecond(start) + TimeSpans.duration(samples))
-    signal = Signal(samples.info; recording, file_path, file_format, span)
-    write_lpcm(file_path,
-               file_format isa AbstractLPCMFormat ? file_format : format(file_format, samples.info; kwargs...),
-               encode(samples).data)
-    return signal
+    return Signal(samples.info; recording, file_path, file_format, span, custom...)
 end
 
 #####

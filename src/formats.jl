@@ -198,7 +198,7 @@ function read_lpcm(path, format::AbstractLPCMFormat, sample_offset, sample_count
     return deserialize_requested_samples(bytes)
 end
 
-write_lpcm(path, format::AbstractLPCMFormat, data) = write_path(path, serialize_lpcm(format, data))
+write_lpcm(path, format::AbstractLPCMFormat, data) = write_full_path(path, serialize_lpcm(format, data))
 
 #####
 ##### `LPCMFormat`

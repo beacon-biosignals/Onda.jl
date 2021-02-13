@@ -49,46 +49,6 @@ TimeSpans.start(x::NamedTupleTimeSpan) = x.start
 TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
 
 #####
-##### tables
-#####
-
-function table_has_supported_onda_format_version(table)
-    m = Arrow.getmetadata(table)
-    return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
-end
-
-function read_onda_table(io_or_path; materialize::Bool=false)
-    table = Arrow.Table(io_or_path)
-    table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
-    return materialize ? map(collect, Tables.columntable(table)) : table
-end
-
-function write_onda_table(io_or_path, table; kwargs...)
-    Arrow.setmetadata!(table, Dict("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)"))
-    Arrow.write(io_or_path, table; kwargs...)
-    return table
-end
-
-function locations(collections::NTuple{N}) where {N}
-    K = promote_type(eltype.(collections)...)
-    results = Dict{K,NTuple{N,Vector{Int}}}()
-    for (c, collection) in enumerate(collections)
-        for (i, item) in enumerate(collection)
-            push!(get!(() -> ntuple(_ -> Int[], N), results, item)[c], i)
-        end
-    end
-    return results
-end
-
-"""
-TODO
-"""
-function gather(column_name, tables::Vararg{Any,N}) where {N}
-    cols = ntuple(i -> Tables.getcolumn(tables[i], column_name), N)
-    return Dict(id => ntuple(i -> view(tables[i], locs[i], :), N) for (id, locs) in locations(cols))
-end
-
-#####
 ##### zstd_compress/zstd_decompress
 #####
 
@@ -129,4 +89,5 @@ end
 
 read_byte_range(path, ::Missing, ::Missing) = read(path)
 
-write_path(path, bytes) = (mkpath(dirname(path)); write(path, bytes))
+write_full_path(path::AbstractString, bytes) = (mkpath(dirname(path)); write(path, bytes))
+write_full_path(path, bytes) = write(path, bytes)

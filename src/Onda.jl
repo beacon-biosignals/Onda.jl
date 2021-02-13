@@ -15,6 +15,8 @@ end
 
 include("utilities.jl")
 
+include("tables.jl")
+
 include("annotations.jl")
 export Annotation, read_annotations, write_annotations, merge_overlapping
 

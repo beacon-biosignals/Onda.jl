@@ -65,7 +65,7 @@ for recording in signals_recordings
         data = saws(info, Minute(rand(1:10)))
         samples = Samples(data, info, false)
         start = Second(rand(0:30))
-        signal = store(recording, file_path, file_format, start, samples)
+        signal = store(file_path, file_format, samples, recording, start)
         push!(signals, signal)
     end
 end
