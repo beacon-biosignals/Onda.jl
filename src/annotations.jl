@@ -141,6 +141,10 @@ annotations' source(s). Note that every annotation in the returned table
 has a freshly generated `id` field and a non-empty `from` field, even if
 the `from` only has a single element (i.e. corresponds to a single
 non-overlapping annotation).
+
+Note that this function internally works with `Tables.columns(annotations)`
+rather than `annotations` directly, so it may be slower and/or require more
+memory if `!Tables.columnaccess(annotations)`.
 """
 function merge_overlapping_annotations(annotations)
     columns = Tables.columns(annotations)
