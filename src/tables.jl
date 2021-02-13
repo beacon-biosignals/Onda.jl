@@ -38,7 +38,15 @@ function locations(collections::NTuple{N}) where {N}
 end
 
 """
-TODO
+    gather(column_name, tables...)
+
+Return a `Dict` whose keys are the unique values of `column_name` across tables
+in `tables`, and whose values are tuples of the form:
+
+    (rows_matching_key_in_table_1, rows_matching_key_in_table_2, ...)
+
+This function facilitates gathering rows from `tables` into a unified cross-table
+index along `column_name`.
 """
 function gather(column_name, tables::Vararg{Any,N}) where {N}
     cols = ntuple(i -> Tables.getcolumn(tables[i], column_name), N)

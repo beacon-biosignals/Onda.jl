@@ -35,6 +35,20 @@ end
 ##### Annotation
 #####
 
+"""
+    Annotation(annotations_table_row)
+    Annotation(recording, id, span; custom...)
+    Annotation(; recording, id, span, custom...)
+
+Return an `Annotation` instance that represents a row of an `*.onda.annotations.arrow` table.
+
+This type primarily exists to aid in the validated construction of such rows/tables,
+and is not intended to be used as a type constraint in function or struct definitions.
+Instead, you should generally duck-type any "annotation-like" arguments/fields so that
+other generic row types will compose with your code.
+
+This type supports Tables.jl's `AbstractRow` interface (but does not subtype `AbstractRow`).
+"""
 struct Annotation{R}
     _row::R
     function Annotation(_row::R) where {R}
@@ -64,12 +78,35 @@ Tables.columnnames(x::Annotation) = Tables.columnnames(getfield(x, :_row))
 ##### read/write
 #####
 
+"""
+    read_annotations(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+
+Return the `*.onda.annotations.arrow`-compliant table read from `io_or_path`.
+
+If `validate_schema` is `true`, the table's schema will be validated to ensure it is
+a `*.onda.annotations.arrow`-compliant table. An `ArgumentError` will be thrown if
+any schema violation is detected.
+
+If `materialize` is `false`, the returned table will be an `Arrow.Table` while if
+`materialize` is `true`, the returned table will be a `NamedTuple` of columns. The
+primary difference is that the former has a conversion-on-access behavior, while
+for the latter, any potential conversion cost has been paid up front.
+"""
 function read_annotations(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
     table = read_onda_table(io_or_path; materialize)
     validate_schema && validate_annotation_schema(Tables.schema(table))
     return table
 end
 
+"""
+    write_annotations(io_or_path, table; kwargs...)
+
+Write `table` to `io_or_path`, first validating that `table` is a
+`*.onda.annotations.arrow`-compliant table. An `ArgumentError` will
+be thrown if any schema violation is detected.
+
+`kwargs` is forwarded to an internal invocation of `Arrow.write(...; file=true, kwargs...)`.
+"""
 function write_annotations(io_or_path, table; kwargs...)
     columns = Tables.columns(table)
     schema = Tables.schema(columns)
@@ -86,7 +123,26 @@ end
 ##### utilities
 #####
 
-function merge_overlapping(annotations)
+"""
+    merge_overlapping_annotations(annotations)
+
+Given the `*.onda.annotations.arrow`-compliant table `annotations`, return
+a table corresponding to `annotations` except that overlapping entries have
+been merged.
+
+Specifically, two annotations `a` and `b` are determined to be "overlapping"
+if `a.recording == b.recording && TimeSpans.overlaps(a.span, b.span)`. Merged
+annotations' `span` fields are generated via calling `TimeSpans.shortest_timespan_containing`
+on the overlapping set of source annotations.
+
+The returned annotations table only has a single custom column named `from`
+whose entries are `Vector{UUID}`s populated with the `id`s of the generated
+annotations' source(s). Note that every annotation in the returned table
+has a freshly generated `id` field and a non-empty `from` field, even if
+the `from` only has a single element (i.e. corresponds to a single
+non-overlapping annotation).
+"""
+function merge_overlapping_annotations(annotations)
     columns = Tables.columns(annotations)
     perm = sortperm(columns.span, by=TimeSpans.start)
     sorted = Tables.rows((recording=view(columns.recording, perm), id=view(columns.id, perm), span=view(columns.span, perm)))

@@ -23,42 +23,27 @@ be overloaded for the backend's corresponding path type to enable further optimi
 Onda.read_byte_range
 ```
 
-
-
-
-
-<!-- ## `Dataset` API -->
-
-
-
-
-<!-- Note that Onda.jl's API follows a specific philosophy with respect to property access: users are generally expected to access fields via Julia's `object.fieldname` syntax, but should only *mutate* objects via the exposed API methods documented below.
-
-## `Dataset` API
+## `*.onda.annotations.arrow`
 
 ```@docs
-Dataset
-load
-load_encoded
-save
-create_recording!
-store!
-delete!
-Onda.validate_on_construction
+Annotation
+read_annotations
+write_annotations
+merge_overlapping_annotations
 ```
 
-## Onda Format Metadata
+## `*.onda.signals.arrow`
 
 ```@docs
 Signal
-validate_signal
-signal_from_template
-span
+SamplesInfo
+validate
+read_signals
+write_signals
+channel
+channel_count
+sample_count
 sizeof_samples
-Annotation
-Recording
-set_span!
-annotate!
 ```
 
 ## `Samples`
@@ -66,7 +51,6 @@ annotate!
 ```@docs
 Samples
 ==(::Samples, ::Samples)
-validate_samples
 channel
 channel_count
 sample_count
@@ -74,55 +58,36 @@ encode
 encode!
 decode
 decode!
+load
+store
 ```
 
-## Support For Generic Path-Like Types
+## LPCM (De)serialization API
 
-Onda's Paths API directly underlies its Dataset API, providing an abstraction
-layer that can be overloaded to support new storage backends for sample data and
-recording metadata. This API's fallback implementation supports any path-like
-type `P` that supports:
-
-- `Base.read(::P)`
-- `Base.write(::P, bytes::Vector{UInt8})`
-- `Base.rm(::P; force, recursive)`
-- `Onda.read_byte_range` (see signatures documented below)
+Onda.jl's LPCM (De)serialization API facilitates low-level streaming sample
+data (de)serialization and provides a storage-agnostic abstraction layer
+that can be overloaded to support new file/byte formats for (de)serializing
+LPCM-encodeable sample data.
 
 ```@docs
-read_recordings_file
-write_recordings_file
-samples_path
-read_samples
-write_samples
-read_byte_range
-```
-
-## LPCM Format (De)serialization API
-
-Onda's Serialization API underlies its Paths API, providing a storage-agnostic
-abstraction layer that can be overloaded to support new file/byte formats for
-(de)serializing LPCM-encodeable sample data. This API also facilitates low-level
-streaming sample data (de)serialization and Onda metadata (de)serialization.
-
-```@docs
-deserialize_recordings_msgpack_zst
-serialize_recordings_msgpack_zst
 AbstractLPCMFormat
 AbstractLPCMStream
+LPCMFormat
+LPCMZstFormat
+format
+deserialize_lpcm
+serialize_lpcm
+deserialize_lpcm_callback
 deserializing_lpcm_stream
 serializing_lpcm_stream
 finalize_lpcm_stream
-Onda.file_format_constructor
-format
-deserialize_lpcm
-deserialize_lpcm_callback
-serialize_lpcm
-LPCM
-LPCMZst
+Onda.register_lpcm_format!
 ```
 
-## Upgrading Older Datasets to Newer Datasets
+## Utilities
 
 ```@docs
-Onda.upgrade_onda_format_from_v0_2_to_v0_3!
-``` -->
+Onda.gather
+Onda.validate_on_construction
+Onda.upgrade_onda_dataset_to_v0_5!
+```

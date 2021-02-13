@@ -95,6 +95,25 @@ end
 ##### Signal
 #####
 
+"""
+    Signal(signals_table_row)
+    Signal(recording, file_path, file_format, span,
+           kind, channels, sample_unit, sample_resolution_in_unit,
+           sample_offset_in_unit, sample_type, sample_rate; custom...)
+    Signal(; recording, file_path, file_format, span,
+           kind, channels, sample_unit, sample_resolution_in_unit,
+           sample_offset_in_unit, sample_type, sample_rate, custom...)
+    Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
+
+Return a `Signal` instance that represents a row of an `*.onda.signals.arrow` table.
+
+This type primarily exists to aid in the validated construction of such rows/tables,
+and is not intended to be used as a type constraint in function or struct definitions.
+Instead, you should generally duck-type any "signal-like" arguments/fields so that
+other generic row types will compose with your code.
+
+This type supports Tables.jl's `AbstractRow` interface (but does not subtype `AbstractRow`).
+"""
 struct Signal{R}
     _row::R
     function Signal(_row::R) where {R}
@@ -141,12 +160,35 @@ Tables.columnnames(x::Signal) = Tables.columnnames(getfield(x, :_row))
 ##### read/write
 #####
 
+"""
+    read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+
+Return the `*.onda.signals.arrow`-compliant table read from `io_or_path`.
+
+If `validate_schema` is `true`, the table's schema will be validated to ensure it is
+a `*.onda.signals.arrow`-compliant table. An `ArgumentError` will be thrown if
+any schema violation is detected.
+
+If `materialize` is `false`, the returned table will be an `Arrow.Table` while if
+`materialize` is `true`, the returned table will be a `NamedTuple` of columns. The
+primary difference is that the former has a conversion-on-access behavior, while
+for the latter, any potential conversion cost has been paid up front.
+"""
 function read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
     table = read_onda_table(io_or_path; materialize)
     validate_schema && _validate_signal_schema(Tables.schema(table))
     return table
 end
 
+"""
+    write_signals(io_or_path, table; kwargs...)
+
+Write `table` to `io_or_path`, first validating that `table` is a compliant
+`*.onda.signals.arrow` table. An `ArgumentError` will be thrown if any
+schema violation is detected.
+
+`kwargs` is forwarded to an internal invocation of `Arrow.write(...; file=true, kwargs...)`.
+"""
 function write_signals(io_or_path, table; kwargs...)
     columns = Tables.columns(table)
     schema = Tables.schema(columns)
@@ -168,15 +210,13 @@ end
                 sample_resolution_in_unit, sample_offset_in_unit,
                 sample_type, sample_rate,
                 validate::Bool=Onda.validate_on_construction())
-
     SamplesInfo(kind, channels, sample_unit,
                 sample_resolution_in_unit, sample_offset_in_unit,
                 sample_type, sample_rate;
                 validate::Bool=Onda.validate_on_construction())
+    SamplesInfo(signals_table_row; validate::Bool=Onda.validate_on_construction())
 
-    SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
-
-Return a `SamplesInfo` instance whose fields are a subset of a `*.signals` row:
+Return a `SamplesInfo` instance whose fields are a subset of a `*.onda.signals.arrow` row:
 
 - kind
 - channels
