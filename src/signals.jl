@@ -58,7 +58,7 @@ end
     types[7] <: AbstractString || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_unit` field type: $(types[7])"))
     types[8] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_resolution_in_unit` field type: $(types[8])"))
     types[9] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_offset_in_unit` field type: $(types[9])"))
-    types[10] <: AbstractString || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_type` field type: $(types[10])"))
+    types[10] <: Union{AbstractString,DataType} || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_type` field type: $(types[10])"))
     types[11] <: LPCM_SAMPLE_TYPE_UNION || throw(ArgumentError("invalid `Signal` fields: invalid `:sample_rate` field type: $(types[11])"))
    return nothing
 end
@@ -66,7 +66,7 @@ end
 @inline _validate_signal_field_count(n) = n >= 11 || throw(ArgumentError("invalid `Signal` fields: need at least 11 fields, input has $n"))
 
 function _validate_signal_row(row)
-    names = Tables.columnnames(row)
+    names = Tables.columnnames(row) # it's annoying that this is the bulk of this function's cost :(
     _validate_signal_field_count(length(names))
     types = (typeof(Tables.getcolumn(row, 1)),
              typeof(Tables.getcolumn(row, 2)),

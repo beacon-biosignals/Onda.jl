@@ -33,13 +33,13 @@ function test_signal_field_types(signal::Signal)
     @test signal.sample_resolution_in_unit isa Float64
     @test signal.sample_offset_in_unit isa Float64
     @test signal.sample_type isa String
-    @test julia_type_from_onda_sample_type(signal.sample_type) isa DataType
+    @test Onda.julia_type_from_onda_sample_type(signal.sample_type) isa DataType
     @test signal.sample_rate isa Float64
 end
 
-function test_signals_row(recording, file_path, file_format, span,
-                          kind, channels, sample_unit, sample_resolution_in_unit,
-                          sample_offset_in_unit, sample_type, sample_rate; custom...)
+function test_signal_row(recording, file_path, file_format, span,
+                         kind, channels, sample_unit, sample_resolution_in_unit,
+                         sample_offset_in_unit, sample_type, sample_rate; custom...)
     row = (; recording, file_path, file_format, span,
            kind, channels, sample_unit, sample_resolution_in_unit,
            sample_offset_in_unit, sample_type, sample_rate)
@@ -76,30 +76,15 @@ function test_signals_row(recording, file_path, file_format, span,
     signal = Signal(; row..., custom...)
     test_signal_field_types(signal)
     @test has_rows(signal, norm_row_with_custom)
+
+    @test_throws ArgumentError Signal((; recording, lol="haha"))
 end
 
-
-# for recording in signals_recordings
-#     for (kind, channels) in ("eeg" => ["fp1", "f3", "c3", "p3",
-#                                        "f7", "t3", "t5", "o1",
-#                                        "fz", "cz", "pz",
-#                                        "fp2", "f4", "c4", "p4",
-#                                        "f8", "t4", "t6", "o2"],
-#                              "ecg" => ["avl", "avr"],
-#                              "spo2" => ["spo2"])
-#         file_format = rand(("lpcm", "lpcm.zst"))
-#         file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
-#         Onda.log("generating $file_path...")
-#         info = SamplesInfo(; kind, channels,
-#                            sample_unit="microvolt",
-#                            sample_resolution_in_unit=rand((0.25, 1)),
-#                            sample_offset_in_unit=rand((-1, 0, 1)),
-#                            sample_type=rand((Float32, Int16, Int32)),
-#                            sample_rate=rand((128, 256, 143.5)))
-#         data = saws(info, Minute(rand(1:10)))
-#         samples = Samples(data, info, false)
-#         start = Second(rand(0:30))
-#         signal = store(file_path, file_format, samples, recording, start)
-#         push!(signals, signal)
-#     end
-# end
+@testset "`Signal` construction/access" begin
+    custom = (a="test", b=1, c=[2.0, 3.0])
+    test_signal_row(UInt128(uuid4()), "/file/path", "lpcm", (start=Nanosecond(1), stop=Nanosecond(100)),
+                    "kind", view([SubString("abc", 1:2), "a", "c"], :), "microvolt", 1, 0, "uint16",
+                    256; custom...)
+    test_signal_row(uuid4(), "/file/path", "lpcm", TimeSpan(Nanosecond(1), Nanosecond(100)),
+                    "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
+end
