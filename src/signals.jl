@@ -97,15 +97,20 @@ end
 
 """
     Signal(signals_table_row)
-    Signal(recording, file_path, file_format, span,
-           kind, channels, sample_unit, sample_resolution_in_unit,
-           sample_offset_in_unit, sample_type, sample_rate; custom...)
-    Signal(; recording, file_path, file_format, span,
-           kind, channels, sample_unit, sample_resolution_in_unit,
-           sample_offset_in_unit, sample_type, sample_rate, custom...)
+    Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
+           sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
+           custom...)
+    Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
+           sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
+           custom...)
     Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
 
-Return a `Signal` instance that represents a row of an `*.onda.signals.arrow` table.
+Return a `Signal` instance that represents a row of an `*.onda.signals.arrow` table
+
+The names, types, and order of the columns of a `Signal` instance are guaranteed to
+result in a `*.onda.signals.arrow`-compliant row when written out via `write_signals`.
+The exception is the `file_path` column, whose type is unchecked in order to allow
+callers to utilize custom path types.
 
 This type primarily exists to aid in the validated construction of such rows/tables,
 and is not intended to be used as a type constraint in function or struct definitions.
@@ -116,35 +121,34 @@ This type supports Tables.jl's `AbstractRow` interface (but does not subtype `Ab
 """
 struct Signal{R}
     _row::R
-    function Signal(_row::R) where {R}
-        _validate_signal_row(_row)
-        return new{R}(_row)
-    end
-    function Signal(recording, file_path, file_format, span,
-                    kind, channels, sample_unit, sample_resolution_in_unit,
-                    sample_offset_in_unit, sample_type, sample_rate; custom...)
-        recording = recording isa UUID ? recording : UUID(recording)
-        sample_type = String(sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type)
-        file_format = String(file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format)
-        _row = (; recording, file_path, file_format,
-                span=TimeSpan(span),
-                kind=String(kind),
-                channels=convert(Vector{String}, channels),
-                sample_unit=String(sample_unit),
-                sample_resolution_in_unit=convert(Float64, sample_resolution_in_unit),
-                sample_offset_in_unit=convert(Float64, sample_offset_in_unit),
-                sample_type,
-                sample_rate=convert(Float64, sample_rate), custom...)
+    function Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
+                    sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
+                    custom...)
+        recording::UUID = recording isa UUID ? recording : UUID(recording)
+        file_format::String = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format
+        span::TimeSpan = TimeSpan(span)
+        kind::String = kind
+        channels::Vector{String} = channels
+        sample_unit::String = sample_unit
+        sample_resolution_in_unit::Float64 = sample_resolution_in_unit
+        sample_offset_in_unit::Float64 = sample_offset_in_unit
+        sample_type::String = sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type
+        sample_rate::Float64 = sample_rate
+        _row = (; recording, file_path, file_format, span, kind, channels, sample_unit,
+                sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
+                custom...)
         return new{typeof(_row)}(_row)
     end
 end
 
-function Signal(; recording, file_path, file_format, span,
-                kind, channels, sample_unit, sample_resolution_in_unit,
-                sample_offset_in_unit, sample_type, sample_rate, custom...)
-    return Signal(recording, file_path, file_format, span,
-                  kind, channels, sample_unit, sample_resolution_in_unit,
-                  sample_offset_in_unit, sample_type, sample_rate; custom...)
+Signal(row) = Signal(; row...)
+
+function Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
+                sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
+                custom...)
+    return Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
+                  sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
+                  custom...)
 end
 
 Base.propertynames(x::Signal) = propertynames(getfield(x, :_row))
@@ -298,9 +302,9 @@ end
 Base.:(==)(a::SamplesInfo, b::SamplesInfo) = all(name -> getfield(a, name) == getfield(b, name), fieldnames(SamplesInfo))
 
 function Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
-    return Signal(recording, file_path, file_format, span,
+    return Signal(; recording, file_path, file_format, span,
                   info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
-                  info.sample_offset_in_unit, info.sample_type, info.sample_rate; custom...)
+                  info.sample_offset_in_unit, info.sample_type, info.sample_rate, custom...)
 end
 
 #####
