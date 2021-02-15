@@ -89,9 +89,9 @@ end
                             sample_offset_in_unit=rand((-0.25, 0.25)),
                             sample_type=rand(possible_sample_types),
                             sample_rate=rand((128, 50.5)),
-                            a="test",
-                            b=1,
-                            c=[2.0, 3.0]) for i in 1:50]
+                            a=join(rand('a':'z', 10)),
+                            b=rand(Int, 1),
+                            c=rand(3)) for i in 1:50]
     signals_file_path = joinpath(root, "test.onda.signals.arrow")
     write_signals(signals_file_path, signals)
     for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
