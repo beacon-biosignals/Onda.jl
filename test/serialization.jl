@@ -2,8 +2,10 @@
     info = SamplesInfo("kind", ["a", "b", "c"], "unit", 0.25, -0.5, Int16, 50.5)
     samples = encode(Samples(rand(MersenneTwister(1), 3, Int(50.5 * 10)), info, false))
     fmt = format(file_format, info)
+    @test_throws ArgumentError format(file_format * ".lol", info)
 
     bytes = serialize_lpcm(fmt, samples.data)
+    @test bytes == serialize_lpcm(fmt, view(samples.data, :, :))
     @test deserialize_lpcm(fmt, bytes) == samples.data
     @test deserialize_lpcm(fmt, bytes, 99) == view(samples.data, :, 100:size(samples.data, 2))
     @test deserialize_lpcm(fmt, bytes, 99, 201) == view(samples.data, :, 100:300)

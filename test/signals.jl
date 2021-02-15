@@ -72,6 +72,11 @@ end
                     256; custom...)
     test_signal_row(uuid4(), "/file/path", "lpcm", TimeSpan(Nanosecond(1), Nanosecond(100)),
                     "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
+    test_signal_row(UInt128(uuid4()), "/file/path", LPCMFormat(3, UInt16), (start=Nanosecond(1), stop=Nanosecond(100)),
+                    "kind", view([SubString("abc", 1:2), "a", "c"], :), "microvolt", 1, 0, "uint16",
+                    256; custom...)
+    test_signal_row(uuid4(), "/file/path", LPCMZstFormat(LPCMFormat(3, UInt16)), TimeSpan(Nanosecond(1), Nanosecond(100)),
+                    "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
 end
 
 @testset "`read_signals`/`write_signals`" begin
@@ -93,9 +98,13 @@ end
                             b=rand(Int, 1),
                             c=rand(3)) for i in 1:50]
     signals_file_path = joinpath(root, "test.onda.signals.arrow")
+    io = IOBuffer()
     write_signals(signals_file_path, signals)
+    write_signals(io, signals)
+    seekstart(io)
     for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
-                         read_signals(signals_file_path; materialize=true, validate_schema=true))
+                         read_signals(signals_file_path; materialize=true, validate_schema=true),
+                         read_signals(io; validate_schema=true))
         roundtripped = collect(Tables.rowtable(roundtripped))
         @test length(roundtripped) == length(signals)
         for (r, s) in zip(roundtripped, signals)

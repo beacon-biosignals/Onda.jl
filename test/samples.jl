@@ -30,6 +30,7 @@
             s2 = load(expected.file_path, Onda.format(expected.file_format, expected_info), expected_info; encoded)
             @test s == s1 == s2
             @test s.info == expected_info
+            @test TimeSpans.istimespan(s)
             @test TimeSpans.duration(s) == TimeSpans.time_from_index(s.info.sample_rate, size(s.data, 2) + 1)
             @test channel_count(s) == channel_count(s.info) == length(s.info.channels)
             @test sample_count(s) == sample_count(s.info, TimeSpans.duration(s)) == size(s.data, 2)

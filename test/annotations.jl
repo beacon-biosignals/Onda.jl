@@ -33,9 +33,13 @@ end
                                         b=rand(Int, 1),
                                         c=rand(3)) for i in 1:50]
     annotations_file_path = joinpath(root, "test.onda.annotations.arrow")
+    io = IOBuffer()
     write_annotations(annotations_file_path, annotations)
+    write_annotations(io, annotations)
+    seekstart(io)
     for roundtripped in (read_annotations(annotations_file_path; materialize=false, validate_schema=false),
-                         read_annotations(annotations_file_path; materialize=true, validate_schema=true))
+                         read_annotations(annotations_file_path; materialize=true, validate_schema=true),
+                         read_annotations(io; validate_schema=true))
         roundtripped = collect(Tables.rowtable(roundtripped))
         @test length(roundtripped) == length(annotations)
         for (r, s) in zip(roundtripped, annotations)

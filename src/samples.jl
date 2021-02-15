@@ -451,41 +451,15 @@ end
 ##### pretty printing
 #####
 
-function channel_names_string(channel_names)
-    return string('[', join(map(repr, channel_names), ", "), ']')
-end
-
-function nanosecond_to_periods(ns::Integer)
-    μs, ns = divrem(ns, 1000)
-    ms, μs = divrem(μs, 1000)
-    s, ms = divrem(ms, 1000)
-    m, s = divrem(s, 60)
-    hr, m = divrem(m, 60)
-    return (hr, m, s, ms, μs, ns)
-end
-
-format_duration(t::Period) = format_duration(convert(Nanosecond, t).value)
-
-function format_duration(ns::Integer)
-    hr, m, s, ms, μs, ns = nanosecond_to_periods(ns)
-    hr = lpad(hr, 2, '0')
-    m = lpad(m, 2, '0')
-    s = lpad(s, 2, '0')
-    ms = lpad(ms, 3, '0')
-    μs = lpad(μs, 3, '0')
-    ns = lpad(ns, 3, '0')
-    return string(hr, ':', m, ':', s, '.', ms, μs, ns)
-end
-
 function Base.show(io::IO, samples::Samples)
     if get(io, :compact, false)
         print(io, "Samples(", summary(samples.data), ')')
     else
         duration_in_seconds = size(samples.data, 2) / samples.info.sample_rate
         duration_in_nanoseconds = round(Int, duration_in_seconds * 1_000_000_000)
-        println(io, "Samples (", format_duration(duration_in_nanoseconds), "):")
+        println(io, "Samples (", TimeSpans.format_duration(duration_in_nanoseconds), "):")
         println(io, "  info.kind: ", repr(samples.info.kind))
-        println(io, "  info.channels: ", channel_names_string(samples.info.channels))
+        println(io, "  info.channels: ", string('[', join(map(repr, samples.info.channels), ", "), ']'))
         println(io, "  info.sample_unit: ", repr(samples.info.sample_unit))
         println(io, "  info.sample_resolution_in_unit: ", samples.info.sample_resolution_in_unit)
         println(io, "  info.sample_offset_in_unit: ", samples.info.sample_offset_in_unit)
