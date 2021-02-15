@@ -9,6 +9,7 @@ addons:
     - flac
 julia:
   - 1.5
+  - nightly
 if: branch = master OR tag IS present OR type = pull_request
 notifications:
   email: false
@@ -19,6 +20,8 @@ notifications:
 after_success:
   - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
 jobs:
+  allow_failures:
+    - julia: nightly
   include:
     - stage: "Documentation"
       julia: 1.5
