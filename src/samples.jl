@@ -484,7 +484,7 @@ function Base.show(io::IO, samples::Samples)
         duration_in_seconds = size(samples.data, 2) / samples.info.sample_rate
         duration_in_nanoseconds = round(Int, duration_in_seconds * 1_000_000_000)
         println(io, "Samples (", format_duration(duration_in_nanoseconds), "):")
-        println(io, "  info.kind: ", samples.info.kind)
+        println(io, "  info.kind: ", repr(samples.info.kind))
         println(io, "  info.channels: ", channel_names_string(samples.info.channels))
         println(io, "  info.sample_unit: ", repr(samples.info.sample_unit))
         println(io, "  info.sample_resolution_in_unit: ", samples.info.sample_resolution_in_unit)

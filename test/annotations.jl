@@ -44,6 +44,33 @@ end
     end
 end
 
-# @testset "`merge_overlapping_annotations`" begin
-
-# end
+@testset "`merge_overlapping_annotations`" begin
+    recs = (uuid4(), uuid4(), uuid4())
+    sources = [#= 1 =#  Annotation(recs[1], uuid4(), TimeSpan(0, 100)),
+               #= 2 =#  Annotation(recs[2], uuid4(), TimeSpan(55, 100)),
+               #= 3 =#  Annotation(recs[1], uuid4(), TimeSpan(34, 76)),
+               #= 4 =#  Annotation(recs[1], uuid4(), TimeSpan(120, 176)),
+               #= 5 =#  Annotation(recs[2], uuid4(), TimeSpan(67, 95)),
+               #= 6 =#  Annotation(recs[2], uuid4(), TimeSpan(15, 170)),
+               #= 7 =#  Annotation(recs[1], uuid4(), TimeSpan(43, 89)),
+               #= 8 =#  Annotation(recs[3], uuid4(), TimeSpan(0, 50)),
+               #= 9 =#  Annotation(recs[2], uuid4(), TimeSpan(2, 10)),
+               #= 10 =# Annotation(recs[1], uuid4(), TimeSpan(111, 140)),
+               #= 11 =# Annotation(recs[3], uuid4(), TimeSpan(60, 100)),
+               #= 12 =# Annotation(recs[3], uuid4(), TimeSpan(23, 80)),
+               #= 13 =# Annotation(recs[3], uuid4(), TimeSpan(100, 110)),
+               #= 14 =# Annotation(recs[1], uuid4(), TimeSpan(200, 300))]
+    merged = Tables.columns(merge_overlapping_annotations(sources))
+    @test Tables.columnnames(merged) == (:recording, :id, :span, :from)
+    sources_id = [row.id for row in sources]
+    @test !any(in(id, sources_id) for id in merged.id)
+    merged = Set(Tables.rowtable((; merged.recording, merged.span, merged.from)))
+    expected = Set([(recording=recs[1], span=TimeSpan(0, 100), from=[sources[1].id, sources[3].id, sources[7].id]),
+                    (recording=recs[1], span=TimeSpan(111, 176), from=[sources[10].id, sources[4].id]),
+                    (recording=recs[1], span=TimeSpan(200, 300), from=[sources[14].id]),
+                    (recording=recs[2], span=TimeSpan(15, 170), from=[sources[6].id, sources[2].id, sources[5].id]),
+                    (recording=recs[2], span=TimeSpan(2, 10), from=[sources[9].id]),
+                    (recording=recs[3], span=TimeSpan(100, 110), from=[sources[13].id]),
+                    (recording=recs[3], span=TimeSpan(0, 100), from=[sources[8].id, sources[12].id, sources[11].id])])
+    @test expected == merged
+end

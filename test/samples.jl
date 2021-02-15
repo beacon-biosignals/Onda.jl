@@ -102,3 +102,26 @@
         end
     end
 end
+
+
+@testset "`Samples` pretty printing" begin
+    # @test repr(TimeSpan(6149872364198, 123412345678910)) == "TimeSpan(01:42:29.872364198, 34:16:52.345678910)"
+    info = SamplesInfo("eeg", ["a", "b", "c-d"], "unit", 0.25, -0.5, Int16, 50.2)
+    samples = Samples(rand(Random.MersenneTwister(0), info.sample_type, 3, 5), info, true)
+    @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 Array{Int16,2})"
+    @test sprint(show, samples) == """
+                                   Samples (00:00:00.099601594):
+                                     info.kind: "eeg"
+                                     info.channels: ["a", "b", "c-d"]
+                                     info.sample_unit: "unit"
+                                     info.sample_resolution_in_unit: 0.25
+                                     info.sample_offset_in_unit: -0.5
+                                     info.sample_type: Int16
+                                     info.sample_rate: 50.2 Hz
+                                     encoded: true
+                                     data:
+                                   3×5 Array{Int16,2}:
+                                    20032  4760  27427  -20758   24287
+                                    14240  5037   5598   -5888   21784
+                                    16885   600  20880  -32493  -19305"""
+end
