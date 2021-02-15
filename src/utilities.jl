@@ -15,7 +15,7 @@ for compliance with the Onda specification.
 Users may interactively redefine this method to `false` in order to disable this extra layer
 validation, which can be useful when working with malformed Onda datasets.
 
-See also: [`validate_signal`](@ref), [`validate_samples`](@ref)
+See also: [`Onda.validate`](@ref)
 """
 validate_on_construction() = true
 

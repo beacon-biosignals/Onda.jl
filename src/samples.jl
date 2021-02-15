@@ -22,9 +22,9 @@ If `validate` is `true`, [`Onda.validate`](@ref) is called on the constructed `S
 instance before it is returned.
 
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
-indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
-values for column indices; see `Onda/examples/tour.jl` for a comprehensive
-set of indexing examples.
+indices, but also accept channel names for row indices and `TimeSpan` values for
+column indices; see `Onda/examples/tour.jl` for a comprehensive set of indexing
+examples.
 
 See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
