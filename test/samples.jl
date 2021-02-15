@@ -103,9 +103,7 @@
     end
 end
 
-
 @testset "`Samples` pretty printing" begin
-    # @test repr(TimeSpan(6149872364198, 123412345678910)) == "TimeSpan(01:42:29.872364198, 34:16:52.345678910)"
     info = SamplesInfo("eeg", ["a", "b", "c-d"], "unit", 0.25, -0.5, Int16, 50.2)
     samples = Samples(rand(Random.MersenneTwister(0), info.sample_type, 3, 5), info, true)
     @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 Array{Int16,2})"

@@ -45,3 +45,35 @@
      @test keys(dfg) == keys(expected)
      @test all(all(dfg[k] .== DataFrame.(expected[k])) for k in keys(dfg))
 end
+
+@testset "Onda.validate_on_construction" begin
+      info = SamplesInfo(kind="kind",
+                         channels=["a", "b", "c"],
+                         sample_unit="microvolt",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Int16,
+                         sample_rate=100.0)
+      @test Onda.validate_on_construction()
+      @test_throws ArgumentError Samples(rand(4, 10), info, false)
+      @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
+      @test_throws ArgumentError setproperties(info; sample_unit="Ha Ha")
+      @test_throws ArgumentError setproperties(info; kind="Ha, Ha")
+      @test_throws ArgumentError setproperties(info; channel_names=["Ha Ha"])
+
+      Onda.validate_on_construction() = false
+      @test Samples(rand(4, 10), info, false) isa Samples
+      @test Samples(rand(Int32, 3, 10), info, true) isa Samples
+      @test_throws ArgumentError Onda.validate(Samples(rand(4, 10), info, false))
+      @test_throws ArgumentError Onda.validate(Samples(rand(Int32, 3, 10), info, true))
+      @test_throws ArgumentError Onda.validate(setproperties(info; sample_unit="Ha Ha"))
+      @test_throws ArgumentError Onda.validate(setproperties(info; kind="Ha, Ha"))
+      @test_throws ArgumentError Onda.validate(setproperties(info; channel_names=["Ha Ha"]))
+
+      Onda.validate_on_construction() = true
+      @test_throws ArgumentError Samples(rand(4, 10), info, false)
+      @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
+      @test_throws ArgumentError setproperties(info; sample_unit="Ha Ha")
+      @test_throws ArgumentError setproperties(info; kind="Ha, Ha")
+      @test_throws ArgumentError setproperties(info; channel_names=["Ha Ha"])
+  end
