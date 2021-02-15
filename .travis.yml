@@ -8,7 +8,7 @@ addons:
     packages:
     - flac
 julia:
-  - 1
+  - 1.5
 if: branch = master OR tag IS present OR type = pull_request
 notifications:
   email: false
@@ -17,12 +17,11 @@ notifications:
 #  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 #  - julia -e 'Pkg.clone(pwd()); Pkg.build("Onda"); Pkg.test("Onda"; coverage=true)'
 after_success:
-  # push coverage results to Coveralls
   - julia -e 'using Pkg; Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())'
 jobs:
   include:
     - stage: "Documentation"
-      julia: 1
+      julia: 1.5
       os: linux
       script:
         - julia --project=docs/ -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd()));
