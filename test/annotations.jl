@@ -1,30 +1,20 @@
 function test_annotation_row(recording, id, span; custom...)
     row = (; recording, id, span)
-    @test has_rows(Annotation(row), row)
     row_with_custom = (; row..., custom...)
-    @test has_rows(Annotation(row_with_custom), row_with_custom)
 
     # intended normalization of input fields for constructor
-    norm_row = (; recording = recording isa UUID ? recording : UUID(recording),
-                id = id isa UUID ? id : UUID(id),
-                span = TimeSpan(span))
+    recording::UUID = recording isa UUID ? recording : UUID(recording)
+    id::UUID = id isa UUID ? id : UUID(id)
+    span::TimeSpan = TimeSpan(span)
+    norm_row = (; recording, id, span)
     norm_row_with_custom = (; norm_row..., custom...)
 
+    @test has_rows(Annotation(row), norm_row)
+    @test has_rows(Annotation(row_with_custom), norm_row_with_custom)
     @test has_rows(Annotation(row...), norm_row)
     @test has_rows(Annotation(; row...), norm_row)
     @test has_rows(Annotation(row...; custom...), norm_row_with_custom)
     @test has_rows(Annotation(; row..., custom...), norm_row_with_custom)
-
-    @test_throws ArgumentError Annotation((; id, recording, span))
-    @test_throws ArgumentError Annotation((; id, span, recording))
-    @test_throws ArgumentError Annotation((; span, id, recording))
-    @test_throws ArgumentError Annotation((; recording, span, id))
-    @test_throws ArgumentError Annotation((; span, recording, id))
-    @test_throws ArgumentError Annotation((; id, recording, span, custom...))
-    @test_throws ArgumentError Annotation((; id, span, recording, custom...))
-    @test_throws ArgumentError Annotation((; span, id, recording, custom...))
-    @test_throws ArgumentError Annotation((; recording, span, id, custom...))
-    @test_throws ArgumentError Annotation((; span, recording, id, custom...))
 end
 
 @testset "`Annotation` construction/access" begin
