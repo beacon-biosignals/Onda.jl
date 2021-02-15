@@ -196,7 +196,7 @@ Return a `SamplesInfo` instance whose fields are a subset of a `*.onda.signals.a
 - sample_type
 - sample_rate
 
-The `SamplesInfo` struct bundles together the fields of a `*.signals` row that are
+The `SamplesInfo` struct bundles together the fields of a `*.onda.signals.arrow` row that are
 intrinsic to a signal's sample data, leaving out extrinsic file or recording information.
 This is useful when the latter information is irrelevant or does not yet exist (e.g. if
 sample data is being constructed/manipulated in-memory without yet having been serialized).

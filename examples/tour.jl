@@ -71,7 +71,7 @@ for recording in signals_recordings
 end
 path_to_signals_file = joinpath(root, "test.onda.signals.arrow")
 write_signals(path_to_signals_file, signals)
-Onda.log("`*.signals` file written at $path_to_signals_file")
+Onda.log("wrote out $path_to_signals_file")
 
 annotations = Annotation[]
 sources = (uuid4(), uuid4(), uuid4())
@@ -86,7 +86,7 @@ for recording in annotations_recordings
 end
 path_to_annotations_file = joinpath(root, "test.onda.annotations.arrow")
 write_annotations(path_to_annotations_file, annotations)
-Onda.log("`*.annotations` file written at $path_to_annotations_file")
+Onda.log("wrote out $path_to_annotations_file")
 
 #####
 ##### basic Onda + DataFrames patterns
