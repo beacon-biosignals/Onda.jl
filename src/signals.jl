@@ -131,7 +131,7 @@ Tables.columnnames(x::Signal) = Tables.columnnames(getfield(x, :_row))
 #####
 
 """
-    read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+    read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=false)
 
 Return the `*.onda.signals.arrow`-compliant table read from `io_or_path`.
 
@@ -144,7 +144,7 @@ If `materialize` is `false`, the returned table will be an `Arrow.Table` while i
 primary difference is that the former has a conversion-on-access behavior, while
 for the latter, any potential conversion cost has been paid up front.
 """
-function read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+function read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=false)
     table = read_onda_table(io_or_path; materialize)
     validate_schema && validate_signal_schema(Tables.schema(table))
     return table

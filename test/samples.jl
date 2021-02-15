@@ -1,9 +1,9 @@
 @testset "`Samples` API" begin
     root = mktempdir()
     signals = Signal[]
-    expected_recordings = (uuid4(), uuid4(), uuid4())
+    possible_recordings = (uuid4(), uuid4(), uuid4())
     expected_sample_types = (UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64)
-    expected_parameters = [(recording=rand(expected_recordings),
+    expected_parameters = [(recording=rand(possible_recordings),
                             file_path=joinpath(root, "x_$(i)_file"),
                             file_format=rand(("lpcm", "lpcm.zst")),
                             kind="x_$i",
