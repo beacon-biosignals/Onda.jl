@@ -6,4 +6,4 @@ makedocs(modules=[Onda],
          authors="Beacon Biosignals, Inc.",
          pages=["API Documentation" => "index.md"])
 
-deploydocs(repo="github.com/beacon-biosignals/Onda.jl.git")
+deploydocs(repo="github.com/beacon-biosignals/Onda.jl.git", push_preview=true)
