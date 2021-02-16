@@ -1,6 +1,10 @@
 # API Documentation
 
-Below is the documentation for Onda.jl; for general information regarding the Onda Format itself, please see [beacon-biosignals/OndaFormat](https://github.com/beacon-biosignals/OndaFormat).
+Below is the API documentation for Onda.jl.
+
+For general information regarding the Onda Format itself, please see [beacon-biosignals/OndaFormat](https://github.com/beacon-biosignals/OndaFormat).
+
+For a nice introduction to the package, see the [Onda Tour](https://github.com/beacon-biosignals/Onda.jl/blob/master/examples/tour.jl).
 
 ```@meta
 CurrentModule = Onda

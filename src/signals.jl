@@ -188,13 +188,13 @@ end
 
 Return a `SamplesInfo` instance whose fields are a subset of a `*.onda.signals.arrow` row:
 
-- kind
-- channels
-- sample_unit
-- sample_resolution_in_unit
-- sample_offset_in_unit
-- sample_type
-- sample_rate
+- `kind`
+- `channels`
+- `sample_unit`
+- `sample_resolution_in_unit`
+- `sample_offset_in_unit`
+- `sample_type`
+- `sample_rate`
 
 The `SamplesInfo` struct bundles together the fields of a `*.onda.signals.arrow` row that are
 intrinsic to a signal's sample data, leaving out extrinsic file or recording information.
