@@ -136,7 +136,7 @@ function locations(collections::NTuple{N}) where {N}
 end
 
 function _iterator_for_column(table, c)
-    Tables.columnaccess(table) && Tables.getcolumn(Tables.columns(table), c)
+    Tables.columnaccess(table) && return Tables.getcolumn(Tables.columns(table), c)
     # there's not really a need to actually materialize this iterable
     # for the caller, but doing so allows the caller to more usefully
     # employ `eltype` on this function's output (since e.g. a generator
@@ -165,4 +165,3 @@ function gather(column_name, tables::Vararg{Any,N};
     iters = ntuple(i -> _iterator_for_column(tables[i], column_name), N)
     return Dict(id => ntuple(i -> extract(tables[i], locs[i]), N) for (id, locs) in locations(iters))
 end
-
