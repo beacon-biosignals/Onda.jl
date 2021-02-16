@@ -128,7 +128,7 @@ dmypy.json
 *.jl.mem
 docs/build/
 docs/site/
-Manifest.toml
+/Manifest.toml
 
 # misc
 *.DS_Store
