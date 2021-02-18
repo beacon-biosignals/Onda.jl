@@ -144,7 +144,7 @@ function merge_overlapping_annotations(annotations)
             prev = merged[end]
             if next.recording == prev.recording && TimeSpans.overlaps(next.span, prev.span)
                 push!(prev.from, next.id)
-                merged[end] = setproperties(prev, span=TimeSpans.shortest_timespan_containing((prev.span, next.span)))
+                merged[end] = setproperties(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span)))
             else
                 push!(merged, Annotation(next.recording, uuid4(), next.span; from=[next.id]))
             end
