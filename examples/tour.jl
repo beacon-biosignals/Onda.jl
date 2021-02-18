@@ -9,7 +9,6 @@
 # purpose/structure of the format.
 
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
-using TimeSpans: duration, translate, start, stop, index_from_time, time_from_index
 
 #####
 ##### generate some mock data
