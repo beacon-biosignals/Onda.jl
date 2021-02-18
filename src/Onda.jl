@@ -7,6 +7,7 @@ using MsgPack, TranscodingStreams, CodecZstd
 
 function __init__()
     Arrow.ArrowTypes.registertype!(TimeSpan, TimeSpan)
+    return nothing
 end
 
 #####
