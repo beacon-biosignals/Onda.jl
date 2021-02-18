@@ -136,7 +136,7 @@ function merge_overlapping_annotations(annotations)
     merged = Annotation[]
     for (rid, (locs,)) in locations((columns.recording,))
         subset = (recording=view(columns.recording, locs), id=view(columns.id, locs), span=view(columns.span, locs))
-        p = sortperm(subset.span, by=TimeSpans.start)
+        p = sortperm(subset.span; by=TimeSpans.start)
         sorted = Tables.rows((recording=view(subset.recording, p), id=view(subset.id, p), span=view(subset.span, p)))
         init = first(sorted)
         push!(merged, Annotation(rid, uuid4(), init.span; from=[init.id]))
