@@ -44,10 +44,11 @@ SamplesInfo
 validate
 read_signals
 write_signals
-channel
-channel_count
-sample_count
-sizeof_samples
+channel(x, name)
+channel(x, i::Integer)
+channel_count(x)
+sample_count(x, duration::Period)
+sizeof_samples(x, duration::Period)
 ```
 
 ## `Samples`
@@ -64,6 +65,10 @@ decode
 decode!
 load
 store
+channel(samples::Samples, name)
+channel(samples::Samples, i::Integer)
+channel_count(samples::Samples)
+sample_count(samples::Samples)
 ```
 
 ## LPCM (De)serialization API
