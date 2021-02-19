@@ -41,6 +41,10 @@ end
 #####
 ##### arrrrr i'm a pirate
 #####
+# The Onda Format defines `span` elements to correspond to the Arrow-equivalent of `(start=Nanosecond(...), stop=Nanosecond(...))`.
+# Here we define the generic `TimeSpans` interface on this type in order to ensure that this structure can be treated like a
+# `TimeSpan` anywhere. This way, callers don't need to do any fiddling if e.g. they're working with an Onda file written from
+# a source that wasn't using `TimeSpans` (e.g. if it was written out by a non-Julia process).
 
 const NamedTupleTimeSpan = NamedTuple{(:start, :stop),Tuple{Nanosecond,Nanosecond}}
 
