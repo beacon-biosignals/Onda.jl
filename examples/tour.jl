@@ -4,197 +4,198 @@
 # concrete manner, and so that we can ensure examples stay updated as the
 # package evolves.
 
-# NOTE: It's helpful to read https://github.com/beacon-biosignals/OndaFormat
-# before and/or alongside the completion of this tour.
+# NOTE: You should read https://github.com/beacon-biosignals/OndaFormat
+# before and/or alongside the completion of this tour; it explains the
+# purpose/structure of the format.
 
-using Onda, Dates, Test
+using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
 
-###############################################################################
-###############################################################################
-###############################################################################
-# Let's start by defining some `Signal` instances to play with. A `Signal` instance
-# describes a multichannel, LPCM-encodable signal as defined by the Onda format
-# specification; this type corresponds directly to the signal object defined
-# by the specification.
+#####
+##### generate some mock data
+#####
+#=
+Let's kick off the tour by generating some mock data to play with in subsequent sections!
 
-eeg_signal = Signal(channel_names=[:fp1, :f3, :c3, :p3,
-                                   :f7, :t3, :t5, :o1,
-                                   :fz, :cz, :pz,
-                                   :fp2, :f4, :c4, :p4,
-                                   :f8, :t4, :t6, :o2],
-                    start_nanosecond=Nanosecond(0),
-                    stop_nanosecond=Nanosecond(Second(20)),
-                    sample_unit=:microvolts,
-                    sample_resolution_in_unit=0.25,
-                    sample_offset_in_unit=0.0,
-                    sample_type=Int16,
-                    sample_rate=256.0, # Hz
-                    file_extension=:lpcm,
-                    file_options=nothing)
+Onda is primarily concerned with manipulating 3 interrelated entities. Paraphrasing from the
+Onda specification, these entities are:
 
-ecg_signal = signal_from_template(eeg_signal; channel_names=[:avl, :avr],
-                                  file_extension=Symbol("lpcm.zst"))
+- "signals": A signal is the digitized output of a process, comprised of metadata (e.g. LPCM encoding,
+  channel information, sample data path/format information, etc.) and associated multi-channel sample
+  data.
 
-spo2_signal = Signal(channel_names=[:spo2],
-                     start_nanosecond=Nanosecond(Second(3)),
-                     stop_nanosecond=Nanosecond(Second(17)),
-                     sample_unit=:percentage,
-                     sample_resolution_in_unit=(100 / typemax(UInt8)),
-                     sample_offset_in_unit=0.0,
-                     sample_type=UInt8,
-                     sample_rate=20.5, # Hz
-                     file_extension=:lpcm,
-                     file_options=nothing)
+- "recordings": A recording is a collection of one or more signals recorded simultaneously over some
+  time period.
 
-###############################################################################
-###############################################################################
-###############################################################################
-# Next, we'll generate some fake sample data for each of our signals. Here, we'll
-# be working with the `Samples` type. This type wraps a `Signal` and a corresponding
-# matrix of interleaved LPCM-encoded (or decoded) sample data. In this matrix,
-# the rows correspond to channels and the columns correspond to timesteps.
+- "annotations": An annotation is a a piece of (meta)data associated with a specific time span within
+  a specific recording.
 
-# We'll use this function to generate the actual dummy data for our signals. As
-# an aside: The hypothetical person from which these hypothetical signals were
-# hypothetically recorded must be experiencing some pretty crazy pathologies if
-# their EEG/ECG are just saw waves...
-saws(signal) = [(j + i) % 100 * signal.sample_resolution_in_unit for
-                i in 1:channel_count(signal), j in 1:sample_count(signal)]
+Signals and annotations are serialized as Arrow tables, while each sample data file is serialized to
+the file format specified by its corresponding signal's metadata. A "recording" is simply the collection
+of signals and annotations that share a common `recording` field.
 
-# The second argument in the `Samples` constructor is a `Bool` that specifies if
-# the data is in its encoded representation. Here, we construct our signals as
-# "decoded" (i.e. in actual units, though for this toy example it doesn't really
-# matter) and then "encode" them according to the specified:
-eeg = encode(Samples(eeg_signal, false, saws(eeg_signal)))
-ecg = encode(Samples(ecg_signal, false, saws(ecg_signal)))
-spo2 = encode(Samples(spo2_signal, false, saws(spo2_signal)))
+Below, we generate a bunch of signals/annotations across 10 recordings, writing the corresponding
+Arrow tables and sample data files to a temporary directory.
+=#
 
-# Here are some basic functions for examining `Samples` instances:
-@test sample_count(eeg) == sample_count(eeg_signal) == 20 * eeg_signal.sample_rate
-@test channel_count(eeg) == channel_count(eeg_signal) == 19
-@test channel(eeg, :f3) == channel(eeg_signal, :f3) == 2
-@test channel(eeg, 2) == channel(eeg_signal, 2) == :f3
-@test duration(eeg) == duration(span(eeg_signal)) == Second(20)
+saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
+                        i in 1:channel_count(info), j in 1:sample_count(info, duration)]
+
+root = mktempdir()
+
+signals = Signal[]
+signals_recordings = [uuid4() for _ in 1:10]
+for recording in signals_recordings
+    for (kind, channels) in ("eeg" => ["fp1", "f3", "c3", "p3",
+                                       "f7", "t3", "t5", "o1",
+                                       "fz", "cz", "pz",
+                                       "fp2", "f4", "c4", "p4",
+                                       "f8", "t4", "t6", "o2"],
+                             "ecg" => ["avl", "avr"],
+                             "spo2" => ["spo2"])
+        file_format = rand(("lpcm", "lpcm.zst"))
+        file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
+        Onda.log("generating $file_path...")
+        info = SamplesInfo(; kind, channels,
+                           sample_unit="microvolt",
+                           sample_resolution_in_unit=rand((0.25, 1)),
+                           sample_offset_in_unit=rand((-1, 0, 1)),
+                           sample_type=rand((Float32, Int16, Int32)),
+                           sample_rate=rand((128, 256, 143.5)))
+        data = saws(info, Minute(rand(1:10)))
+        samples = Samples(data, info, false)
+        start = Second(rand(0:30))
+        signal = store(file_path, file_format, samples, recording, start)
+        push!(signals, signal)
+    end
+end
+path_to_signals_file = joinpath(root, "test.onda.signals.arrow")
+write_signals(path_to_signals_file, signals)
+Onda.log("wrote out $path_to_signals_file")
+
+annotations = Annotation[]
+sources = (uuid4(), uuid4(), uuid4())
+annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
+for recording in annotations_recordings
+    for i in 1:rand(3:10)
+        start = Second(rand(0:60))
+        annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30)));
+                                rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
+        push!(annotations,  annotation)
+    end
+end
+path_to_annotations_file = joinpath(root, "test.onda.annotations.arrow")
+write_annotations(path_to_annotations_file, annotations)
+Onda.log("wrote out $path_to_annotations_file")
+
+#####
+##### basic Onda + DataFrames patterns
+#####
+#=
+Since signals and annotations are represented tabularly, any package
+that supports the Tables.jl interface can be used to interact with
+them. Here, we show how you can use DataFrames.jl to perform a variety
+of common operations.
+
+Note that most of these operations are only shown here on a single table
+to avoid redundancy, but these examples are generally applicable to both
+signals and annotations tables.
+=#
+
+# Read Onda Arrow files into `DataFrame`s:
+signals = DataFrame(read_signals(path_to_signals_file))
+annotations = DataFrame(read_annotations(path_to_annotations_file))
+
+# Grab all multichannel signals greater than 5 minutes long:
+filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
+
+# Get all signals from a given recording:
+target = rand(signals.recording)
+view(signals, findall(==(target), signals.recording), :)
+
+# Group/index signals by recording:
+target = rand(signals.recording)
+grouped = groupby(signals, :recording)
+grouped[(; recording=target)]
+
+# Group/index signals + annotations by recording together:
+target = rand(signals.recording)
+dict = Onda.gather(:recording, signals, annotations)
+dict[target]
+
+# Count number of signals in each recording:
+combine(groupby(signals, :recording), nrow)
+
+# Grab the longest signal in each recording:
+combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
+
+# Load all sample data for a given recording:
+target = rand(signals.recording)
+transform(view(signals, findall(==(target), signals.recording), :),
+          AsTable(:) => ByRow(load) => :samples)
+
+# Delete all sample data for a given recording (uncomment the
+# inline-commented section to actual delete filtered signals'
+# sample data!):
+target = rand(signals.recording)
+signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
+filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
+
+# Merge overlapping annotations of the same `quality` in the same recording.
+# `merged` is an annotations table with a custom column of merged ids:
+merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, :quality)))
+m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
+view(annotations, findall(in(m.from), annotations.id), :)
+
+# Load all the annotated segments that fall within a given signal's timespan:
+within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
+sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => ByRow(span -> load(sig, translate(span, -start(sig.span)))) => :samples)
+
+# In the above, we called `load(sig, span)` for each `span`. This invocation attempts to load
+# *only* the sample data corresponding to `span`, which can be very efficient if the sample data
+# file format + storage system supports random access and the full sample data file is very large.
+# However, if random access isn't supported, or the sample data file is relatively small, or the
+# requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
+# the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
+# want to support an optimal batch loader):
+samples = load(sig)
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => ByRow(span -> view(samples, :, translate(span, -start(sig.span)))) => :samples)
+
+#####
+##### working with `Samples`
+#####
+# A `Samples` struct wraps a matrix of interleaved LPCM-encoded (or decoded) sample data,
+# along with a `SamplesInfo` instance that allows this matrix to be encoded/decoded.
+# In this matrix, the rows correspond to channels and the columns correspond to timesteps.
+
+# Let's grab a `Samples` instance for one of our mock EEG signals:
+eeg_signal = signals[findfirst(==("eeg"), signals.kind), :]
+eeg = load(eeg_signal)
+
+# # Here are some basic functions for examining `Samples` instances:
+@test eeg isa Samples && !eeg.encoded
+@test sample_count(eeg) == sample_count(eeg_signal, duration(eeg)) == index_from_time(eeg.info.sample_rate, duration(eeg)) - 1
+@test channel_count(eeg) == channel_count(eeg_signal) == length(eeg.info.channels)
+@test channel(eeg, "f3") == channel(eeg_signal, "f3") == findfirst(==("f3"), eeg.info.channels)
+@test channel(eeg, 2) == channel(eeg_signal, 2) == eeg.info.channels[2]
+@test duration(eeg) == duration(eeg_signal.span)
 
 # Here are some basic indexing examples using `getindex` and `view` wherein
 # channel names and sample-rate-agnostic `TimeSpan`s are employed as indices:
-slice_span = TimeSpan(Second(3), Second(9))
-span_range = index_from_time(eeg.signal.sample_rate, slice_span)
-@test eeg[:, slice_span].data == view(eeg, :, span_range).data
-@test eeg[:f3, :].data == view(eeg, 2, :).data
-@test eeg[:f3, 1:10].data == view(eeg, 2, 1:10).data
-@test eeg[:f3, slice_span].data == view(eeg, 2, span_range).data
-@test eeg[[:f3, :c3, :p3], 1:10].data == view(eeg, 2:4, 1:10).data
-@test eeg[[:c3, 4, :f3], slice_span].data == view(eeg, [3, 4, 2], span_range).data
+span = TimeSpan(Second(3), Second(9))
+span_range = index_from_time(eeg.info.sample_rate, span)
+@test eeg[:, span].data == view(eeg, :, span_range).data
+@test eeg["f3", :].data == view(eeg, channel(eeg, "f3"), :).data
+@test eeg["f3", 1:10].data == view(eeg, channel(eeg, "f3"), 1:10).data
+@test eeg["f3", span].data == view(eeg, channel(eeg, "f3"), span_range).data
+rows = ["f3", "c3", "p3"]
+@test eeg[rows, 1:10].data == view(eeg, channel.(Ref(eeg), rows), 1:10).data
+rows = ["c3", 4, "f3"]
+@test eeg[rows, span].data == view(eeg, channel.(Ref(eeg), rows), span_range).data
 
-# NOTE: Keep in mind that `duration(samples.signal)` is not generally equivalent
-# to `duration(samples)`; the former is the duration of the original signal in
-# the context of its parent recording, whereas the latter is the actual duration
-# of `samples.data` given `signal.sample_rate`. This is similarly true for the
-# `sample_count` function for the same reason!
-eeg_slice = eeg[:, slice_span]
-@test duration(eeg_slice) == duration(slice_span)
-@test duration(eeg_slice) != duration(eeg_signal)
-@test sample_count(eeg_slice) == length(span_range)
-@test sample_count(eeg_slice) != sample_count(eeg_signal)
-
-# NOTE: `Samples` is not an `AbstractArray` subtype; this special indexing
-# behavior is only defined for convenient data manipulation. It is thus fine
+# Note that `Samples` is not an `AbstractArray` subtype; the special indexing
+# behavior above is only defined for convenient data manipulation. It is fine
 # to access the sample data matrix directly via the `data` field if you need
 # to manipulate the matrix directly or pass it to downstream computations.
-
-###############################################################################
-###############################################################################
-###############################################################################
-# Now that we have some actual sample data for some actual signals, let's write
-# it all out as an individual recording to an Onda dataset.
-
-root = mktempdir() # this will be deleted when the Julia process exits
-
-# Create a `Dataset` instance. This is a thin wrapper around an `example.onda`
-# directory that helps us to easily interface the Onda dataset in a compliant
-# manner. Note that simply creating this instance does not actually create the
-# `example.onda` directory; that directory will only be created as needed by
-# Onda operations that actually write to the filesystem (e.g. `save`, `store!`,
-# etc.).
-dataset = Dataset(joinpath(root, "example.onda"))
-
-# Create a `Recording` instance within `dataset`. This object corresponds
-# directly to the recording MessagePack object defined by the specification.
-# NOTE: Importantly, `create_recording!` adds `uuid => recording` to the
-# `dataset.recordings` dictionary before returning the pair, such that the
-# `recording` variable we assign here references the same `Recording` instance
-# stored within `dataset`.
-uuid, recording = create_recording!(dataset)
-
-# Store our signals/samples for the recording in our `dataset`. This both serializes
-# sample data to disk and adds the signal metadata to the recording stored in
-# `dataset.recordings[uuid]` (which, for us, happens to be `recording`).
-store!(dataset, uuid, :eeg, eeg)
-store!(dataset, uuid, :ecg, ecg)
-store!(dataset, uuid, :spo2, spo2)
-
-# Add a single `Annotation` to `recording`. An `Annotation` is simply a string
-# and an associated `TimeSpan`; for example, Beacon Biosignals stores JSON
-# snippets in annotations. Here, let's just go the simple route and pretend we
-# found an epileptiform spike in our EEG/ECG/SpO2 recording:
-spike_annotation = Annotation("epileptiform_spike", TimeSpan(Millisecond(1500), Second(2)))
-annotate!(recording, spike_annotation)
-
-# You can add as many annotations as you'd like to a recording. Just keep in mind
-# that the annotation list is a `Set`, so duplicates will be ignored:
-annotate!(recording, spike_annotation)
-@test length(recording.annotations) == 1
-
-# Since our hypothetical subject already has hypothetical epilepsy, let's give
-# them hypothetical narcolepsy as well by annotating sleep stages over insanely
-# short 2 second epochs across the entire recording:
-for (i, t) in enumerate(2:2:Second(duration(recording)).value)
-    stage = rand(["awake", "nrem1", "nrem2", "nrem3", "rem"])
-    ann = Annotation(stage, TimeSpan(Second(t - 2), Second(t)))
-    annotate!(recording, ann)
-end
-
-# Finally, we save `dataset`. Importantly, this function serializes `dataset.recordings`
-# to the `recordings.msgpack.zst` file specified by the Onda format. NOTE: If you don't
-# call this function, your `dataset` will not persist to disk as a valid Onda dataset
-# (though any `store!`ed sample data will still persist on disk)!
-save(dataset)
-
-###############################################################################
-###############################################################################
-###############################################################################
-# We have a dataset! At this point, let's pretend that we weren't the ones that
-# wrote out this dataset; instead, we'll pretend our colleague passed it off to
-# us, and we have to load it up to check for spikes.
-
-dataset = load(joinpath(root, "example.onda"))
-@test length(dataset.recordings) == 1
-uuid, recording = first(dataset.recordings)
-
-# Grab the first spike annotation we see...
-spike_annotation = first(ann for ann in recording.annotations if ann.value == "epileptiform_spike")
-
-# ...and load that segment of the EEG from disk as a `Samples` instance!
-spike_segment = load(dataset, uuid, :eeg, spike_annotation)
-
-# The above invocation of `load` allows a segment of a signal (as specified by
-# the last argument) to be read/deserialized from disk without reading the full
-# signal file. It actually works with `Annotation`s because it accepts any
-# `AbstractTimeSpan`, and `Annotation <: AbstractTimeSpan`:
-@test TimeSpan(spike_annotation) == TimeSpan(first(spike_annotation), last(spike_annotation))
-@test spike_segment.data == load(dataset, uuid, :eeg)[:, spike_annotation].data
-@test spike_segment.data == load(dataset, uuid, :eeg, TimeSpan(spike_annotation)).data
-
-# NOTE: `load(..., span)` may still have to read the entire signal from disk if
-# the signal's file format doesn't support seek access. For this reason - and
-# simply to avoid filesystem overhead - it is often better to load the whole
-# signal first if you're going to be accessing a bunch of its segments.
-
-# Welp, looks like a spike to me! Let's leave an annotation to confirm we
-# checked it. Remember - `spike_annotation isa AbstractTimeSpan`, so we can
-# generally pass it wherever we'd pass a `TimeSpan` object:
-annotate!(recording, Annotation("confirmed_spike_by_me", spike_annotation))
-
-# ...and, finally, of course, let's save our dataset to persist our changes!
-save(dataset)

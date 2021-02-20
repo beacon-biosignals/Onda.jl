@@ -1,38 +1,54 @@
 # API Documentation
 
-Below is the documentation for all functions exported by Onda.jl. For general information regarding the Onda format, please see [beacon-biosignals/OndaFormat](https://github.com/beacon-biosignals/OndaFormat).
+Below is the API documentation for Onda.jl.
+
+For general information regarding the Onda Format itself, please see [beacon-biosignals/OndaFormat](https://github.com/beacon-biosignals/OndaFormat).
+
+For a nice introduction to the package, see the [Onda Tour](https://github.com/beacon-biosignals/Onda.jl/blob/master/examples/tour.jl).
 
 ```@meta
 CurrentModule = Onda
 ```
 
-Note that Onda.jl's API follows a specific philosophy with respect to property access: users are generally expected to access fields via Julia's `object.fieldname` syntax, but should only *mutate* objects via the exposed API methods documented below.
+## Support For Generic Path-Like Types
 
-## `Dataset` API
+Onda.jl attempts to be as agnostic as possible with respect to the storage system
+that sample data, Arrow files, etc. are read from/written to. As such, any path-like
+argument accepted by an Onda.jl API function should generically "work" as long
+as the argument's type supports:
+
+- `Base.read(path)::Vector{UInt8}` (return the bytes stored at `path`)
+- `Base.write(path, bytes::Vector{UInt8})` (write `bytes` to the location specified by `path`)
+
+For backends which support direct byte range access (e.g. S3), `Onda.read_byte_range` may
+be overloaded for the backend's corresponding path type to enable further optimizations:
 
 ```@docs
-Dataset
-load
-load_encoded
-save
-create_recording!
-store!
-delete!
-Onda.validate_on_construction
+Onda.read_byte_range
 ```
 
-## Onda Format Metadata
+## `*.onda.annotations.arrow`
+
+```@docs
+Annotation
+read_annotations
+write_annotations
+merge_overlapping_annotations
+```
+
+## `*.onda.signals.arrow`
 
 ```@docs
 Signal
-validate_signal
-signal_from_template
-span
-sizeof_samples
-Annotation
-Recording
-set_span!
-annotate!
+SamplesInfo
+validate
+read_signals
+write_signals
+channel(x, name)
+channel(x, i::Integer)
+channel_count(x)
+sample_count(x, duration::Period)
+sizeof_samples(x, duration::Period)
 ```
 
 ## `Samples`
@@ -40,7 +56,6 @@ annotate!
 ```@docs
 Samples
 ==(::Samples, ::Samples)
-validate_samples
 channel
 channel_count
 sample_count
@@ -48,71 +63,41 @@ encode
 encode!
 decode
 decode!
+load
+store
+channel(samples::Samples, name)
+channel(samples::Samples, i::Integer)
+channel_count(samples::Samples)
+sample_count(samples::Samples)
 ```
 
-## `AbstractTimeSpan`
+## LPCM (De)serialization API
+
+Onda.jl's LPCM (De)serialization API facilitates low-level streaming sample
+data (de)serialization and provides a storage-agnostic abstraction layer
+that can be overloaded to support new file/byte formats for (de)serializing
+LPCM-encodeable sample data.
 
 ```@docs
-AbstractTimeSpan
-TimeSpan
-contains
-overlaps
-shortest_timespan_containing
-duration
-time_from_index
-index_from_time
-```
-
-## Paths API
-
-Onda's Paths API directly underlies its Dataset API, providing an abstraction
-layer that can be overloaded to support new storage backends for sample data and
-recording metadata. This API's fallback implementation supports any path-like
-type `P` that supports:
-
-- `Base.read(::P)`
-- `Base.write(::P, bytes::Vector{UInt8})`
-- `Base.rm(::P; force, recursive)`
-- `Base.joinpath(::P, ::AbstractString...)`
-- `Base.mkpath(::P)` (note: this is allowed to be a no-op for storage backends which have no notion of intermediate directories, e.g. object storage systems)
-- `Base.dirname(::P)`
-- `Onda.read_byte_range` (see signatures documented below)
-
-```@docs
-read_recordings_file
-write_recordings_file
-samples_path
-read_samples
-write_samples
-read_byte_range
-```
-
-## Serialization API
-
-Onda's Serialization API underlies its Paths API, providing a storage-agnostic
-abstraction layer that can be overloaded to support new file/byte formats for
-(de)serializing LPCM-encodeable sample data. This API also facilitates low-level
-streaming sample data (de)serialization and Onda metadata (de)serialization.
-
-```@docs
-deserialize_recordings_msgpack_zst
-serialize_recordings_msgpack_zst
 AbstractLPCMFormat
 AbstractLPCMStream
+LPCMFormat
+LPCMZstFormat
+format
+deserialize_lpcm
+serialize_lpcm
+deserialize_lpcm_callback
 deserializing_lpcm_stream
 serializing_lpcm_stream
 finalize_lpcm_stream
-Onda.format_constructor_for_file_extension
-format
-deserialize_lpcm
-deserialize_lpcm_callback
-serialize_lpcm
-LPCM
-LPCMZst
+Onda.register_lpcm_format!
+Onda.file_format_string
 ```
 
-## Upgrading Older Datasets to Newer Datasets
+## Utilities
 
 ```@docs
-Onda.upgrade_onda_format_from_v0_2_to_v0_3!
+Onda.gather
+Onda.validate_on_construction
+Onda.upgrade_onda_dataset_to_v0_5!
 ```

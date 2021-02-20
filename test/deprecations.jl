@@ -1,61 +1,34 @@
-using Test, Onda, UUIDs, Random, Dates
-
-@testset "deprecations" begin
-    mktempdir() do path
-        dataset = Dataset(path)
-        uuid = uuid4()
-        @test samples_path(dataset, uuid, :eeg, :lpcm) == samples_path(path, uuid, :eeg, :lpcm)
-        signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50.5, :lpcm, nothing)
-        samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50.5 * 10))))
-        span = TimeSpan(Second(1), Second(2))
-        data_path = samples_path(path, uuid, :eeg, :lpcm)
-        store_samples!(data_path, samples)
-        write_samples(data_path * "2", samples)
-        @test load_samples(data_path, signal).data == read_samples(data_path, signal).data
-        @test load_samples(data_path, signal, span).data == read_samples(data_path, signal, span).data
-        @test read_samples(data_path, signal).data == read_samples(data_path * "2", signal).data
-        save_recordings_file(dataset)
-        recordings_file_path = joinpath(path, Onda.RECORDINGS_FILE_NAME)
-        recordings_file_bytes = read(recordings_file_path)
-        @test read_recordings_msgpack_zst(recordings_file_path) == read_recordings_file(recordings_file_path)
-        @test read_recordings_msgpack_zst(recordings_file_bytes) == deserialize_recordings_msgpack_zst(recordings_file_bytes)
-        write_recordings_msgpack_zst(recordings_file_path * "2", dataset.header, dataset.recordings)
-        @test read(recordings_file_path * "2") == recordings_file_bytes
-        @test write_recordings_msgpack_zst(dataset.header, dataset.recordings) == recordings_file_bytes
-        @test Dataset(path; create=false).recordings == load(path).recordings
-        @test Dataset(path; create=true).recordings == load(path).recordings
+@testset "upgrade_onda_dataset_to_v0_5!" begin
+    new_path = mktempdir()
+    old_path = joinpath(@__DIR__, "old_test_v0_3.onda")
+    cp(old_path, new_path; force=true)
+    Onda.upgrade_onda_dataset_to_v0_5!(new_path)
+    signals = DataFrame(read_signals(joinpath(new_path, "upgraded.onda.signals.arrow")))
+    annotations = DataFrame(read_annotations(joinpath(new_path, "upgraded.onda.annotations.arrow")))
+    _, old_recordings = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(new_path, "recordings.msgpack.zst"))))
+    new_recordings = Onda.gather(:recording, signals, annotations)
+    for (uuid, old_recording) in old_recordings
+        new_signals, new_annotations = new_recordings[UUID(uuid)]
+        @test length(old_recording["signals"]) == nrow(new_signals)
+        @test length(old_recording["annotations"]) == nrow(new_annotations)
+        for (old_kind, old_signal) in old_recording["signals"]
+            new_signal = view(new_signals, findall(==(old_kind), new_signals.kind), :)
+            @test nrow(new_signal) == 1
+            @test new_signal.file_path[] == joinpath("samples", uuid, old_kind * "." * old_signal["file_extension"])
+            @test new_signal.file_format[] == old_signal["file_extension"]
+            @test new_signal.span[] == TimeSpan(old_signal["start_nanosecond"], old_signal["stop_nanosecond"])
+            @test new_signal.channels[] == old_signal["channel_names"]
+            @test new_signal.sample_unit[] == old_signal["sample_unit"]
+            @test new_signal.sample_resolution_in_unit[] == old_signal["sample_resolution_in_unit"]
+            @test new_signal.sample_offset_in_unit[] == old_signal["sample_offset_in_unit"]
+            @test new_signal.sample_type[] == old_signal["sample_type"]
+            @test new_signal.sample_rate[] == old_signal["sample_rate"]
+        end
+        for old_annotation in old_recording["annotations"]
+            old_span = TimeSpan(old_annotation["start_nanosecond"], old_annotation["stop_nanosecond"])
+            new_annotation = filter(a -> a.value == old_annotation["value"] && a.span == old_span, new_annotations)
+            @test nrow(new_annotation) == 1
+            @test new_annotation.recording[] == UUID(uuid)
+        end
     end
 end
-
-@testset "Serialization API deprecations for ($(repr(extension)))" for (extension, options) in
-                                                                   [(:lpcm, nothing), (Symbol("lpcm.zst"), Dict(:level => 2))]
-    signal = Signal([:a, :b, :c], Nanosecond(0), Nanosecond(0), :unit, 0.25, -0.5, Int16, 50.5, extension, options)
-    samples = encode(Samples(signal, false, rand(MersenneTwister(1), 3, Int(50.5 * 10))))
-    signal_format = serializer(signal)
-
-    bytes = serialize_lpcm(samples.data, signal_format)
-    io = IOBuffer()
-    serialize_lpcm(io, samples.data, signal_format)
-    seekstart(io)
-    @test take!(io) == bytes
-
-    @test deserialize_lpcm(bytes, signal_format) == samples.data
-    @test deserialize_lpcm(bytes, signal_format, 99) == view(samples.data, :, 100:size(samples.data, 2))
-    @test deserialize_lpcm(bytes, signal_format, 99, 201) == view(samples.data, :, 100:300)
-    @test deserialize_lpcm(IOBuffer(bytes), signal_format) == samples.data
-    io = IOBuffer(bytes)
-    @test deserialize_lpcm(io, signal_format, 49, 51) == view(samples.data, :, 50:100)
-    callback, byte_offset, byte_count = deserialize_lpcm_callback(signal_format, 99, 201)
-    if extension == :lpcm
-        byte_range = (byte_offset + 1):(byte_offset + byte_count)
-        @test callback(bytes[byte_range]) == view(samples.data, :, 100:300)
-        @test bytes == reinterpret(UInt8, vec(samples.data))
-        @test deserialize_lpcm(io, signal_format, 49, 51) == view(samples.data, :, 150:200)
-    else
-        @test ismissing(byte_offset) && ismissing(byte_count)
-        @test callback(bytes) == view(samples.data, :, 100:300)
-    end
-end
-
-@test_throws ErrorException Onda.zstd_compress(identity, IOBuffer())
-@test_throws ErrorException Onda.zstd_decompress(identity, IOBuffer())

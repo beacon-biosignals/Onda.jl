@@ -1,41 +1,41 @@
 #####
-##### `Samples`
+##### Samples
 #####
 
 """
-    Samples(signal::Signal, encoded::Bool, data::AbstractMatrix,
+    Samples(data::AbstractMatrix, info::SamplesInfo, encoded::Bool;
             validate::Bool=Onda.validate_on_construction())
 
 Return a `Samples` instance with the following fields:
 
-- `signal::Signal`: The `Signal` object that describes the `Samples` instance.
-
-- `encoded::Bool`: If `true`, the values in `data` are LPCM-encoded as
-   prescribed by the `Samples` instance's `signal`. If `false`, the values in
-   `data` have been decoded into the `signal`'s canonical units.
-
 - `data::AbstractMatrix`: A matrix of sample data. The `i` th row of the matrix
-   corresponds to the `i`th channel in `signal.channel_names`, while the `j`th
-   column corresponds to the `j`th multichannel sample.
+  corresponds to the `i`th channel in `info.channels`, while the `j`th
+  column corresponds to the `j`th multichannel sample.
 
-- `validate::Bool`: If `true`, [`validate_samples`](@ref) is called on the constructed
-   `Samples` instance before it is returned.
+- `info::SamplesInfo`: The `SamplesInfo` object that describes the `Samples` instance.
+
+- `encoded::Bool`: If `true`, the values in `data` are LPCM-encoded as prescribed
+  by the `Samples` instance's `info`. If `false`, the values in `data` have
+  been decoded into the `info`'s canonical units.
+
+If `validate` is `true`, [`Onda.validate`](@ref) is called on the constructed `Samples`
+instance before it is returned.
 
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
-indices, but also accept channel names for row indices and [`TimeSpan`](@ref)
-values for column indices; see `Onda/examples/tour.jl` for a comprehensive
-set of indexing examples.
+indices, but also accept channel names for row indices and `TimeSpan` values for
+column indices; see `Onda/examples/tour.jl` for a comprehensive set of indexing
+examples.
 
-See also: [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
+See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
-struct Samples{D<:AbstractMatrix}
-    signal::Signal
-    encoded::Bool
+struct Samples{D<:AbstractMatrix,S<:SamplesInfo}
     data::D
-    function Samples(signal::Signal, encoded::Bool, data::AbstractMatrix,
+    info::S
+    encoded::Bool
+    function Samples(data, info::SamplesInfo, encoded::Bool;
                      validate::Bool=validate_on_construction())
-        samples = new{typeof(data)}(signal, encoded, data)
-        validate && validate_samples(samples)
+        samples = new{typeof(data),typeof(info)}(data, info, encoded)
+        validate && Onda.validate(samples)
         return samples
     end
 end
@@ -43,130 +43,114 @@ end
 """
     ==(a::Samples, b::Samples)
 
-Returns `a.encoded == b.encoded && a.signal == b.signal && a.data == b.data`.
+Returns `a.encoded == b.encoded && a.info == b.info && a.data == b.data`.
 """
-Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.signal == b.signal && a.data == b.data
+Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info && a.data == b.data
 
 """
-    validate_samples(samples::Samples)
+    validate(samples::Samples)
 
 Returns `nothing`, checking that the given `samples` are valid w.r.t. the
-underlying `samples.signal` and the Onda specification's canonical LPCM
+underlying `samples.info` and the Onda specification's canonical LPCM
 representation. If a violation is found, an `ArgumentError` is thrown.
 
 Properties that are validated by this function include:
 
-- encoded element type matches `samples.signal.sample_type`
-- the number of rows of `samples.data` matches the number of channels in `samples.signal`
+- encoded element type matches `samples.info.sample_type`
+- the number of rows of `samples.data` matches the number of channels in `samples.info`
 """
-function validate_samples(samples::Samples)
-    n_channels = channel_count(samples.signal)
+function validate(samples::Samples)
+    n_channels = channel_count(samples.info)
     n_rows = size(samples.data, 1)
     if n_channels != n_rows
-        throw(ArgumentError("number of channels in signal ($n_channels) " *
+        throw(ArgumentError("number of channels in info ($n_channels) " *
                             "does not match number of rows in data matrix " *
                             "($n_rows)"))
     end
-    if samples.encoded && !(eltype(samples.data) <: samples.signal.sample_type)
-        throw(ArgumentError("signal and encoded data matrix have mismatched element types"))
+    if samples.encoded && !(eltype(samples.data) === samples.info.sample_type)
+        throw(ArgumentError("encoded `samples.data` matrix eltype does not match `samples.info.sample_type`"))
     end
     return nothing
 end
 
+TimeSpans.istimespan(::Samples) = true
+TimeSpans.start(::Samples) = Nanosecond(0)
+TimeSpans.stop(samples::Samples) = TimeSpans.time_from_index(samples.info.sample_rate, size(samples.data, 2) + 1)
+
+"""
+    channel(samples::Samples, name)
+
+Return `channel(samples.info, name)`.
+
+This function is useful for indexing rows of `samples.data` by channel names.
+"""
+channel(samples::Samples, name) = channel(samples.info, name)
+
+"""
+    channel(samples::Samples, i::Integer)
+
+Return `channel(samples.info, i)`.
+"""
+channel(samples::Samples, i::Integer) = channel(samples.info, i)
+
+"""
+    channel_count(samples::Samples)
+
+Return `channel_count(samples.info)`.
+"""
+channel_count(samples::Samples) = channel_count(samples.info)
+
+"""
+    sample_count(samples::Samples)
+
+Return the number of multichannel samples in `samples` (i.e. `size(samples.data, 2)`)
+"""
+sample_count(samples::Samples) = size(samples.data, 2)
+
+#####
+##### indexing
+#####
+
 for f in (:getindex, :view)
     @eval begin
-        import Base: $f  # required for deprecating methods for functions extended from Base
         @inline function Base.$f(samples::Samples, rows, columns)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
-            signal = rows isa Colon ? samples.signal :
-                     signal_from_template(samples.signal;
-                                          channel_names=samples.signal.channel_names[rows],
-                                          validate=false)
-            return Samples(signal, samples.encoded, $f(samples.data, rows, columns), false)
+            channels = rows isa Colon ? samples.info.channels : samples.info.channels[rows]
+            info = setproperties(samples.info; channels)
+            return Samples($f(samples.data, rows, columns), info, samples.encoded; validate=false)
         end
-        Base.@deprecate $f(samples::Samples, columns) $f(samples, :, columns)
     end
 end
 
 _rangify(i) = i
 _rangify(i::Integer) = i:i
 
-_indices_fallback(f, samples::Samples, i::Union{Colon,AbstractRange,Integer}) = i
-_indices_fallback(f, samples::Samples, args) = map(x -> f(samples, x), args)
+_indices_fallback(::Any, ::Samples, i::Union{Colon,AbstractRange,Integer}) = i
+_indices_fallback(f, samples::Samples, x) = map(x -> f(samples, x), x)
 
-row_arguments(samples::Samples, args) = _rangify(_row_arguments(samples, args))
-_row_arguments(samples::Samples, args) = _indices_fallback(_row_arguments, samples, args)
-_row_arguments(samples::Samples, name::Symbol) = channel(samples, name)
+row_arguments(samples::Samples, x) = _rangify(_row_arguments(samples, x))
 
-column_arguments(samples::Samples, args) = _rangify(_column_arguments(samples, args))
-_column_arguments(samples::Samples, args) = _indices_fallback(_column_arguments, samples, args)
-_column_arguments(samples::Samples, t::Period) = _column_arguments(samples, TimeSpan(t))
+_row_arguments(samples::Samples, x) = _indices_fallback(_row_arguments, samples, x)
+_row_arguments(samples::Samples, name::AbstractString) = channel(samples, name)
 
-function _column_arguments(samples::Samples, span::AbstractTimeSpan)
-    return index_from_time(samples.signal.sample_rate, span)
+column_arguments(samples::Samples, x) = _rangify(_column_arguments(samples, x))
+
+function _column_arguments(samples::Samples, x)
+    TimeSpans.istimespan(x) && return TimeSpans.index_from_time(samples.info.sample_rate, TimeSpan(x))
+    return _indices_fallback(_column_arguments, samples, x)
 end
-
-"""
-    channel(samples::Samples, name::Symbol)
-
-Return `channel(samples.signal, name)`.
-
-This function is useful for indexing rows of `samples.data` by channel names.
-"""
-channel(samples::Samples, name::Symbol) = channel(samples.signal, name)
-
-"""
-    channel(samples::Samples, i::Integer)
-
-Return `channel(samples.signal, i)`.
-"""
-channel(samples::Samples, i::Integer) = channel(samples.signal, i)
-
-"""
-    duration(samples::Samples)
-
-Returns the `Nanosecond` value for which `samples[TimeSpan(0, duration(samples))] == samples.data`.
-
-!!! warning
-    `duration(samples)` is not generally equivalent to `duration(samples.signal)`;
-    the former is the duration of the entire original signal in the context of its
-    parent recording, whereas the latter is the actual duration of `samples.data`
-    given `samples.signal.sample_rate`.
-"""
-duration(samples::Samples) = time_from_index(samples.signal.sample_rate, size(samples.data, 2) + 1)
-
-"""
-    channel_count(samples::Samples)
-
-Return `channel_count(samples.signal)`.
-"""
-channel_count(samples::Samples) = channel_count(samples.signal)
-
-"""
-    sample_count(samples::Samples)
-
-Return the number of multichannel samples in `samples` (i.e. `size(samples.data, 2)`)
-
-!!! warning
-    `sample_count(samples)` is not generally equivalent to `sample_count(samples.signal)`;
-    the former is the sample count of the entire original signal in the context of its parent
-    recording, whereas the latter is actual number of multichannel samples in `samples.data`.
-"""
-sample_count(samples::Samples) = size(samples.data, 2)
 
 #####
 ##### encoding utilities
 #####
 
-const VALID_SAMPLE_TYPE_UNION = Union{Int8,Int16,Int32,Int64,UInt8,UInt16,UInt32,UInt64}
-
 function encode_sample(::Type{S}, resolution_in_unit, offset_in_unit, sample_in_unit,
-                       noise=zero(sample_in_unit)) where {S<:VALID_SAMPLE_TYPE_UNION}
+                       noise=zero(sample_in_unit)) where {S<:LPCM_SAMPLE_TYPE_UNION}
     sample_in_unit += noise
-    isnan(sample_in_unit) && return typemax(S)
+    isnan(sample_in_unit) && S <: Integer && return typemax(S)
     from_unit = clamp((sample_in_unit - offset_in_unit) / resolution_in_unit, typemin(S), typemax(S))
-    return round(S, from_unit)
+    return S <: Integer ? round(S, from_unit) : from_unit
 end
 
 function dither_noise!(rng::AbstractRNG, storage, step)
@@ -192,9 +176,9 @@ end
 
 """
     encode(sample_type::DataType, sample_resolution_in_unit, sample_offset_in_unit,
-           samples, dither_storage=nothing)
+           sample_data, dither_storage=nothing)
 
-Return a copy of `samples` quantized according to `sample_type`, `sample_resolution_in_unit`,
+Return a copy of `sample_data` quantized according to `sample_type`, `sample_resolution_in_unit`,
 and `sample_offset_in_unit`. `sample_type` must be a concrete subtype of `Onda.VALID_SAMPLE_TYPE_UNION`.
 Quantization of an individual sample `s` is performed via:
 
@@ -205,49 +189,79 @@ with additional special casing to clip values exceeding the encoding's dynamic r
 If `dither_storage isa Nothing`, no dithering is applied before quantization.
 
 If `dither_storage isa Missing`, dither storage is allocated automatically and
-triangular dithering is applied to the signal prior to quantization.
+triangular dithering is applied to the info prior to quantization.
 
 Otherwise, `dither_storage` must be a container of similar shape and type to
-`samples`. This container is then used to store the random noise needed for the
-triangular dithering process, which is applied to the signal prior to quantization.
+`sample_data`. This container is then used to store the random noise needed for the
+triangular dithering process, which is applied to the info prior to quantization.
+
+If:
+
+    sample_type === eltype(sample_data) &&
+    sample_resolution_in_unit == 1 &&
+    sample_offset_in_unit == 0
+
+then this function will simply return `sample_data` directly without copying/dithering.
 """
 function encode(::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
-                samples, dither_storage=nothing) where {S}
-    return encode!(similar(samples, S), S, sample_resolution_in_unit, sample_offset_in_unit,
-                   samples, dither_storage)
+                sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
+    if (S === eltype(sample_data) &&
+        sample_resolution_in_unit == 1 &&
+        sample_offset_in_unit == 0)
+        return sample_data
+    end
+    return encode!(similar(sample_data, S), S,
+                   sample_resolution_in_unit, sample_offset_in_unit,
+                   sample_data, dither_storage)
 end
 
 """
     encode!(result_storage, sample_type::DataType, sample_resolution_in_unit,
-            sample_offset_in_unit, samples, dither_storage=nothing)
+            sample_offset_in_unit, sample_data, dither_storage=nothing)
     encode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit,
-            samples, dither_storage=nothing)
+            sample_data, dither_storage=nothing)
 
-Similar to `encode(sample_type, sample_resolution_in_unit, sample_offset_in_unit, samples, dither_storage)`,
+Similar to `encode(sample_type, sample_resolution_in_unit, sample_offset_in_unit, sample_data, dither_storage)`,
 but write encoded values to `result_storage` rather than allocating new storage.
 
 `sample_type` defaults to `eltype(result_storage)` if it is not provided.
+
+If:
+
+    sample_type === eltype(sample_data) &&
+    sample_resolution_in_unit == 1 &&
+    sample_offset_in_unit == 0
+
+then this function will simply copy `sample_data` directly into `result_storage` without dithering.
 """
 function encode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit,
-                 samples, dither_storage=nothing)
+                 sample_data, dither_storage=nothing)
     return encode!(result_storage, eltype(result_storage), sample_resolution_in_unit,
-                   sample_offset_in_unit, samples, dither_storage)
+                   sample_offset_in_unit, sample_data, dither_storage)
 end
 
 function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
-                 samples, dither_storage=nothing) where {S}
-    if dither_storage isa Nothing
-        broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit,
-                   sample_offset_in_unit, samples)
+                 sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
+    if (S === eltype(sample_data) &&
+        sample_resolution_in_unit == 1 &&
+        sample_offset_in_unit == 0)
+        copyto!(result_storage, sample_data)
     else
-        if dither_storage isa Missing
-            dither_storage = similar(samples)
-        elseif size(dither_storage) != size(samples)
-            throw(DimensionMismatch("dithering storage container does not match shape of samples"))
+        if dither_storage isa Nothing
+            broadcast!(encode_sample, result_storage, S,
+                       sample_resolution_in_unit,
+                       sample_offset_in_unit, sample_data)
+        else
+            if dither_storage isa Missing
+                dither_storage = similar(sample_data)
+            elseif size(dither_storage) != size(sample_data)
+                throw(DimensionMismatch("dithering storage container does not match shape of sample_data"))
+            end
+            dither_noise!(dither_storage, sample_resolution_in_unit)
+            broadcast!(encode_sample, result_storage, S,
+                       sample_resolution_in_unit, sample_offset_in_unit,
+                       sample_data, dither_storage)
         end
-        dither_noise!(dither_storage, sample_resolution_in_unit)
-        broadcast!(encode_sample, result_storage, S, sample_resolution_in_unit, sample_offset_in_unit,
-                   samples, dither_storage)
     end
     return result_storage
 end
@@ -257,20 +271,20 @@ end
 
 If `samples.encoded` is `false`, return a `Samples` instance that wraps:
 
-    encode(samples.signal.sample_type,
-           samples.signal.sample_resolution_in_unit,
-           samples.signal.sample_offset_in_unit,
+    encode(samples.info.sample_type,
+           samples.info.sample_resolution_in_unit,
+           samples.info.sample_offset_in_unit,
            samples.data, dither_storage)
 
 If `samples.encoded` is `true`, this function is the identity.
 """
 function encode(samples::Samples, dither_storage=nothing)
     samples.encoded && return samples
-    data = encode(samples.signal.sample_type,
-                  samples.signal.sample_resolution_in_unit,
-                  samples.signal.sample_offset_in_unit,
-                  samples.data, dither_storage)
-    return Samples(samples.signal, true, data)
+    return Samples(encode(samples.info.sample_type,
+                          samples.info.sample_resolution_in_unit,
+                          samples.info.sample_offset_in_unit,
+                          samples.data, dither_storage),
+                   samples.info, true; validate=false)
 end
 
 """
@@ -279,9 +293,9 @@ end
 If `samples.encoded` is `false`, return a `Samples` instance that wraps:
 
     encode!(result_storage,
-            samples.signal.sample_type,
-            samples.signal.sample_resolution_in_unit,
-            samples.signal.sample_offset_in_unit,
+            samples.info.sample_type,
+            samples.info.sample_resolution_in_unit,
+            samples.info.sample_offset_in_unit,
             samples.data, dither_storage)`.
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
@@ -290,13 +304,13 @@ If `samples.encoded` is `true`, return a `Samples` instance that wraps
 function encode!(result_storage, samples::Samples, dither_storage=nothing)
     if samples.encoded
         copyto!(result_storage, samples.data)
-        return Samples(samples.signal, samples.encoded, result_storage)
+    else
+        encode!(result_storage, samples.info.sample_type,
+                samples.info.sample_resolution_in_unit,
+                samples.info.sample_offset_in_unit,
+                samples.data, dither_storage)
     end
-    encode!(result_storage, samples.signal.sample_type,
-            samples.signal.sample_resolution_in_unit,
-            samples.signal.sample_offset_in_unit,
-            samples.data, dither_storage)
-    return Samples(samples.signal, true, result_storage)
+    return Samples(result_storage, samples.info, true; validate=false)
 end
 
 #####
@@ -304,56 +318,155 @@ end
 #####
 
 """
-    decode(sample_resolution_in_unit, sample_offset_in_unit, samples)
+    decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
 
-Return `sample_resolution_in_unit .* samples .+ sample_offset_in_unit`
+Return `sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit`.
+
+If:
+
+    sample_data isa AbstractArray &&
+    sample_resolution_in_unit == 1 &&
+    sample_offset_in_unit == 0
+
+then this function is the identity and will return `sample_data` directly without copying.
 """
-function decode(sample_resolution_in_unit, sample_offset_in_unit, samples)
-    return sample_resolution_in_unit .* samples .+ sample_offset_in_unit
+function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
+    if sample_data isa AbstractArray
+        sample_resolution_in_unit == 1 && sample_offset_in_unit == 0 && return sample_data
+    end
+    return sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit
 end
 
 """
-    decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, samples)
+    decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, sample_data)
 
-Similar to `decode(sample_resolution_in_unit, sample_offset_in_unit, samples)`, but
+Similar to `decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)`, but
 write decoded values to `result_storage` rather than allocating new storage.
 """
-function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, samples)
+function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, sample_data)
     f = x -> sample_resolution_in_unit * x + sample_offset_in_unit
-    return broadcast!(f, result_storage, samples)
+    return broadcast!(f, result_storage, sample_data)
 end
 
 """
     decode(samples::Samples)
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
-`decode(samples.signal.sample_resolution_in_unit, samples.signal.sample_offset_in_unit, samples.data)`.
+
+    decode(samples.info.sample_resolution_in_unit, samples.info.sample_offset_in_unit, samples.data)
 
 If `samples.encoded` is `false`, this function is the identity.
 """
 function decode(samples::Samples)
     samples.encoded || return samples
-    data = decode(samples.signal.sample_resolution_in_unit,
-                  samples.signal.sample_offset_in_unit,
-                  samples.data)
-    return Samples(samples.signal, false, data)
+    return Samples(decode(samples.info.sample_resolution_in_unit,
+                          samples.info.sample_offset_in_unit,
+                          samples.data),
+                   samples.info, false; validate=false)
 end
 
 """
     decode!(result_storage, samples::Samples)
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
-`decode!(result_storage, samples.signal.sample_resolution_in_unit, samples.signal.sample_offset_in_unit, samples.data)`.
 
-If `samples.encoded` is `false`, return a `Samples` instance that wraps
-`copyto!(result_storage, samples.data)`.
+    decode!(result_storage, samples.info.sample_resolution_in_unit, samples.info.sample_offset_in_unit, samples.data)
+
+If `samples.encoded` is `false`, return a `Samples` instance that wraps `copyto!(result_storage, samples.data)`.
 """
 function decode!(result_storage, samples::Samples)
     if samples.encoded
-        decode!(result_storage, samples.signal.sample_resolution_in_unit,
-                samples.signal.sample_offset_in_unit, samples.data)
-        return Samples(samples.signal, false, result_storage)
+        decode!(result_storage, samples.info.sample_resolution_in_unit,
+                samples.info.sample_offset_in_unit, samples.data)
+    else
+        copyto!(result_storage, samples.data)
     end
-    copyto!(result_storage, samples.data)
-    return Samples(samples.signal, samples.encoded, result_storage)
+    return Samples(result_storage, samples.info, false; validate=false)
+end
+
+#####
+##### load/store
+#####
+
+"""
+    load(signal[, span]; encoded::Bool=false)
+    load(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, info::SamplesInfo[, span]; encoded::Bool=false)
+
+Return the `Samples` object described by `signal`/`file_path`/`file_format`/`info`.
+
+If `span` is present, return `load(...)[:, span]`, but attempt to avoid reading
+unreturned intermediate sample data. Note that the effectiveness of this optimized method
+versus the naive approach depends on the types of `file_path` (i.e. if there is a fast
+method defined for `Onda.read_byte_range(::typeof(file_path), ...)`) and `file_format`
+(i.e. does the corresponding format support random or chunked access).
+
+If `encoded` is `true`, do not decode the `Samples` object before returning it.
+"""
+function load(signal, span...; encoded::Bool=false)
+    return load(signal.file_path, signal.file_format, SamplesInfo(signal), span...; encoded)
+end
+
+function load(file_path, file_format::AbstractString, info::SamplesInfo, span...; encoded::Bool=false)
+    return load(file_path, format(file_format, info), info, span...; encoded)
+end
+
+function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; encoded::Bool=false)
+    samples = Samples(read_lpcm(file_path, file_format), info, true)
+    return encoded ? samples : decode(samples)
+end
+
+function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, span; encoded::Bool=false)
+    sample_range = TimeSpans.index_from_time(info.sample_rate, span)
+    sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
+    sample_data = read_lpcm(file_path, file_format, sample_offset, sample_count)
+    samples = Samples(sample_data, info, true)
+    return encoded ? samples : decode(samples)
+end
+
+"""
+    store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, samples::Samples)
+
+Serialize the given `samples` to `file_format` and write the output to `file_path`.
+"""
+function store(file_path, file_format, samples::Samples)
+    fmt = file_format isa AbstractLPCMFormat ? file_format : format(file_format, samples.info)
+    return write_lpcm(file_path, fmt, encode(samples).data)
+end
+
+"""
+    store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, samples::Samples,
+          recording::UUID, start::Period; custom...)
+
+Serialize the given `samples` to `file_format` and write the output to `file_path`, returning
+a `Signal` instance constructed from the provided arguments (any provided `custom` keyword
+arguments are forwarded to an invocation of the `Signal` constructor).
+"""
+function store(file_path, file_format, samples::Samples, recording, start; custom...)
+    store(file_path, file_format, samples)
+    span = TimeSpan(start, Nanosecond(start) + TimeSpans.duration(samples))
+    return Signal(samples.info; recording, file_path, file_format, span, custom...)
+end
+
+#####
+##### pretty printing
+#####
+
+function Base.show(io::IO, samples::Samples)
+    if get(io, :compact, false)
+        print(io, "Samples(", summary(samples.data), ')')
+    else
+        duration_in_seconds = size(samples.data, 2) / samples.info.sample_rate
+        duration_in_nanoseconds = round(Int, duration_in_seconds * 1_000_000_000)
+        println(io, "Samples (", TimeSpans.format_duration(duration_in_nanoseconds), "):")
+        println(io, "  info.kind: ", repr(samples.info.kind))
+        println(io, "  info.channels: ", string('[', join(map(repr, samples.info.channels), ", "), ']'))
+        println(io, "  info.sample_unit: ", repr(samples.info.sample_unit))
+        println(io, "  info.sample_resolution_in_unit: ", samples.info.sample_resolution_in_unit)
+        println(io, "  info.sample_offset_in_unit: ", samples.info.sample_offset_in_unit)
+        println(io, "  info.sample_type: ", samples.info.sample_type)
+        println(io, "  info.sample_rate: ", samples.info.sample_rate, " Hz")
+        println(io, "  encoded: ", samples.encoded)
+        println(io, "  data:")
+        show(io, "text/plain", samples.data)
+    end
 end
