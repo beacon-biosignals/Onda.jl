@@ -1,6 +1,6 @@
 # Onda.jl
 
-[![Build Status](https://travis-ci.com/beacon-biosignals/Onda.jl.svg?token=Jbjm3zfgVHsfbKqsz3ki&branch=master)](https://travis-ci.com/beacon-biosignals/Onda.jl)
+[![CI](https://github.com/beacon-biosignals/Onda.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/beacon-biosignals/Onda.jl/actions/workflows/CI.yml)
 [![codecov](https://codecov.io/gh/beacon-biosignals/Onda.jl/branch/master/graph/badge.svg?token=D0bcI0Rtsw)](https://codecov.io/gh/beacon-biosignals/Onda.jl)
 [![](https://img.shields.io/badge/docs-stable-blue.svg)](https://beacon-biosignals.github.io/Onda.jl/stable)
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://beacon-biosignals.github.io/Onda.jl/dev)
