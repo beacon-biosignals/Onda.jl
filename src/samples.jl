@@ -423,11 +423,25 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, spa
     return encoded ? samples : decode(samples)
 end
 
+"""
+    Onda.mmap(signal)
+
+Return `Onda.mmap(signal.file_path, SamplesInfo(signal))`, throwing an `ArgumentError` if `signal.file_format != "lpcm"`.
+"""
 function mmap(signal)
-    signal.file_format == "lpcm" ||  throw(ArgumentError("unsupported file_format for mmap: $(signal.file_format)"))
-    return mmap(signal.file_path,  SamplesInfo(signal))
+    signal.file_format == "lpcm" || throw(ArgumentError("unsupported file_format for mmap: $(signal.file_format)"))
+    return mmap(signal.file_path, SamplesInfo(signal))
 end
 
+"""
+    Onda.mmap(mmappable, info::SamplesInfo)
+
+Return `Samples(data, info, true)` where `data` is created via `Mmap.mmap(mmappable, ...)`.
+
+`mmappable` is assumed to reference memory that is formatted according to the Onda Format's canonical
+interleaved LPCM representation in accordance with `info.sample_type` and `channel_count(info)`. No
+explicit checks are performed to ensure that this is true.
+"""
 function mmap(mmappable, info::SamplesInfo)
     data = reshape(Mmap.mmap(mmappable, Vector{info.sample_type}), (channel_count(info), :))
     return Samples(data, info, true)

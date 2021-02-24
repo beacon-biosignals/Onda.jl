@@ -135,7 +135,7 @@ transform(view(signals, findall(==(target), signals.recording), :),
 
 # `mmap` sample data for a given LPCM signal:
 target = first(s for s in eachrow(signals) if s.file_format=="lpcm")
-samples = Onda.mmap(target)
+Onda.mmap(target)
 
 # Delete all sample data for a given recording (uncomment the
 # inline-commented section to actual delete filtered signals'

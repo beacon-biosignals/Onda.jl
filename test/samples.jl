@@ -35,6 +35,14 @@
             @test channel_count(s) == channel_count(s.info) == length(s.info.channels)
             @test sample_count(s) == sample_count(s.info, TimeSpans.duration(s)) == size(s.data, 2)
             encoded || continue # everything after this assumes `encoded` is `true`
+            if signal.file_format == "lpcm"
+                s1_mmap = Onda.mmap(signal)
+                s2_mmap = Onda.mmap(signal.file_path, s.info)
+                s3_mmap = open(io -> Onda.mmap(io, s.info), signal.file_path)
+                @test s == s1_mmap == s2_mmap == s3_mmap
+            else
+                @test_throws ArgumentError Onda.mmap(signal)
+            end
             @test sizeof(Matrix(s.data)) == sizeof_samples(s.info, TimeSpans.duration(s))
             @test encode(s) === s
             tmp = similar(s.data)

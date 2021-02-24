@@ -64,6 +64,7 @@ encode!
 decode
 decode!
 load
+Onda.mmap
 store
 channel(samples::Samples, name)
 channel(samples::Samples, i::Integer)
