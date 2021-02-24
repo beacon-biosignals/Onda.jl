@@ -423,6 +423,16 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, spa
     return encoded ? samples : decode(samples)
 end
 
+function mmap(signal)
+    signal.file_format == "lpcm" ||  throw(ArgumentError("unsupported file_format for mmap: $(signal.file_format)"))
+    return mmap(signal.file_path,  SamplesInfo(signal))
+end
+
+function mmap(mmappable, info::SamplesInfo)
+    data = reshape(Mmap.mmap(mmappable, Vector{info.sample_type}), (channel_count(info), :))
+    return Samples(data, info, true)
+end
+
 """
     store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, samples::Samples)
 

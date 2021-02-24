@@ -1,6 +1,6 @@
 module Onda
 
-using UUIDs, Dates, Random
+using UUIDs, Dates, Random, Mmap
 using TimeSpans, ConstructionBase
 using Arrow, Tables
 using MsgPack, TranscodingStreams, CodecZstd
