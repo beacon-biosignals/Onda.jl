@@ -59,6 +59,10 @@ function test_signal_row(recording, file_path, file_format, span, kind, channels
 
     @test has_rows(test_signal_field_types(Signal(row)), norm_row)
     @test has_rows(test_signal_field_types(Signal(row_with_custom)), norm_row_with_custom)
+    @test has_rows(test_signal_field_types(Signal(Signal(row))), norm_row)
+    @test has_rows(test_signal_field_types(Signal(Signal(row_with_custom))), norm_row_with_custom)
+    @test has_rows(test_signal_field_types(Signal(Tables.Row(row))), norm_row)
+    @test has_rows(test_signal_field_types(Signal(Tables.Row(row_with_custom))), norm_row_with_custom)
     @test has_rows(test_signal_field_types(Signal(row...)), norm_row)
     @test has_rows(test_signal_field_types(Signal(; row...)), norm_row)
     @test has_rows(test_signal_field_types(Signal(row...; custom...)), norm_row_with_custom)
@@ -105,10 +109,11 @@ end
     for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
                          read_signals(signals_file_path; materialize=true, validate_schema=true),
                          read_signals(io; validate_schema=true))
-        roundtripped = collect(Tables.rowtable(roundtripped))
+        roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(signals)
         for (r, s) in zip(roundtripped, signals)
-            @test r == getfield(s, :_row)
+            @test getfield(s, :_row) == NamedTuple(r)
+            @test getfield(s, :_row) == getfield(Signal(r), :_row)
         end
     end
 end
