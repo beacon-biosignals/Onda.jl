@@ -47,7 +47,9 @@ struct Annotation{R}
     end
 end
 
-Annotation(row) = Annotation(; row...)
+Annotation(row) = Annotation(NamedTuple(Tables.Row(row)))
+Annotation(row::NamedTuple) = Annotation(; row...)
+Annotation(row::Annotation) = row
 Annotation(recording, id, span; custom...) = Annotation(; recording, id, span, custom...)
 
 Base.propertynames(x::Annotation) = propertynames(getfield(x, :_row))

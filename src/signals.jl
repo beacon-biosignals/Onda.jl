@@ -107,7 +107,9 @@ struct Signal{R}
     end
 end
 
-Signal(row) = Signal(; row...)
+Signal(row) = Signal(NamedTuple(Tables.Row(row)))
+Signal(row::NamedTuple) = Signal(; row...)
+Signal(row::Signal) = row
 
 function Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
                 sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;

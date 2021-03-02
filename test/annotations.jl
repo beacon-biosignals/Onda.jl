@@ -11,6 +11,10 @@ function test_annotation_row(recording, id, span; custom...)
 
     @test has_rows(Annotation(row), norm_row)
     @test has_rows(Annotation(row_with_custom), norm_row_with_custom)
+    @test has_rows(Annotation(Annotation(row)), norm_row)
+    @test has_rows(Annotation(Annotation(row_with_custom)), norm_row_with_custom)
+    @test has_rows(Annotation(Tables.Row(row)), norm_row)
+    @test has_rows(Annotation(Tables.Row(row_with_custom)), norm_row_with_custom)
     @test has_rows(Annotation(row...), norm_row)
     @test has_rows(Annotation(; row...), norm_row)
     @test has_rows(Annotation(row...; custom...), norm_row_with_custom)
@@ -40,10 +44,11 @@ end
     for roundtripped in (read_annotations(annotations_file_path; materialize=false, validate_schema=false),
                          read_annotations(annotations_file_path; materialize=true, validate_schema=true),
                          read_annotations(io; validate_schema=true))
-        roundtripped = collect(Tables.rowtable(roundtripped))
+        roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(annotations)
-        for (r, s) in zip(roundtripped, annotations)
-            @test r == getfield(s, :_row)
+        for (r, a) in zip(roundtripped, annotations)
+            @test getfield(a, :_row) == NamedTuple(r)
+            @test getfield(a, :_row) == getfield(Annotation(r), :_row)
         end
     end
 end
