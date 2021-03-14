@@ -278,6 +278,37 @@ function Signal(info::SamplesInfo; recording, file_path, file_format, span, cust
 end
 
 #####
+##### Arrow conversion
+#####
+#=
+TODOs:
+
+If https://github.com/JuliaData/Arrow.jl/issues/88#issuecomment-798806038 was
+addressed, we could define an actual struct type here e.g. `_SamplesInfoArrow` and
+overload `SamplesInfo(row::_SamplesInfoArrow) = SamplesInfo(row; validate=false)` to
+elide the unnecessary validation check the fallback constructor will currently perform.
+
+Also, we should preserve the types of scalar fields (`sample_resolution_in_unit`, etc) in
+`info` instead of converting them to `Float64`; converting to `Float64` works around hitting
+the maxdepth limit if we e.g. specified these as `LPCM_SAMPLE_TYPE_UNION`. The "right" way to
+fix this I think is for Arrow.jl to support method-driven Julia <-> Arrow type mapping so that
+e.g. the corresponding Arrow type can be parameterized by the Julia type's parameters
+=#
+
+const SAMPLES_INFO_ARROW_TYPE = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+                                           Tuple{String,Vector{String},String,Float64,Float64,String,Float64}}
+
+function Arrow.ArrowTypes.arrowconvert(::Type{SAMPLES_INFO_ARROW_TYPE}, info::SamplesInfo)
+    return (kind=convert(String, info.kind),
+            channels=convert(Vector{String}, info.channels),
+            sample_unit=convert(String, info.sample_unit),
+            sample_resolution_in_unit=Float64(info.sample_resolution_in_unit),
+            sample_offset_in_unit=Float64(info.sample_offset_in_unit),
+            sample_type=onda_sample_type_from_julia_type(info.sample_type),
+            sample_rate=Float64(info.sample_rate))
+end
+
+#####
 ##### duck-typed utilities
 #####
 
