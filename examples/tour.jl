@@ -199,6 +199,11 @@ rows = ["f3", "c3", "p3"]
 rows = ["c3", 4, "f3"]
 @test eeg[rows, span].data == view(eeg, channel.(Ref(eeg), rows), span_range).data
 
+# One can also index rows by regular expressions. For example, to match all the
+# channels which have an `f`:
+f_channels = ["fp1", "f3","f7", "fz", "fp2", "f4", "f8"]
+@test eeg[r"f", span].data == view(eeg, channel.(Ref(eeg), f_channels), span_range).data
+
 # Note that `Samples` is not an `AbstractArray` subtype; the special indexing
 # behavior above is only defined for convenient data manipulation. It is fine
 # to access the sample data matrix directly via the `data` field if you need

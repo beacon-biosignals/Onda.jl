@@ -92,13 +92,17 @@
             t = TimeSpans.time_from_index(s.info.sample_rate, i)
             t2 = TimeSpans.time_from_index(s.info.sample_rate, i + 15)
             j = TimeSpans.index_from_time(s.info.sample_rate, t2) - 1
-            for ch_inds in (:, 1:2, 2:3, 1:3, [3,1], [2,3,1], [1,2,3])
+            for (ch_inds, reg) in ((:, r""), (1:2, r"[ab]"), (2:3, r"[bc]"), (1:3, r"[abc]"), ([3,1], :skip), ([2,3,1], :skip), ([1,2,3], r"[abc]"))
                 @test s[chs[ch_inds], t].data == s[ch_inds, i].data
                 @test s[chs[ch_inds], TimeSpan(t, t2)].data == s.data[ch_inds, i:j]
                 @test s[chs[ch_inds], i:j].data == s.data[ch_inds, i:j]
                 @test s[ch_inds, t].data == s[ch_inds, i].data
                 @test s[ch_inds, TimeSpan(t, t2)].data == s.data[ch_inds, i:j]
                 @test s[ch_inds, i:j].data == s.data[ch_inds, i:j]
+                reg === :skip && continue # can't represent the index with regex
+                @test s[reg, t].data == s[ch_inds, i].data
+                @test s[reg, TimeSpan(t, t2)].data == s.data[ch_inds, i:j]
+                @test s[reg, i:j].data == s.data[ch_inds, i:j]
             end
             @test size(s[:, TimeSpan(0, Second(1))].data, 2) == floor(s.info.sample_rate)
             for i in 1:length(chs)
