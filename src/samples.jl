@@ -22,9 +22,9 @@ If `validate` is `true`, [`Onda.validate`](@ref) is called on the constructed `S
 instance before it is returned.
 
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
-indices, but also accept channel names for row indices and `TimeSpan` values for
-column indices; see `Onda/examples/tour.jl` for a comprehensive set of indexing
-examples.
+indices, but also accept channel names or a regex to match channel names for row indices,
+and `TimeSpan` values for column indices; see `Onda/examples/tour.jl` for a comprehensive
+set of indexing examples.
 
 See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
@@ -133,6 +133,7 @@ row_arguments(samples::Samples, x) = _rangify(_row_arguments(samples, x))
 
 _row_arguments(samples::Samples, x) = _indices_fallback(_row_arguments, samples, x)
 _row_arguments(samples::Samples, name::AbstractString) = channel(samples, name)
+_row_arguments(samples::Samples, name::Regex) = findall(c -> match(name, c) !== nothing, samples.info.channels)
 
 column_arguments(samples::Samples, x) = _rangify(_column_arguments(samples, x))
 
