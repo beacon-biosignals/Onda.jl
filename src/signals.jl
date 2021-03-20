@@ -298,6 +298,8 @@ e.g. the corresponding Arrow type can be parameterized by the Julia type's param
 const SAMPLES_INFO_ARROW_TYPE = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
                                            Tuple{String,Vector{String},String,Float64,Float64,String,Float64}}
 
+Arrow.ArrowTypes.arrownameof(::Type{<:SamplesInfo}) = "JuliaLang.SamplesInfo"
+
 function Arrow.ArrowTypes.arrowconvert(::Type{SAMPLES_INFO_ARROW_TYPE}, info::SamplesInfo)
     return (kind=convert(String, info.kind),
             channels=convert(Vector{String}, info.channels),

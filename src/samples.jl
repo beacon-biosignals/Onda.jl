@@ -512,6 +512,8 @@ features enable it.
 
 const SAMPLES_ARROW_TYPE = NamedTuple{(:data, :info, :encoded),Tuple{Vector{Float64},SAMPLES_INFO_ARROW_TYPE,Bool}}
 
+Arrow.ArrowTypes.arrownameof(::Type{<:Samples}) = "JuliaLang.Samples"
+
 function Arrow.ArrowTypes.arrowconvert(::Type{SAMPLES_ARROW_TYPE}, samples::Samples)
     return (data=convert(Vector{Float64}, vec(decode(samples).data)),
             info=Arrow.ArrowTypes.arrowconvert(SAMPLES_INFO_ARROW_TYPE, samples.info),
