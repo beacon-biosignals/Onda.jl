@@ -133,22 +133,25 @@ Tables.columnnames(x::Signal) = Tables.columnnames(getfield(x, :_row))
 #####
 
 """
-    read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=false)
+    read_signals(io_or_path; validate_schema::Bool=false)
 
 Return the `*.onda.signals.arrow`-compliant table read from `io_or_path`.
 
 If `validate_schema` is `true`, the table's schema will be validated to ensure it is
 a `*.onda.signals.arrow`-compliant table. An `ArgumentError` will be thrown if
 any schema violation is detected.
-
-If `materialize` is `false`, the returned table will be an `Arrow.Table` while if
-`materialize` is `true`, the returned table will be a `NamedTuple` of columns. The
-primary difference is that the former has a conversion-on-access behavior, while
-for the latter, any potential conversion cost has been paid up front.
 """
-function read_signals(io_or_path; materialize::Bool=false, validate_schema::Bool=false)
-    table = read_onda_table(io_or_path; materialize)
+function read_signals(io_or_path; materialize::Union{Missing,Bool}=missing, validate_schema::Bool=false)
+    table = read_onda_table(io_or_path)
     validate_schema && validate_signal_schema(Tables.schema(table))
+    if materialize isa Bool
+        if materialize
+            @warn "`read_signals(x; materialize=true)` is deprecated; use `Onda.materialize(read_signals(x))` instead"
+            return materialize(table)
+        else
+            @warn "`read_signals(x; materialize=false)` is deprecated; use `read_signals(x)` instead"
+        end
+    end
     return table
 end
 

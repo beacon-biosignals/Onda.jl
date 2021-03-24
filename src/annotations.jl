@@ -66,22 +66,25 @@ Tables.columnnames(x::Annotation) = Tables.columnnames(getfield(x, :_row))
 #####
 
 """
-    read_annotations(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
+    read_annotations(io_or_path; validate_schema::Bool=true)
 
 Return the `*.onda.annotations.arrow`-compliant table read from `io_or_path`.
 
 If `validate_schema` is `true`, the table's schema will be validated to ensure it is
 a `*.onda.annotations.arrow`-compliant table. An `ArgumentError` will be thrown if
 any schema violation is detected.
-
-If `materialize` is `false`, the returned table will be an `Arrow.Table` while if
-`materialize` is `true`, the returned table will be a `NamedTuple` of columns. The
-primary difference is that the former has a conversion-on-access behavior, while
-for the latter, any potential conversion cost has been paid up front.
 """
-function read_annotations(io_or_path; materialize::Bool=false, validate_schema::Bool=true)
-    table = read_onda_table(io_or_path; materialize)
+function read_annotations(io_or_path; materialize::Union{Missing,Bool}=missing, validate_schema::Bool=true)
+    table = read_onda_table(io_or_path)
     validate_schema && validate_annotation_schema(Tables.schema(table))
+    if materialize isa Bool
+        if materialize
+            @warn "`read_annotations(x; materialize=true)` is deprecated; use `Onda.materialize(read_annotations(x))` instead"
+            return materialize(table)
+        else
+            @warn "`read_annotations(x; materialize=false)` is deprecated; use `read_annotations(x)` instead"
+        end
+    end
     return table
 end
 

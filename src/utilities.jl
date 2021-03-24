@@ -23,11 +23,13 @@ const MINIMUM_ONDA_FORMAT_VERSION = v"0.5"
 
 const MAXIMUM_ONDA_FORMAT_VERSION = v"0.5"
 
-function is_supported_onda_format_version(v::VersionNumber)
-    min_major, min_minor = MINIMUM_ONDA_FORMAT_VERSION.major, MINIMUM_ONDA_FORMAT_VERSION.minor
-    max_major, max_minor = MAXIMUM_ONDA_FORMAT_VERSION.major, MAXIMUM_ONDA_FORMAT_VERSION.minor
-    return (min_major <= v.major <= max_major) && (min_minor <= v.minor <= max_minor)
+function is_supported_version(v::VersionNumber, lo::VersionNumber, hi::VersionNumber)
+    lo_major, lo_minor = lo.major, lo.minor
+    hi_major, hi_minor = hi.major, hi.minor
+    return (lo_major <= v.major <= hi_major) && (lo_minor <= v.minor <= hi_minor)
 end
+
+is_supported_onda_format_version(v::VersionNumber) = is_supported_version(v, MINIMUM_ONDA_FORMAT_VERSION, MAXIMUM_ONDA_FORMAT_VERSION)
 
 const ALPHANUMERIC_SNAKE_CASE_CHARACTERS = Char['_',
                                                 '0':'9'...,
@@ -100,10 +102,13 @@ write_full_path(path, bytes) = write(path, bytes)
 ##### tables
 #####
 
-function table_has_supported_onda_format_version(table)
+function table_has_metadata(predicate, table)
     m = Arrow.getmetadata(table)
-    return m isa Dict && is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0")))
+    return m isa Dict && predicate(m)
 end
+
+table_has_required_onda_metadata(table) = table_has_metadata(m -> is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0"))),
+                                                             table)
 
 # It would be better if Arrow.jl supported a generic API for nonstandard path-like types so that
 # we can avoid potential intermediate copies here, but its documentation is explicit that it only
@@ -116,10 +121,12 @@ write_arrow_table(path::String, table; kwargs...) = Arrow.write(path, table; kwa
 write_arrow_table(io::IO, table; kwargs...) = Arrow.write(io, table; file=true, kwargs...)
 write_arrow_table(path, table; kwargs...) = (io = IOBuffer(); write_arrow_table(io, table; kwargs...); write_full_path(path, take!(io)))
 
-function read_onda_table(path; materialize::Bool=false)
+function read_onda_table(path)
     table = read_arrow_table(path)
-    table_has_supported_onda_format_version(table) || error("supported `onda_format_version` not found in annotations file")
-    return materialize ? map(collect, Tables.columntable(table)) : table
+    if !table_has_required_onda_metadata(table)
+        throw(ArgumentError("required Onda metadata not found in Arrow file; use `Onda.read_arrow_table` to read the file without this validation check"))
+    end
+    return table
 end
 
 function write_onda_table(path, table; kwargs...)
@@ -169,3 +176,27 @@ function gather(column_name, tables::Vararg{Any,N};
     iters = ntuple(i -> _iterator_for_column(tables[i], column_name), N)
     return Dict(id => ntuple(i -> extract(tables[i], locs[i]), N) for (id, locs) in locations(iters))
 end
+
+"""
+    materialize(table)
+
+Return a fully deserialized copy of `table`.
+
+This function is useful when `table` has built-in deserialize-on-access or
+conversion-on-access behavior (like `Arrow.Table`) and you'd like to pay
+such access costs upfront before repeatedly accessing the table. For example:
+
+```
+julia> annotations = read_annotations(path_to_annotations_file);
+
+# iterate through all elements of `annotations.span`
+julia> @time foreach(identity, (span for span in annotations.span));
+0.000126 seconds (306 allocations: 6.688 KiB)
+
+julia> materialized = Onda.materialize(annotations);
+
+julia> @time foreach(identity, (span for span in materialized.span));
+  0.000014 seconds (2 allocations: 80 bytes)
+```
+"""
+materialize(table) = map(collect, Tables.columntable(table))

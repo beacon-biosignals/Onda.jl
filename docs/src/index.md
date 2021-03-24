@@ -98,6 +98,7 @@ Onda.file_format_string
 ## Utilities
 
 ```@docs
+Onda.materialize
 Onda.gather
 Onda.validate_on_construction
 Onda.upgrade_onda_dataset_to_v0_5!
