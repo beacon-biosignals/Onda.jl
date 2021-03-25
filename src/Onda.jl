@@ -7,8 +7,8 @@ using MsgPack, TranscodingStreams, CodecZstd
 
 function __init__()
     Arrow.ArrowTypes.registertype!(TimeSpan, TimeSpan)
-    Arrow.ArrowTypes.registertype!(SamplesInfo, SAMPLES_INFO_ARROW_TYPE)
-    Arrow.ArrowTypes.registertype!(Samples, SAMPLES_ARROW_TYPE)
+    # Arrow.ArrowTypes.registertype!(SamplesInfo, SAMPLES_INFO_ARROW_TYPE)
+    # Arrow.ArrowTypes.registertype!(Samples, SAMPLES_ARROW_TYPE)
     return nothing
 end
 

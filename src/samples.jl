@@ -510,18 +510,18 @@ the given `Samples` instance(s). We should switch to doing the latter once upstr
 features enable it.
 =#
 
-const SAMPLES_ARROW_TYPE = NamedTuple{(:data, :info, :encoded),Tuple{Vector{Float64},SAMPLES_INFO_ARROW_TYPE,Bool}}
+# const SAMPLES_ARROW_TYPE = NamedTuple{(:data, :info, :encoded),Tuple{Vector{Float64},SAMPLES_INFO_ARROW_TYPE,Bool}}
 
-Arrow.ArrowTypes.arrownameof(::Type{<:Samples}) = "JuliaLang.Samples"
+# Arrow.ArrowTypes.arrownameof(::Type{<:Samples}) = "JuliaLang.Samples"
 
-function Arrow.ArrowTypes.arrowconvert(::Type{SAMPLES_ARROW_TYPE}, samples::Samples)
-    return (data=convert(Vector{Float64}, vec(decode(samples).data)),
-            info=Arrow.ArrowTypes.arrowconvert(SAMPLES_INFO_ARROW_TYPE, samples.info),
-            encoded=false)
-end
+# function Arrow.ArrowTypes.arrowconvert(::Type{SAMPLES_ARROW_TYPE}, samples::Samples)
+#     return (data=convert(Vector{Float64}, vec(decode(samples).data)),
+#             info=Arrow.ArrowTypes.arrowconvert(SAMPLES_INFO_ARROW_TYPE, samples.info),
+#             encoded=false)
+# end
 
-function Samples(arrow_data::Vector, arrow_info::SAMPLES_INFO_ARROW_TYPE, arrow_encoded::Bool)
-    info = SamplesInfo(arrow_info; validate=false)
-    data = reshape(arrow_data, (channel_count(info), :))
-    return Samples(data, info, arrow_encoded)
-end
+# function Samples(arrow_data::Vector, arrow_info::SAMPLES_INFO_ARROW_TYPE, arrow_encoded::Bool)
+#     info = SamplesInfo(arrow_info; validate=false)
+#     data = reshape(arrow_data, (channel_count(info), :))
+#     return Samples(data, info, arrow_encoded)
+# end
