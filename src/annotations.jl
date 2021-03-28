@@ -80,7 +80,7 @@ function read_annotations(io_or_path; materialize::Union{Missing,Bool}=missing, 
     if materialize isa Bool
         if materialize
             @warn "`read_annotations(x; materialize=true)` is deprecated; use `Onda.materialize(read_annotations(x))` instead"
-            return materialize(table)
+            return Onda.materialize(table)
         else
             @warn "`read_annotations(x; materialize=false)` is deprecated; use `read_annotations(x)` instead"
         end

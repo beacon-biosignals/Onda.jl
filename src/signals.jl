@@ -147,7 +147,7 @@ function read_signals(io_or_path; materialize::Union{Missing,Bool}=missing, vali
     if materialize isa Bool
         if materialize
             @warn "`read_signals(x; materialize=true)` is deprecated; use `Onda.materialize(read_signals(x))` instead"
-            return materialize(table)
+            return Onda.materialize(table)
         else
             @warn "`read_signals(x; materialize=false)` is deprecated; use `read_signals(x)` instead"
         end
