@@ -108,7 +108,8 @@ end
     seekstart(io)
     for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
                          read_signals(signals_file_path; materialize=true, validate_schema=true),
-                         read_signals(io; validate_schema=true))
+                         Onda.materialize(read_signals(io)),
+                         read_signals(seekstart(io); validate_schema=true))
         roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(signals)
         for (r, s) in zip(roundtripped, signals)

@@ -43,7 +43,8 @@ end
     seekstart(io)
     for roundtripped in (read_annotations(annotations_file_path; materialize=false, validate_schema=false),
                          read_annotations(annotations_file_path; materialize=true, validate_schema=true),
-                         read_annotations(io; validate_schema=true))
+                         Onda.materialize(read_annotations(io)),
+                         read_annotations(seekstart(io); validate_schema=true))
         roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(annotations)
         for (r, a) in zip(roundtripped, annotations)

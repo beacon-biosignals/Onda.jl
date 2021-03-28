@@ -119,7 +119,8 @@ end
 @testset "`Samples` pretty printing" begin
     info = SamplesInfo("eeg", ["a", "b", "c-d"], "unit", 0.25, -0.5, Int16, 50.2)
     samples = Samples(rand(Random.MersenneTwister(0), info.sample_type, 3, 5), info, true)
-    @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 Array{Int16,2})"
+    M = VERSION >= v"1.6" ? "Matrix{Int16}" : "Array{Int16,2}"
+    @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 $M)"
     @test sprint(show, samples) == """
                                    Samples (00:00:00.099601594):
                                      info.kind: "eeg"
@@ -131,7 +132,7 @@ end
                                      info.sample_rate: 50.2 Hz
                                      encoded: true
                                      data:
-                                   3×5 Array{Int16,2}:
+                                   3×5 $M:
                                     20032  4760  27427  -20758   24287
                                     14240  5037   5598   -5888   21784
                                     16885   600  20880  -32493  -19305"""
