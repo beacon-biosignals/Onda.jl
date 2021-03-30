@@ -37,14 +37,20 @@ end
                                         b=rand(Int, 1),
                                         c=rand(3)) for i in 1:50]
     annotations_file_path = joinpath(root, "test.onda.annotations.arrow")
+    cols = Tables.columns(annotations)
+    Onda.assign_to_table_metadata!(cols, ("a" => "b", "x" => "y"))
     io = IOBuffer()
-    write_annotations(annotations_file_path, annotations)
-    write_annotations(io, annotations)
+    write_annotations(annotations_file_path, cols)
+    write_annotations(io, cols)
     seekstart(io)
     for roundtripped in (read_annotations(annotations_file_path; materialize=false, validate_schema=false),
                          read_annotations(annotations_file_path; materialize=true, validate_schema=true),
                          Onda.materialize(read_annotations(io)),
                          read_annotations(seekstart(io); validate_schema=true))
+        if roundtripped isa Onda.Arrow.Table
+            @test Onda.table_has_metadata(m -> m["onda_format_version"] == "v$(Onda.MAXIMUM_ONDA_FORMAT_VERSION)" &&
+                                               m["a"] == "b" && m["x"] == "y", roundtripped)
+        end
         roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(annotations)
         for (r, a) in zip(roundtripped, annotations)
