@@ -282,7 +282,7 @@ end
 #####
 
 const SamplesInfoArrowType{R,O,SR} = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
-                                                     Tuple{String,Vector{String},String,R,O,String,SR}}
+                                                Tuple{String,Vector{String},String,R,O,String,SR}}
 
 const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.SamplesInfo")
 
