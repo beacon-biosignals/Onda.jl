@@ -139,7 +139,9 @@ function read_onda_table(path)
     return table
 end
 
-function write_onda_table(path, table; kwargs...)
+function write_onda_table(path, table; validate_schema=missing, kwargs...)
+    columns = Tables.columns(table)
+    !ismissing(validate_schema) && validate_schema(Tables.schema(columns))
     assign_to_table_metadata!(columns, ("onda_format_version" => "v$(MAXIMUM_ONDA_FORMAT_VERSION)",))
     write_arrow_table(path, columns; kwargs...)
     return table
