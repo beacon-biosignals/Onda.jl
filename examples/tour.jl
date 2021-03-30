@@ -206,7 +206,7 @@ f_channels = ["fp1", "f3","f7", "fz", "fp2", "f4", "f8"]
 
 # Onda overloads the necessary Arrow.jl machinery to enable `Samples` and
 # `SamplesInfo` values to be easily (de)serialized to/from Arrow as structs:
-x = (a=[eeg], b=[info])
+x = (a=[eeg], b=[eeg.info])
 y = Arrow.Table(Arrow.tobuffer(x))
 @test x.a == y.a
 @test x.b == y.b
