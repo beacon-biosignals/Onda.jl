@@ -1,7 +1,7 @@
 name = "Onda"
 uuid = "e853f5be-6863-11e9-128d-476edb89bfb5"
 authors = ["Beacon Biosignals, Inc."]
-version = "0.13.0"
+version = "0.13.1"
 
 [deps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
@@ -17,7 +17,7 @@ TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [compat]
-Arrow = "1.2.4"
+Arrow = "~1.2.4"
 CodecZstd = "0.6, 0.7"
 ConstructionBase = "1.0"
 MsgPack = "1.1"

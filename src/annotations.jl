@@ -98,15 +98,13 @@ be thrown if any schema violation is detected.
 `kwargs` is forwarded to an internal invocation of `Arrow.write(...; file=true, kwargs...)`.
 """
 function write_annotations(io_or_path, table; kwargs...)
-    columns = Tables.columns(table)
-    schema = Tables.schema(columns)
-    try
+    validate_schema = schema -> try
         validate_annotation_schema(schema)
     catch
         @warn "Invalid schema in input `table`. Try calling `Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
         rethrow()
     end
-    return write_onda_table(io_or_path, columns; kwargs...)
+    return write_onda_table(io_or_path, table; validate_schema, kwargs...)
 end
 
 #####
