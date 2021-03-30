@@ -499,29 +499,27 @@ end
 #####
 ##### Arrow conversion
 #####
-#=
-TODO: due to https://github.com/JuliaData/Arrow.jl/issues/125, we need to write out a flat
-vector here and reshape it upon deserialization.
 
-Additionally, since Arrow.jl doesn't currently support parameterization of the "Arrow-side" types
-by "Julia-side" types in its type registration mechanism, we are forced to write a `Float64`
-decoded representation instead of storing `data` arrays whose `eltype`s are simply derived from
-the given `Samples` instance(s). We should switch to doing the latter once upstream Arrow.jl
-features enable it.
-=#
+const SamplesArrowType{T,S} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},S,Bool}} where {S<:SamplesInfoArrowType}
 
-# const SAMPLES_ARROW_TYPE = NamedTuple{(:data, :info, :encoded),Tuple{Vector{Float64},SAMPLES_INFO_ARROW_TYPE,Bool}}
+const SAMPLES_ARROW_NAME = Symbol("JuliaLang.Samples")
 
-# Arrow.ArrowTypes.arrownameof(::Type{<:Samples}) = "JuliaLang.Samples"
+Arrow.ArrowTypes.arrowname(::Type{<:Samples}) = SAMPLES_ARROW_NAME
 
-# function Arrow.ArrowTypes.arrowconvert(::Type{SAMPLES_ARROW_TYPE}, samples::Samples)
-#     return (data=convert(Vector{Float64}, vec(decode(samples).data)),
-#             info=Arrow.ArrowTypes.arrowconvert(SAMPLES_INFO_ARROW_TYPE, samples.info),
-#             encoded=false)
-# end
+Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D,S}}) where {D,S} = SamplesArrowType{eltype(D),Arrow.ArrowTypes.ArrowType(S)}
 
-# function Samples(arrow_data::Vector, arrow_info::SAMPLES_INFO_ARROW_TYPE, arrow_encoded::Bool)
-#     info = SamplesInfo(arrow_info; validate=false)
-#     data = reshape(arrow_data, (channel_count(info), :))
-#     return Samples(data, info, arrow_encoded)
-# end
+function Arrow.ArrowTypes.toarrow(samples::Samples)
+    return (data=vec(samples.data),
+            info=Arrow.ArrowTypes.toarrow(samples.info),
+            encoded=samples.encoded)
+end
+
+function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{SamplesArrowType{T,S}}) where {T,S}
+    return Samples{Matrix{T},Arrow.ArrowTypes.JuliaType(Val(SAMPLES_INFO_ARROW_NAME), S)}
+end
+
+function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
+    info = SamplesInfo(arrow_info; validate=false)
+    data = reshape(arrow_data, (channel_count(info), :))
+    return Samples(data, info, arrow_encoded)
+end

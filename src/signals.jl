@@ -281,12 +281,14 @@ end
 ##### Arrow conversion
 #####
 
-const SAMPLES_INFO_ARROW_TYPE{R,O,SR} = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+const SamplesInfoArrowType{R,O,SR} = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
                                                      Tuple{String,Vector{String},String,R,O,String,SR}}
 
-Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = Symbol("JuliaLang.SamplesInfo")
+const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.SamplesInfo")
 
-Arrow.ArrowTypes.ArrowType(::Type{<:SamplesInfo{<:Any,<:Any,<:Any,R,O,<:Any,SR}}) where {R,O,SR} = SAMPLES_INFO_ARROW_TYPE{R,O,SR}
+Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = SAMPLES_INFO_ARROW_NAME
+
+Arrow.ArrowTypes.ArrowType(::Type{<:SamplesInfo{<:Any,<:Any,<:Any,R,O,<:Any,SR}}) where {R,O,SR} = SamplesInfoArrowType{R,O,SR}
 
 function Arrow.ArrowTypes.toarrow(info::SamplesInfo)
     return (kind=convert(String, info.kind),
@@ -298,11 +300,11 @@ function Arrow.ArrowTypes.toarrow(info::SamplesInfo)
             sample_rate=info.sample_rate)
 end
 
-function Arrow.ArrowTypes.JuliaType(::Val{Symbol("JuliaLang.SamplesInfo")}, ::Type{SAMPLES_INFO_ARROW_TYPE{R,O,SR}}) where {R,O,SR}
+function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{SamplesInfoArrowType{R,O,SR}}) where {R,O,SR}
     return SamplesInfo{String,Vector{String},String,R,O,<:LPCM_SAMPLE_TYPE_UNION,SR}
 end
 
-Arrow.ArrowTypes.fromarrow(::Type{<:SamplesInfo}, info::NamedTuple) = SamplesInfo(info; validate=false)
+Arrow.ArrowTypes.fromarrow(::Type{<:SamplesInfo}, fields...) = SamplesInfo(fields...; validate=false)
 
 #####
 ##### duck-typed utilities
