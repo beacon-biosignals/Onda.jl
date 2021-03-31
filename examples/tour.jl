@@ -11,13 +11,6 @@
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase, Arrow
 
 #####
-##### Ignore this; it's just a hacky monkey patch for https://github.com/JuliaData/DataFrames.jl/issues/2689
-#####
-
-DataFrames.fromcolumns(x::Tables.CopiedColumns, names; copycols::Bool=true) = invoke(DataFrames.fromcolumns, Tuple{Any,Any}, x, names; copycols)
-DataFrames.DataFrame(x::Tables.CopiedColumns; copycols::Bool=false) = DataFrame(Tables.source(x); copycols=copycols)
-
-#####
 ##### generate some mock data
 #####
 #=
@@ -93,7 +86,6 @@ end
 path_to_annotations_file = joinpath(root, "test.onda.annotations.arrow")
 write_annotations(path_to_annotations_file, annotations)
 Onda.log("wrote out $path_to_annotations_file")
-
 
 #####
 ##### basic Onda + DataFrames patterns
@@ -212,8 +204,12 @@ rows = ["c3", 4, "f3"]
 f_channels = ["fp1", "f3","f7", "fz", "fp2", "f4", "f8"]
 @test eeg[r"f", span].data == view(eeg, channel.(Ref(eeg), f_channels), span_range).data
 
-# Onda overloads the necessary Arrow.jl machinery to enable `Samples` and
-# `SamplesInfo` values to be easily (de)serialized to/from Arrow as structs:
+# Onda overloads the necessary Arrow.jl machinery to enable individual sample data
+# segments (specifically, `Samples` and `SamplesInfo` values) to be (de)serialized
+# to/from Arrow for storage or IPC purposes; see below for an example. Note that if
+# you wanted to use Arrow as a storage format for whole sample data files w/ Onda,
+# it'd make more sense to create an `AbstractLPCMFormat` subtype for your Arrow <-> LPCM
+# mapping (an example of this can be seen in `examples/flac.jl`).
 x = (a=[eeg], b=[eeg.info])
 y = Arrow.Table(Arrow.tobuffer(x))
 @test x.a == y.a
