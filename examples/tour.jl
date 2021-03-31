@@ -8,7 +8,7 @@
 # before and/or alongside the completion of this tour; it explains the
 # purpose/structure of the format.
 
-using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase
+using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase, Arrow
 
 #####
 ##### generate some mock data
@@ -203,6 +203,17 @@ rows = ["c3", 4, "f3"]
 # channels which have an `f`:
 f_channels = ["fp1", "f3","f7", "fz", "fp2", "f4", "f8"]
 @test eeg[r"f", span].data == view(eeg, channel.(Ref(eeg), f_channels), span_range).data
+
+# Onda overloads the necessary Arrow.jl machinery to enable individual sample data
+# segments (specifically, `Samples` and `SamplesInfo` values) to be (de)serialized
+# to/from Arrow for storage or IPC purposes; see below for an example. Note that if
+# you wanted to use Arrow as a storage format for whole sample data files w/ Onda,
+# it'd make more sense to create an `AbstractLPCMFormat` subtype for your Arrow <-> LPCM
+# mapping (an example of this can be seen in `examples/flac.jl`).
+x = (a=[eeg], b=[eeg.info])
+y = Arrow.Table(Arrow.tobuffer(x))
+@test x.a == y.a
+@test x.b == y.b
 
 # Note that `Samples` is not an `AbstractArray` subtype; the special indexing
 # behavior above is only defined for convenient data manipulation. It is fine

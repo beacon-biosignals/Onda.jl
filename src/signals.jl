@@ -278,6 +278,35 @@ function Signal(info::SamplesInfo; recording, file_path, file_format, span, cust
 end
 
 #####
+##### Arrow conversion
+#####
+
+const SamplesInfoArrowType{R,O,SR} = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
+                                                Tuple{String,Vector{String},String,R,O,String,SR}}
+
+const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.SamplesInfo")
+
+Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = SAMPLES_INFO_ARROW_NAME
+
+Arrow.ArrowTypes.ArrowType(::Type{<:SamplesInfo{<:Any,<:Any,<:Any,R,O,<:Any,SR}}) where {R,O,SR} = SamplesInfoArrowType{R,O,SR}
+
+function Arrow.ArrowTypes.toarrow(info::SamplesInfo)
+    return (kind=convert(String, info.kind),
+            channels=convert(Vector{String}, info.channels),
+            sample_unit=convert(String, info.sample_unit),
+            sample_resolution_in_unit=info.sample_resolution_in_unit,
+            sample_offset_in_unit=info.sample_offset_in_unit,
+            sample_type=onda_sample_type_from_julia_type(info.sample_type),
+            sample_rate=info.sample_rate)
+end
+
+function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{SamplesInfoArrowType{R,O,SR}}) where {R,O,SR}
+    return SamplesInfo{String,Vector{String},String,R,O,<:LPCM_SAMPLE_TYPE_UNION,SR}
+end
+
+Arrow.ArrowTypes.fromarrow(::Type{<:SamplesInfo}, fields...) = SamplesInfo(fields...; validate=false)
+
+#####
 ##### duck-typed utilities
 #####
 
