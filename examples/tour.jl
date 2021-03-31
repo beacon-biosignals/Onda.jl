@@ -11,6 +11,13 @@
 using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase, Arrow
 
 #####
+##### Ignore this; it's just a hacky monkey patch for https://github.com/JuliaData/DataFrames.jl/issues/2689
+#####
+
+DataFrames.fromcolumns(x::Tables.CopiedColumns, names; copycols::Bool=true) = invoke(DataFrames.fromcolumns, Tuple{Any,Any}, x, names; copycols)
+DataFrames.DataFrame(x::Tables.CopiedColumns; copycols::Bool=false) = DataFrame(Tables.source(x); copycols=copycols)
+
+#####
 ##### generate some mock data
 #####
 #=
@@ -86,6 +93,7 @@ end
 path_to_annotations_file = joinpath(root, "test.onda.annotations.arrow")
 write_annotations(path_to_annotations_file, annotations)
 Onda.log("wrote out $path_to_annotations_file")
+
 
 #####
 ##### basic Onda + DataFrames patterns
