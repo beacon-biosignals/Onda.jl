@@ -109,12 +109,14 @@ write_full_path(path, bytes) = write(path, bytes)
 
 function assign_to_table_metadata!(table, pairs)
     m = Arrow.getmetadata(table)
-    m = m isa Dict ? m : Dict{String,String}()
+    if !(m isa Dict)
+        m = Dict{String,String}()
+        Arrow.setmetadata!(table, m)
+    end
     for (k, v) in pairs
         m[k] = v
     end
-    Arrow.setmetadata!(table, m)
-    return table
+    return m
 end
 
 function table_has_metadata(predicate, table)
