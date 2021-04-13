@@ -1,13 +1,14 @@
 name = "Onda"
 uuid = "e853f5be-6863-11e9-128d-476edb89bfb5"
 authors = ["Beacon Biosignals, Inc."]
-version = "0.13.3"
+version = "0.13.4"
 
 [deps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
 CodecZstd = "6b39b394-51ab-5f42-8807-6242bab2b4c2"
 ConstructionBase = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
 Mmap = "a63ad114-7e13-5084-954f-fe012c677804"
 MsgPack = "99f44e22-a591-53d1-9472-aa23ef4bd671"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -21,6 +22,7 @@ Arrow = "1.3"
 CodecZstd = "0.6, 0.7"
 ConstructionBase = "1.0"
 DataFrames = "0.22.7"
+JSON3 = "v1.8"
 MsgPack = "1.1"
 Tables = "1.2"
 TimeSpans = "0.2.2"

@@ -3,7 +3,8 @@ module Onda
 using UUIDs, Dates, Random, Mmap
 using TimeSpans, ConstructionBase
 using Arrow, Tables
-using MsgPack, TranscodingStreams, CodecZstd
+using TranscodingStreams, CodecZstd
+using MsgPack, JSON3 # only used to facilitate conversion to/from Onda v0.4 datasets
 
 #####
 ##### includes/exports
@@ -109,6 +110,77 @@ function upgrade_onda_dataset_to_v0_5!(dataset_path;
     write_annotations(annotations_file_path, annotations; kwargs...)
     verbose && log("$annotations_file_path written.")
     return signals, annotations
+end
+
+_v0_4_json_value_from_annotation(ann) = JSON3.write(Dict(name => getproperty(ann, name) for name in propertynames(ann)
+                                                         if !(name in (:recording, :span))))
+
+"""
+    downgrade_onda_dataset_to_v0_4!(dataset_path, signals, annotations;
+                                    verbose=true,
+                                    value_from_annotation=Onda._v0_4_json_value_from_annotation,
+                                    signal_file_extension_and_options_from_format=(fmt -> (fmt, nothing)))
+
+Write an Onda-Format-v0.4-compliant `recordings.msgpack.zst` file to `dataset_path` given Onda-Format-v0.5-compliant
+`signals` and `annotations` tables.
+
+- This function internally uses `Onda.gather`, and thus expects `signals`/`annotations` to support `view` for
+row extraction. One way to ensure this is the case is to convert `signals`/`annotations` to `DataFrame`s before
+passing them to this function.
+
+- If `verbose` is `true`, this function will print out timestamped progress logs.
+
+- `value_from_annotation` is a function that takes in an `Onda.Annotation` and returns the string that
+should be written out as that annotation's value. By default, this value will be a JSON object string
+whose fields are all fields in the given annotation except for `recording` and `span`.
+
+- `signal_file_extension_and_options_from_format` is a function that takes in `signal.file_format` and
+returns the `file_extension` and `file_options` fields that should be written out for the signal.
+
+Note that this function does not thoroughly validate that sample data files referenced by `signals` are in an
+appropriate Onda-Format-v0.4-compliant location (i.e. in `<dataset_path>/samples/<recording UUID>/<kind>.<extension>`).
+"""
+function downgrade_onda_dataset_to_v0_4!(dataset_path, signals, annotations;
+                                         verbose=true,
+                                         value_from_annotation=_v0_4_json_value_from_annotation,
+                                         signal_file_extension_and_options_from_format=(fmt -> (fmt, nothing)))
+    raw_recordings = Dict{String,Dict}()
+    recordings = Onda.gather(:recording, signals, annotations)
+    for (i, (uuid, (sigs, anns))) in enumerate(recordings)
+        verbose && log("($i / $(length(recordings))) converting recording $uuid...")
+        raw_sigs = Dict()
+        for sig in Tables.rows(sigs)
+            sig = Signal(sig)
+            ext, opt = signal_file_extension_and_options_from_format(sig.file_format)
+            if verbose && !endswith(sig.file_path, joinpath("samples", string(uuid), sig.kind * "." * ext))
+                @warn "potentially invalid Onda Format v0.4 sample data file path: $(sig.file_path)"
+            end
+            raw_sigs[sig.kind] = Dict("start_nanosecond" => TimeSpans.start(sig.span).value,
+                                      "stop_nanosecond" => TimeSpans.stop(sig.span).value,
+                                      "channel_names" => sig.channels,
+                                      "sample_unit" => sig.sample_unit,
+                                      "sample_resolution_in_unit" => sig.sample_resolution_in_unit,
+                                      "sample_offset_in_unit" => sig.sample_offset_in_unit,
+                                      "sample_type" => sig.sample_type,
+                                      "sample_rate" => sig.sample_rate,
+                                      "file_extension" => ext,
+                                      "file_options" => opt)
+        end
+        raw_anns = Dict[]
+        for ann in Tables.rows(anns)
+            ann = Annotation(ann)
+            push!(raw_anns, Dict("start_nanosecond" => TimeSpans.start(ann.span).value,
+                                 "stop_nanosecond" => TimeSpans.stop(ann.span).value,
+                                 "value" => value_from_annotation(ann)))
+        end
+        raw_recordings[string(uuid)] = Dict("signals" => raw_sigs, "annotations" => raw_anns)
+    end
+    recordings_file_path = joinpath(dataset_path, "recordings.msgpack.zst")
+    verbose && log("writing out $recordings_file_path...")
+    io = IOBuffer()
+    MsgPack.pack(io, [Dict("onda_format_version" => "v0.4.0", "ordered_keys" => false), raw_recordings])
+    write(recordings_file_path, zstd_compress(resize!(io.data, io.size)))
+    return raw_recordings
 end
 
 end # module
