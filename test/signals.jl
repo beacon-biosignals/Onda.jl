@@ -106,9 +106,13 @@ end
     write_signals(signals_file_path, signals)
     write_signals(io, signals)
     seekstart(io)
+    io2 = IOBuffer()
+    write_signals(io2, signals; file=false)
+    seekstart(io2)
     for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
                          read_signals(signals_file_path; materialize=true, validate_schema=true),
                          Onda.materialize(read_signals(io)),
+                         Onda.materialize(read_signals(io2)),
                          read_signals(seekstart(io); validate_schema=true))
         roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(signals)

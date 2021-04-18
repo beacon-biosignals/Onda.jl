@@ -135,7 +135,7 @@ read_arrow_table(io_or_path::Union{IO,String,Vector{UInt8}}) = Arrow.Table(io_or
 read_arrow_table(path) = read_arrow_table(read(path))
 
 write_arrow_table(path::String, table; kwargs...) = Arrow.write(path, table; kwargs...)
-write_arrow_table(io::IO, table; kwargs...) = Arrow.write(io, table; file=true, kwargs...)
+write_arrow_table(io::IO, table; kwargs...) = Arrow.write(io, table; file=get(kwargs, :file, true), kwargs...)
 write_arrow_table(path, table; kwargs...) = (io = IOBuffer(); write_arrow_table(io, table; kwargs...); write_full_path(path, take!(io)))
 
 function read_onda_table(path)
