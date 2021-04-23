@@ -154,7 +154,8 @@ function write_onda_table(path, table; validate_schema=missing, kwargs...)
     return table
 end
 
-function locations(collections::NTuple{N}) where {N}
+function locations(collections::T) where {T<:Tuple}
+    N = fieldcount(T)
     K = promote_type(eltype.(collections)...)
     results = Dict{K,NTuple{N,Vector{Int}}}()
     for (c, collection) in enumerate(collections)
