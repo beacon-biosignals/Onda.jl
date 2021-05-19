@@ -51,19 +51,19 @@ to `upgraded.onda.signals.arrow` and `annotations` is the table corresponding to
 - If `verbose` is `true`, this function will print out timestamped progress logs.
 
 - `uuid_from_annotation` is an function that takes in an Onda Format v0.3/v0.4
-annotation (as a `Dict{String}`) and returns the `id` field to be associated with
-that annotation.
+  annotation (as a `Dict{String}`) and returns the `id` field to be associated with
+  that annotation.
 
 - `signal_file_path` is a function that takes in a signal's recording UUID, the
-signal's kind (formerly the `name` field), and the signal's `file_extension` field
-and returns the `file_path` field to be associated with that signal.
+  signal's kind (formerly the `name` field), and the signal's `file_extension` field
+  and returns the `file_path` field to be associated with that signal.
 
 - `signal_file_format` is a function that takes in a signal's `file_extension` field
-and `file_options` field and returns the `file_format` field to be associated with
-that signal.
+  and `file_options` field and returns the `file_format` field to be associated with
+  that signal.
 
 - `kwargs` is forwarded to internal invocations of `Arrow.write(...; file=true, kwargs...)`
-used to write the `*.arrow` files.
+  used to write the `*.arrow` files.
 
 To upgrade a dataset that are older than Onda Format v0.3/v0.4, first use an older version
 of Onda.jl to upgrade the dataset to Onda Format v0.3 or above.
@@ -125,17 +125,17 @@ Write an Onda-Format-v0.4-compliant `recordings.msgpack.zst` file to `dataset_pa
 `signals` and `annotations` tables.
 
 - This function internally uses `Onda.gather`, and thus expects `signals`/`annotations` to support `view` for
-row extraction. One way to ensure this is the case is to convert `signals`/`annotations` to `DataFrame`s before
-passing them to this function.
+  row extraction. One way to ensure this is the case is to convert `signals`/`annotations` to `DataFrame`s before
+  passing them to this function.
 
 - If `verbose` is `true`, this function will print out timestamped progress logs.
 
 - `value_from_annotation` is a function that takes in an `Onda.Annotation` and returns the string that
-should be written out as that annotation's value. By default, this value will be a JSON object string
-whose fields are all fields in the given annotation except for `recording` and `span`.
+  should be written out as that annotation's value. By default, this value will be a JSON object string
+  whose fields are all fields in the given annotation except for `recording` and `span`.
 
 - `signal_file_extension_and_options_from_format` is a function that takes in `signal.file_format` and
-returns the `file_extension` and `file_options` fields that should be written out for the signal.
+  returns the `file_extension` and `file_options` fields that should be written out for the signal.
 
 Note that this function does not thoroughly validate that sample data files referenced by `signals` are in an
 appropriate Onda-Format-v0.4-compliant location (i.e. in `<dataset_path>/samples/<recording UUID>/<kind>.<extension>`).
