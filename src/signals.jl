@@ -248,10 +248,15 @@ function SamplesInfo(; kind, channels, sample_unit,
                        sample_type, sample_rate; validate)
 end
 
-function SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
-    return SamplesInfo(row.kind, row.channels, row.sample_unit,
-                       row.sample_resolution_in_unit, row.sample_offset_in_unit,
-                       row.sample_type, row.sample_rate; validate)
+function SamplesInfo(s::SamplesInfo; kind = s.kind, channels = s.channels,
+                     sample_unit = s.sample_unit, 
+                     sample_resolution_in_unit = s.sample_resolution_in_unit,
+                     sample_offset_in_unit = s.sample_offset_in_unit,
+                     sample_type = s.sample_type, sample_rate = s.sample_rate,
+                     validate::Bool=Onda.validate_on_construction())
+    return SamplesInfo(kind, channels, sample_unit,
+                       sample_resolution_in_unit, sample_offset_in_unit,
+                       sample_type, sample_rate; validate)
 end
 
 """
