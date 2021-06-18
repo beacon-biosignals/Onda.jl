@@ -3,7 +3,7 @@
 # each step! Tests are littered throughout to demonstrate functionality in a
 # concrete manner, and so that we can ensure examples stay updated as the
 # package evolves.
-
+#
 # NOTE: You should read https://github.com/beacon-biosignals/OndaFormat
 # before and/or alongside the completion of this tour; it explains the
 # purpose/structure of the format.
@@ -13,29 +13,27 @@ using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase, Arrow
 #####
 ##### generate some mock data
 #####
-#=
-Let's kick off the tour by generating some mock data to play with in subsequent sections!
-
-Onda is primarily concerned with manipulating 3 interrelated entities. Paraphrasing from the
-Onda specification, these entities are:
-
-- "signals": A signal is the digitized output of a process, comprised of metadata (e.g. LPCM encoding,
-  channel information, sample data path/format information, etc.) and associated multi-channel sample
-  data.
-
-- "recordings": A recording is a collection of one or more signals recorded simultaneously over some
-  time period.
-
-- "annotations": An annotation is a a piece of (meta)data associated with a specific time span within
-  a specific recording.
-
-Signals and annotations are serialized as Arrow tables, while each sample data file is serialized to
-the file format specified by its corresponding signal's metadata. A "recording" is simply the collection
-of signals and annotations that share a common `recording` field.
-
-Below, we generate a bunch of signals/annotations across 10 recordings, writing the corresponding
-Arrow tables and sample data files to a temporary directory.
-=#
+# Let's kick off the tour by generating some mock data to play with in subsequent sections!
+#
+# Onda is primarily concerned with manipulating 3 interrelated entities. Paraphrasing from the
+# Onda specification, these entities are:
+#
+# - "signals": A signal is the digitized output of a process, comprised of metadata (e.g. LPCM encoding,
+#   channel information, sample data path/format information, etc.) and associated multi-channel sample
+#   data.
+#
+# - "recordings": A recording is a collection of one or more signals recorded simultaneously over some
+#   time period.
+#
+# - "annotations": An annotation is a a piece of (meta)data associated with a specific time span within
+#   a specific recording.
+#
+# Signals and annotations are serialized as Arrow tables, while each sample data file is serialized to
+# the file format specified by its corresponding signal's metadata. A "recording" is simply the collection
+# of signals and annotations that share a common `recording` field.
+#
+# Below, we generate a bunch of signals/annotations across 10 recordings, writing the corresponding
+# Arrow tables and sample data files to a temporary directory.
 
 saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
                         i in 1:channel_count(info), j in 1:sample_count(info, duration)]
@@ -90,32 +88,36 @@ Onda.log("wrote out $path_to_annotations_file")
 #####
 ##### basic Onda + DataFrames patterns
 #####
-#=
-Since signals and annotations are represented tabularly, any package
-that supports the Tables.jl interface can be used to interact with
-them. Here, we show how you can use DataFrames.jl to perform a variety
-of common operations.
-
-Note that most of these operations are only shown here on a single table
-to avoid redundancy, but these examples are generally applicable to both
-signals and annotations tables.
-=#
+# Since signals and annotations are represented tabularly, any package
+# that supports the Tables.jl interface can be used to interact with
+# them. Here, we show how you can use DataFrames.jl to perform a variety
+# of common operations.
+#
+# If you're going to be working with Onda frequently, then it's probably
+# worthwhile to become fluent in Julia's Tables.jl/DataFrames.jl
+# ecosystem. This tour will give you a solid head start!
+#
+# Note that most of these operations are only shown here on a single table
+# to avoid redundancy, but these examples are generally applicable to both
+# signals and annotations tables.
 
 # Read Onda Arrow files into `DataFrame`s:
 signals = DataFrame(read_signals(path_to_signals_file))
 annotations = DataFrame(read_annotations(path_to_annotations_file))
 
-# Grab all multichannel signals greater than 5 minutes long:
-filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
-
 # Get all signals from a given recording:
 target = rand(signals.recording)
 view(signals, findall(==(target), signals.recording), :)
 
-# Group/index signals by recording:
+# One of the consumer/producer-friendly properties of Onda is that signals
+# and annotations are both represented in flat tables, enabling you to easily
+# impose whatever indexing structure is most convenient for your use case.
+#
+# For example, if you wish to primarily access signals by recording and kind,
+# you can easily create a structure with that index via `groupby`:
 target = rand(signals.recording)
-grouped = groupby(signals, :recording)
-grouped[(; recording=target)]
+grouped = groupby(signals, Cols(:recording, :kind))
+grouped[(target, "eeg")]
 
 # Group/index signals + annotations by recording together:
 target = rand(signals.recording)
@@ -127,6 +129,9 @@ combine(groupby(signals, :recording), nrow)
 
 # Grab the longest signal in each recording:
 combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
+
+# Grab all multichannel signals greater than 5 minutes long:
+filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
 
 # Load all sample data for a given recording:
 target = rand(signals.recording)
