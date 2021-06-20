@@ -1,9 +1,7 @@
 module Onda
 
 using UUIDs, Dates, Random, Mmap
-using TimeSpans, ConstructionBase
-using Arrow, Tables
-using TranscodingStreams, CodecZstd
+using Compat, TimeSpans, Legolas, Arrow, Tables, TranscodingStreams, CodecZstd
 using MsgPack, JSON3 # only used to facilitate conversion to/from Onda v0.4 datasets
 
 #####
@@ -13,11 +11,10 @@ using MsgPack, JSON3 # only used to facilitate conversion to/from Onda v0.4 data
 include("utilities.jl")
 
 include("annotations.jl")
-export Annotation, read_annotations, write_annotations, merge_overlapping_annotations
+export Annotation, merge_overlapping_annotations
 
 include("signals.jl")
-export Signal, SamplesInfo, read_signals, write_signals,
-       channel, channel_count, sample_count, sizeof_samples
+export Signal, SamplesInfo, channel, channel_count, sample_count, sizeof_samples
 
 include("serialization.jl")
 export AbstractLPCMFormat, AbstractLPCMStream, LPCMFormat, LPCMZstFormat,
@@ -30,6 +27,17 @@ export Samples, encode, encode!, decode, decode!, load, store
 #####
 ##### upgrades/deprecations
 #####
+
+# TODO deprecate read_signals
+# TODO deprecate write_signals
+# TODO deprecate read_annotations
+# TODO deprecate write_annotations
+# TODO deprecate Onda.validate
+# TODO deprecate Onda.materialize
+# TODO deprecate Onda.gather
+# TODO Onda.validate_on_construction
+
+# TODO upgrade/downgrade methods for corresponding OndaFormat update
 
 """
     upgrade_onda_dataset_to_v0_5!(dataset_path;
