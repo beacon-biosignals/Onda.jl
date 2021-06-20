@@ -31,8 +31,6 @@ Onda.read_byte_range
 
 ```@docs
 Annotation
-read_annotations
-write_annotations
 merge_overlapping_annotations
 ```
 
@@ -41,9 +39,6 @@ merge_overlapping_annotations
 ```@docs
 Signal
 SamplesInfo
-validate
-read_signals
-write_signals
 channel(x, name)
 channel(x, i::Integer)
 channel_count(x)
@@ -98,9 +93,7 @@ Onda.file_format_string
 ## Utilities
 
 ```@docs
-Onda.materialize
-Onda.gather
-Onda.validate_on_construction
+Onda.validate_samples_on_construction
 Onda.upgrade_onda_dataset_to_v0_5!
 Onda.downgrade_onda_dataset_to_v0_4!
 ```
