@@ -1,7 +1,7 @@
 name = "Onda"
 uuid = "e853f5be-6863-11e9-128d-476edb89bfb5"
 authors = ["Beacon Biosignals, Inc."]
-version = "0.13.6"
+version = "0.13.7"
 
 [deps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
