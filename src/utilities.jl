@@ -1,5 +1,14 @@
 log(message) = @info "$(now()) | $message"
 
+const ALPHANUMERIC_SNAKE_CASE_CHARACTERS = Char['_',
+                                                '0':'9'...,
+                                                'a':'z'...]
+
+function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
+    return !startswith(x, '_') && !endswith(x, '_') &&
+           all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
+end
+
 #####
 ##### arrrrr i'm a pirate
 #####

@@ -4,11 +4,11 @@
 # concrete manner, and so that we can ensure examples stay updated as the
 # package evolves.
 #
-# NOTE: You should read https://github.com/beacon-biosignals/OndaFormat
+# NOTE: You should read https://github.com/beacon-biosignals/README.md#the-onda-format-specification
 # before and/or alongside the completion of this tour; it explains the
 # purpose/structure of the format.
 
-using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase, Arrow
+using Onda, Legolas, Arrow, TimeSpans, DataFrames, Dates, UUIDs, Test
 
 #####
 ##### generate some mock data
@@ -76,7 +76,7 @@ annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlappin
 for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:60))
-        annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30)));
+        annotation = Annotation(; recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
                                 rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
         push!(annotations,  annotation)
     end

@@ -132,7 +132,7 @@ for f in (:getindex, :view)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
             channels = rows isa Colon ? samples.info.channels : samples.info.channels[rows]
-            info = setproperties(samples.info; channels)
+            info = SamplesInfo(Tables.rowmerge(samples.info; channels))
             return Samples($f(samples.data, rows, columns), info, samples.encoded; validate=false)
         end
     end
@@ -419,7 +419,7 @@ method defined for `Onda.read_byte_range(::typeof(file_path), ...)`) and `file_f
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
 function load(signal, span...; encoded::Bool=false)
-    return load(signal.file_path, signal.file_format, SamplesInfo(signal), span...; encoded)
+    return load(signal.file_path, signal.file_format, extract_samples_info(signal), span...; encoded)
 end
 
 function load(file_path, file_format::AbstractString, info::SamplesInfo, span...; encoded::Bool=false)
@@ -442,11 +442,11 @@ end
 """
     Onda.mmap(signal)
 
-Return `Onda.mmap(signal.file_path, SamplesInfo(signal))`, throwing an `ArgumentError` if `signal.file_format != "lpcm"`.
+Return `Onda.mmap(signal.file_path, Onda.extract_samples_info(signal))`, throwing an `ArgumentError` if `signal.file_format != "lpcm"`.
 """
 function mmap(signal)
     signal.file_format == "lpcm" || throw(ArgumentError("unsupported file_format for mmap: $(signal.file_format)"))
-    return mmap(signal.file_path, SamplesInfo(signal))
+    return mmap(signal.file_path, extract_samples_info(signal))
 end
 
 """
@@ -484,7 +484,7 @@ arguments are forwarded to an invocation of the `Signal` constructor).
 function store(file_path, file_format, samples::Samples, recording, start; custom...)
     store(file_path, file_format, samples)
     span = TimeSpan(start, Nanosecond(start) + TimeSpans.duration(samples))
-    return Signal(samples.info; recording, file_path, file_format, span, custom...)
+    return Signal(Tables.rowmerge(samples.info; recording, file_path, file_format, span, custom...))
 end
 
 #####
@@ -534,7 +534,7 @@ function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{SamplesArr
 end
 
 function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
-    info = SamplesInfo(arrow_info; validate=false)
+    info = SamplesInfo(arrow_info)
     data = reshape(arrow_data, (channel_count(info), :))
     return Samples(data, info, arrow_encoded)
 end

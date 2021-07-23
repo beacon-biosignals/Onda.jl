@@ -46,7 +46,7 @@ convert_number_to_lpcm_sample_type(x) = Float64(x)
 """
 TODO
 """
-const SamplesInfo = @row("onda.sample-info@1",
+const SamplesInfo = @row("onda.samples-info@1",
                          kind::AbstractString,
                          channels::AbstractVector{<:AbstractString},
                          sample_unit::AbstractString,
@@ -64,7 +64,7 @@ const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.SamplesInfo")
 
 Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = SAMPLES_INFO_ARROW_NAME
 
-function Arrow.ArrowTypes.ArrowType(::Type{<:Legolas.Row{Legolas.Schema{Symbol("onda.sample-info"),1},
+function Arrow.ArrowTypes.ArrowType(::Type{<:Legolas.Row{Legolas.Schema{Symbol("onda.samples-info"),1},
                                                          SamplesInfoNamedTuple{K,C,U,R,O,T,S}}}) where {K,C,U,R,O,T,S}
     return SamplesInfoArrowType{R,O,S}
 end
@@ -80,7 +80,7 @@ function Arrow.ArrowTypes.toarrow(info::SamplesInfo)
 end
 
 function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{SamplesInfoArrowType{R,O,S}}) where {R,O,S}
-    return Legolas.Row{Legolas.Schema{Symbol("onda.sample-info"),1},SamplesInfoArrowType{R,O,S}}
+    return Legolas.Row{Legolas.Schema{Symbol("onda.samples-info"),1},SamplesInfoArrowType{R,O,S}}
 end
 
 function Arrow.ArrowTypes.fromarrow(::Type{<:SamplesInfo}, kind, channels,
@@ -98,7 +98,7 @@ end
 """
 TODO
 """
-const Signal = @row("onda.signal@1" > "onda.sample-info@1",
+const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     recording::UUID = UUID(recording),
                     file_format::String = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
                     span::TimeSpan = TimeSpan(span),
@@ -123,6 +123,10 @@ function _validate_signal_channels(x)
     end
     return x
 end
+
+extract_samples_info(signal) = SamplesInfo(; signal.kind, signal.channels, signal.sample_unit,
+                                           signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
+                                           signal.sample_type, signal.sample_rate)
 
 #####
 ##### duck-typed utilities

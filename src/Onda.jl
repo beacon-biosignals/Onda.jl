@@ -1,8 +1,10 @@
 module Onda
 
 using UUIDs, Dates, Random, Mmap
-using Compat, TimeSpans, Legolas, Arrow, Tables, TranscodingStreams, CodecZstd
+using Compat, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
 using MsgPack, JSON3 # only used to facilitate conversion to/from Onda v0.4 datasets
+using Legolas
+using Legolas: @row
 
 #####
 ##### includes/exports
@@ -27,17 +29,6 @@ export Samples, encode, encode!, decode, decode!, load, store
 #####
 ##### upgrades/deprecations
 #####
-
-# TODO deprecate read_signals
-# TODO deprecate write_signals
-# TODO deprecate read_annotations
-# TODO deprecate write_annotations
-# TODO deprecate Onda.validate
-# TODO deprecate Onda.materialize
-# TODO deprecate Onda.gather
-# TODO Onda.validate_on_construction
-
-# TODO upgrade/downgrade methods for corresponding OndaFormat update
 
 """
     upgrade_onda_dataset_to_v0_5!(dataset_path;

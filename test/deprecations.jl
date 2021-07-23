@@ -48,3 +48,78 @@
         end
     end
 end
+
+
+
+# @testset "`read_annotations`/`write_annotations`" begin
+#     root = mktempdir()
+#     possible_recordings = (uuid4(), uuid4(), uuid4())
+#     annotations = Annotation[Annotation(recording=rand(possible_recordings),
+#                                         id=uuid4(),
+#                                         span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
+#                                         a=join(rand('a':'z', 10)),
+#                                         b=rand(Int, 1),
+#                                         c=rand(3)) for i in 1:50]
+#     annotations_file_path = joinpath(root, "test.onda.annotations.arrow")
+#     cols = Tables.columns(annotations)
+#     Onda.assign_to_table_metadata!(cols, ("a" => "b", "x" => "y"))
+#     io = IOBuffer()
+#     write_annotations(annotations_file_path, cols)
+#     write_annotations(io, cols)
+#     seekstart(io)
+#     for roundtripped in (read_annotations(annotations_file_path; materialize=false, validate_schema=false),
+#                          read_annotations(annotations_file_path; materialize=true, validate_schema=true),
+#                          Onda.materialize(read_annotations(io)),
+#                          read_annotations(seekstart(io); validate_schema=true))
+#         if roundtripped isa Onda.Arrow.Table
+#             @test Onda.table_has_metadata(m -> m["onda_format_version"] == "v$(Onda.MAXIMUM_ONDA_FORMAT_VERSION)" &&
+#                                                m["a"] == "b" && m["x"] == "y", roundtripped)
+#         end
+#         roundtripped = collect(Tables.rows(roundtripped))
+#         @test length(roundtripped) == length(annotations)
+#         for (r, a) in zip(roundtripped, annotations)
+#             @test getfield(a, :_row) == NamedTuple(r)
+#             @test getfield(a, :_row) == getfield(Annotation(r), :_row)
+#         end
+#     end
+# end
+
+# @testset "`read_signals`/`write_signals`" begin
+#     root = mktempdir()
+#     possible_recordings = (uuid4(), uuid4(), uuid4())
+#     possible_sample_types = (UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64)
+#     signals = Signal[Signal(recording=rand(possible_recordings),
+#                             file_path=joinpath(root, "x_$(i)_file"),
+#                             file_format=rand(("lpcm", "lpcm.zst")),
+#                             span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
+#                             kind="x_$i",
+#                             channels=["a_$i", "b_$i", "c_$i"],
+#                             sample_unit="unit_$i",
+#                             sample_resolution_in_unit=rand((0.25, 1)),
+#                             sample_offset_in_unit=rand((-0.25, 0.25)),
+#                             sample_type=rand(possible_sample_types),
+#                             sample_rate=rand((128, 50.5)),
+#                             a=join(rand('a':'z', 10)),
+#                             b=rand(Int, 1),
+#                             c=rand(3)) for i in 1:50]
+#     signals_file_path = joinpath(root, "test.onda.signals.arrow")
+#     io = IOBuffer()
+#     write_signals(signals_file_path, signals)
+#     write_signals(io, signals)
+#     seekstart(io)
+#     io2 = IOBuffer()
+#     write_signals(io2, signals; file=false)
+#     seekstart(io2)
+#     for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
+#                          read_signals(signals_file_path; materialize=true, validate_schema=true),
+#                          Onda.materialize(read_signals(io)),
+#                          Onda.materialize(read_signals(io2)),
+#                          read_signals(seekstart(io); validate_schema=true))
+#         roundtripped = collect(Tables.rows(roundtripped))
+#         @test length(roundtripped) == length(signals)
+#         for (r, s) in zip(roundtripped, signals)
+#             @test getfield(s, :_row) == NamedTuple(r)
+#             @test getfield(s, :_row) == getfield(Signal(r), :_row)
+#         end
+#     end
+# end

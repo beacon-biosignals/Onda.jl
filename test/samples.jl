@@ -15,7 +15,7 @@
                             sample_rate=rand((128, 50.5)),
                             start=Second(rand(0:30))) for i in 1:length(expected_sample_types)]
     for params in expected_parameters
-        info = SamplesInfo(params)
+        info = Onda.extract_samples_info(params)
         data = rand(params.sample_type, 3, sample_count(info, Second(rand(1:15))))
         samples = Samples(data, info, true)
         start = Second(rand(0:30))
@@ -23,7 +23,7 @@
         push!(signals, signal)
     end
     for (expected, signal) in zip(expected_parameters, signals)
-        expected_info = SamplesInfo(expected)
+        expected_info = Onda.extract_samples_info(expected)
         for encoded in (false, true)
             s = load(signal; encoded)
             s1 = load(expected.file_path, expected.file_format, expected_info; encoded)
@@ -117,7 +117,13 @@
 end
 
 @testset "`Samples` pretty printing" begin
-    info = SamplesInfo("eeg", ["a", "b", "c-d"], "unit", 0.25, -0.5, Int16, 50.2)
+    info = SamplesInfo(kind="eeg",
+                       channels=["a", "b", "c-d"],
+                       sample_unit="unit",
+                       sample_resolution_in_unit=0.25,
+                       sample_offset_in_unit=-0.5,
+                       sample_type=Int16,
+                       sample_rate=50.2)
     samples = Samples(rand(Random.MersenneTwister(0), info.sample_type, 3, 5), info, true)
     M = VERSION >= v"1.6" ? "Matrix{Int16}" : "Array{Int16,2}"
     @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 $M)"
@@ -136,4 +142,25 @@ end
                                     20032  4760  27427  -20758   24287
                                     14240  5037   5598   -5888   21784
                                     16885   600  20880  -32493  -19305"""
+end
+
+@testset "Onda.validate_samples_on_construction" begin
+    info = SamplesInfo(kind="kind",
+                       channels=["a", "b", "c"],
+                       sample_unit="microvolt",
+                       sample_resolution_in_unit=1.0,
+                       sample_offset_in_unit=0.0,
+                       sample_type=Int16,
+                       sample_rate=100.0)
+    @test Onda.validate_samples_on_construction()
+    @test_throws ArgumentError Samples(rand(4, 10), info, false)
+    @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
+    Onda.validate_samples_on_construction() = false
+    @test Samples(rand(4, 10), info, false) isa Samples
+    @test Samples(rand(Int32, 3, 10), info, true) isa Samples
+    @test_throws ArgumentError Onda.validate(Samples(rand(4, 10), info, false))
+    @test_throws ArgumentError Onda.validate(Samples(rand(Int32, 3, 10), info, true))
+    Onda.validate_samples_on_construction() = true
+    @test_throws ArgumentError Samples(rand(4, 10), info, false)
+    @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
 end

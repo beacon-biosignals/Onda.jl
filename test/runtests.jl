@@ -1,5 +1,4 @@
-using Test, UUIDs, Dates, Onda, MsgPack, ConstructionBase,
-      Tables, TimeSpans, DataFrames, Random
+using Test, UUIDs, Dates, Onda, MsgPack, Tables, TimeSpans, DataFrames, Random
 
 function has_rows(a, b)
     for name in propertynames(b)
@@ -11,11 +10,10 @@ function has_rows(a, b)
     return true
 end
 
-include("utilities.jl")
 include("annotations.jl")
 include("signals.jl")
 include("serialization.jl")
 include("samples.jl")
-include("deprecations.jl")
-include(joinpath(dirname(@__DIR__), "examples", "flac.jl"))
-include(joinpath(dirname(@__DIR__), "examples", "tour.jl"))
+# include("deprecations.jl")
+# include(joinpath(dirname(@__DIR__), "examples", "flac.jl"))
+# include(joinpath(dirname(@__DIR__), "examples", "tour.jl"))

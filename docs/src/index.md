@@ -97,3 +97,13 @@ Onda.validate_samples_on_construction
 Onda.upgrade_onda_dataset_to_v0_5!
 Onda.downgrade_onda_dataset_to_v0_4!
 ```
+
+## Developer Installation
+
+To install Onda for development, run:
+
+```
+julia -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/beacon-biosignals/Onda.jl"))'
+```
+
+This will install Onda to the default package development directory, `~/.julia/dev/Onda`.
