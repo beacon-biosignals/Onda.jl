@@ -71,7 +71,7 @@ representation. If a violation is found, an `ArgumentError` is thrown.
 
 Properties that are validated by this function include:
 
-- encoded element type matches `samples.info.sample_type`
+- encoded element type matches `sample_type(samples.info)`
 - the number of rows of `samples.data` matches the number of channels in `samples.info`
 """
 function validate(samples::Samples)
@@ -82,8 +82,8 @@ function validate(samples::Samples)
                             "does not match number of rows in data matrix " *
                             "($n_rows)"))
     end
-    if samples.encoded && !(eltype(samples.data) === samples.info.sample_type)
-        throw(ArgumentError("encoded `samples.data` matrix eltype does not match `samples.info.sample_type`"))
+    if samples.encoded && !(eltype(samples.data) === sample_type(samples.info))
+        throw(ArgumentError("encoded `samples.data` matrix eltype does not match `sample_type(samples.info)`"))
     end
     return nothing
 end
@@ -287,7 +287,7 @@ end
 
 If `samples.encoded` is `false`, return a `Samples` instance that wraps:
 
-    encode(samples.info.sample_type,
+    encode(sample_type(samples.info),
            samples.info.sample_resolution_in_unit,
            samples.info.sample_offset_in_unit,
            samples.data, dither_storage)
@@ -296,7 +296,7 @@ If `samples.encoded` is `true`, this function is the identity.
 """
 function encode(samples::Samples, dither_storage=nothing)
     samples.encoded && return samples
-    return Samples(encode(samples.info.sample_type,
+    return Samples(encode(sample_type(samples.info),
                           samples.info.sample_resolution_in_unit,
                           samples.info.sample_offset_in_unit,
                           samples.data, dither_storage),
@@ -309,7 +309,7 @@ end
 If `samples.encoded` is `false`, return a `Samples` instance that wraps:
 
     encode!(result_storage,
-            samples.info.sample_type,
+            sample_type(samples.info),
             samples.info.sample_resolution_in_unit,
             samples.info.sample_offset_in_unit,
             samples.data, dither_storage)`.
@@ -321,7 +321,7 @@ function encode!(result_storage, samples::Samples, dither_storage=nothing)
     if samples.encoded
         copyto!(result_storage, samples.data)
     else
-        encode!(result_storage, samples.info.sample_type,
+        encode!(result_storage, sample_type(samples.info),
                 samples.info.sample_resolution_in_unit,
                 samples.info.sample_offset_in_unit,
                 samples.data, dither_storage)
@@ -455,11 +455,11 @@ end
 Return `Samples(data, info, true)` where `data` is created via `Mmap.mmap(mmappable, ...)`.
 
 `mmappable` is assumed to reference memory that is formatted according to the Onda Format's canonical
-interleaved LPCM representation in accordance with `info.sample_type` and `channel_count(info)`. No
+interleaved LPCM representation in accordance with `sample_type(info)` and `channel_count(info)`. No
 explicit checks are performed to ensure that this is true.
 """
 function mmap(mmappable, info::SamplesInfo)
-    data = reshape(Mmap.mmap(mmappable, Vector{info.sample_type}), (channel_count(info), :))
+    data = reshape(Mmap.mmap(mmappable, Vector{sample_type(info)}), (channel_count(info), :))
     return Samples(data, info, true)
 end
 
@@ -503,7 +503,7 @@ function Base.show(io::IO, samples::Samples)
         println(io, "  info.sample_unit: ", repr(samples.info.sample_unit))
         println(io, "  info.sample_resolution_in_unit: ", samples.info.sample_resolution_in_unit)
         println(io, "  info.sample_offset_in_unit: ", samples.info.sample_offset_in_unit)
-        println(io, "  info.sample_type: ", samples.info.sample_type)
+        println(io, "  sample_type(info): ", sample_type(samples.info))
         println(io, "  info.sample_rate: ", samples.info.sample_rate, " Hz")
         println(io, "  encoded: ", samples.encoded)
         println(io, "  data:")
@@ -515,26 +515,26 @@ end
 ##### Arrow conversion
 #####
 
-const SamplesArrowType{T,S} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},S,Bool}} where {S<:SamplesInfoArrowType}
+# const SamplesArrowType{T,S} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},S,Bool}}
 
-const SAMPLES_ARROW_NAME = Symbol("JuliaLang.Samples")
+# const SAMPLES_ARROW_NAME = Symbol("JuliaLang.Samples")
 
-Arrow.ArrowTypes.arrowname(::Type{<:Samples}) = SAMPLES_ARROW_NAME
+# Arrow.ArrowTypes.arrowname(::Type{<:Samples}) = SAMPLES_ARROW_NAME
 
-Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D,S}}) where {D,S} = SamplesArrowType{eltype(D),Arrow.ArrowTypes.ArrowType(S)}
+# Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D,S}}) where {D,S} = SamplesArrowType{eltype(D),Arrow.ArrowTypes.ArrowType(S)}
 
-function Arrow.ArrowTypes.toarrow(samples::Samples)
-    return (data=vec(samples.data),
-            info=Arrow.ArrowTypes.toarrow(samples.info),
-            encoded=samples.encoded)
-end
+# function Arrow.ArrowTypes.toarrow(samples::Samples)
+#     return (data=vec(samples.data),
+#             info=Arrow.ArrowTypes.toarrow(samples.info),
+#             encoded=samples.encoded)
+# end
 
-function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{SamplesArrowType{T,S}}) where {T,S}
-    return Samples{Matrix{T},Arrow.ArrowTypes.JuliaType(Val(SAMPLES_INFO_ARROW_NAME), S)}
-end
+# function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{SamplesArrowType{T,S}}) where {T,S}
+#     return Samples{Matrix{T},Arrow.ArrowTypes.JuliaType(Val(SAMPLES_INFO_ARROW_NAME), S)}
+# end
 
-function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
-    info = SamplesInfo(arrow_info)
-    data = reshape(arrow_data, (channel_count(info), :))
-    return Samples(data, info, arrow_encoded)
-end
+# function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
+#     info = SamplesInfo(arrow_info)
+#     data = reshape(arrow_data, (channel_count(info), :))
+#     return Samples(data, info, arrow_encoded)
+# end

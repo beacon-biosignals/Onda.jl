@@ -1,19 +1,28 @@
 # TODOs
 
 - [x] get non-deprecation unit tests passing
-- [ ] update `examples`
-- [ ] document `Legolas.locations`
-- [ ] define/export `Legolas.extract(schema, row)` to replace `Onda.extract_sample_info`
-- [ ] deprecate `read_signals`
-- [ ] deprecate `write_signals`
-- [ ] deprecate `read_annotations`
-- [ ] deprecate `write_annotations`
-- [ ] deprecate `Onda.validate`
-- [ ] deprecate `Onda.materialize`
-- [ ] deprecate `Onda.gather`
-- [ ] rename `Onda.validate_on_construction` -> `Onda.validate_samples_on_construction`
-- [ ] deprecate positional argument constructors for `Annotation`/`SampleInfo`/`Signal`
-- [ ] upgrade/downgrade methods for Onda data
+- [ ] Arrow.jl upstream
+    - [ ] test/merge.tag https://github.com/JuliaData/Arrow.jl/pull/229
+- [ ] Legolas.jl upstream
+    - [ ] document `Legolas.locations`
+    - [ ] define/export `Legolas.extract(schema, row)` to replace temporary `Onda.extract_sample_info`
+    - [ ] fold in https://github.com/beacon-biosignals/Legolas.jl/pull/13#issuecomment-885396648
+- [ ] restore Arrow (de)serialization hooks for `Samples`
+- [ ] update `examples/flac.jl`
+- [ ] update `examples/tour.jl`
+- [ ] deprecations
+    - [ ] `read_signals`
+    - [ ] `write_signals`
+    - [ ] `read_annotations`
+    - [ ] `write_annotations`
+    - [ ] `Onda.validate`
+    - [ ] `Onda.materialize`
+    - [ ] `Onda.gather`
+    - [ ] rename `Onda.validate_on_construction` -> `Onda.validate_samples_on_construction`
+    - [ ] deprecate positional argument constructors for `Annotation`/`SampleInfo`/`Signal`
+    - [ ] upgrade/downgrade methods for Onda data
+    - [ ] deprecation unit tests
+- [ ] update docs
 
 # Onda.jl
 

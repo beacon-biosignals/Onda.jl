@@ -50,7 +50,7 @@
             encode!(tmp, s.info.sample_resolution_in_unit,
                     s.info.sample_offset_in_unit, decode(s).data,
                     tmp_dither_storage)
-            @test tmp == encode(s.info.sample_type, s.info.sample_resolution_in_unit,
+            @test tmp == encode(sample_type(s.info), s.info.sample_resolution_in_unit,
                                 s.info.sample_offset_in_unit, decode(s).data + tmp_dither_storage,
                                 nothing)
             tmp = similar(s.data)
@@ -68,7 +68,7 @@
             decode!(tmp, s.info.sample_resolution_in_unit, s.info.sample_offset_in_unit, s.data)
             @test tmp == d.data
             @test d.data == (s.data .* s.info.sample_resolution_in_unit .+ s.info.sample_offset_in_unit)
-            if sizeof(s.info.sample_type) >= 8
+            if sizeof(sample_type(s.info)) >= 8
                 # decoding from 64-bit to floating point is fairly lossy
                 tmp = similar(s.data)
                 @test isapprox(encode(d, nothing).data, s.data, rtol = 10)
@@ -124,7 +124,7 @@ end
                        sample_offset_in_unit=-0.5,
                        sample_type=Int16,
                        sample_rate=50.2)
-    samples = Samples(rand(Random.MersenneTwister(0), info.sample_type, 3, 5), info, true)
+    samples = Samples(rand(Random.MersenneTwister(0), sample_type(info), 3, 5), info, true)
     M = VERSION >= v"1.6" ? "Matrix{Int16}" : "Array{Int16,2}"
     @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 $M)"
     @test sprint(show, samples) == """
@@ -134,7 +134,7 @@ end
                                      info.sample_unit: "unit"
                                      info.sample_resolution_in_unit: 0.25
                                      info.sample_offset_in_unit: -0.5
-                                     info.sample_type: Int16
+                                     sample_type(info): Int16
                                      info.sample_rate: 50.2 Hz
                                      encoded: true
                                      data:

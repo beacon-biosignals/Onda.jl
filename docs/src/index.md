@@ -34,7 +34,7 @@ Annotation
 merge_overlapping_annotations
 ```
 
-## `*.onda.signals.arrow`
+## `onda.signal`
 
 ```@docs
 Signal
@@ -44,6 +44,7 @@ channel(x, i::Integer)
 channel_count(x)
 sample_count(x, duration::Period)
 sizeof_samples(x, duration::Period)
+sample_type(x)
 ```
 
 ## `Samples`

@@ -47,49 +47,25 @@ convert_number_to_lpcm_sample_type(x) = Float64(x)
 TODO
 """
 const SamplesInfo = @row("onda.samples-info@1",
-                         kind::AbstractString,
-                         channels::AbstractVector{<:AbstractString},
-                         sample_unit::AbstractString,
+                         kind::String,
+                         channels::Vector{String},
+                         sample_unit::String,
                          sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_resolution_in_unit),
                          sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_offset_in_unit),
-                         sample_type::Type{<:LPCM_SAMPLE_TYPE_UNION} = julia_type_from_onda_sample_type(sample_type),
+                         sample_type::String = onda_sample_type_from_julia_type(sample_type),
                          sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
 
-const SamplesInfoNamedTuple{K,C,U,R,O,T,S} = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
-                                                        Tuple{K,C,U,R,O,T,S}}
 
-const SamplesInfoArrowType{R,O,S} = SamplesInfoNamedTuple{String,Vector{String},String,R,O,String,S}
+# TODO:
+#   - requires https://github.com/JuliaData/Arrow.jl/pull/229
+#   - replace with upstream https://github.com/beacon-biosignals/Legolas.jl/pull/13#issuecomment-885396648
 
-const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.SamplesInfo")
-
+const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.Onda.SamplesInfo")
 Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = SAMPLES_INFO_ARROW_NAME
-
-function Arrow.ArrowTypes.ArrowType(::Type{<:Legolas.Row{Legolas.Schema{Symbol("onda.samples-info"),1},
-                                                         SamplesInfoNamedTuple{K,C,U,R,O,T,S}}}) where {K,C,U,R,O,T,S}
-    return SamplesInfoArrowType{R,O,S}
-end
-
-function Arrow.ArrowTypes.toarrow(info::SamplesInfo)
-    return (kind=convert(String, info.kind),
-            channels=convert(Vector{String}, info.channels),
-            sample_unit=convert(String, info.sample_unit),
-            sample_resolution_in_unit=info.sample_resolution_in_unit,
-            sample_offset_in_unit=info.sample_offset_in_unit,
-            sample_type=onda_sample_type_from_julia_type(info.sample_type),
-            sample_rate=info.sample_rate)
-end
-
-function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{SamplesInfoArrowType{R,O,S}}) where {R,O,S}
-    return Legolas.Row{Legolas.Schema{Symbol("onda.samples-info"),1},SamplesInfoArrowType{R,O,S}}
-end
-
-function Arrow.ArrowTypes.fromarrow(::Type{<:SamplesInfo}, kind, channels,
-                                    sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
-                                    sample_type, sample_rate)
-    return SamplesInfo(; kind, channels,
-                       sample_unit, sample_resolution_in_unit, sample_offset_in_unit,
-                       sample_type, sample_rate)
-end
+Arrow.ArrowTypes.ArrowType(::Type{SamplesInfo{F}}) where {F} = F
+Arrow.ArrowTypes.toarrow(info::SamplesInfo) = NamedTuple(info)
+Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{F}) where {F} = SamplesInfo{F}
+Arrow.ArrowTypes.fromarrow(::Type{SamplesInfo{F}}, args...) where {F} = SamplesInfo(F(args))
 
 #####
 ##### `Signal`
@@ -104,8 +80,7 @@ const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     span::TimeSpan = TimeSpan(span),
                     kind::String = _validate_signal_kind(kind),
                     channels::Vector{String} = _validate_signal_channels(channels),
-                    sample_unit::String = _validate_signal_sample_unit(sample_unit),
-                    sample_type::String = onda_sample_type_from_julia_type(sample_type))
+                    sample_unit::String = _validate_signal_sample_unit(sample_unit))
 
 function _validate_signal_kind(x)
     is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $x"))
@@ -161,6 +136,13 @@ Return the number of multichannel samples that fit within `duration` given `x.sa
 sample_count(x, duration::Period) = TimeSpans.index_from_time(x.sample_rate, duration) - 1
 
 """
+    sample_type(x)
+
+Return `julia_type_from_onda_sample_type(x.sample_type)`.
+"""
+sample_type(x) = julia_type_from_onda_sample_type(x.sample_type)
+
+"""
     sizeof_samples(x, duration::Period)
 
 Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `x` and `duration`:
@@ -168,4 +150,5 @@ Returns the expected size (in bytes) of an encoded `Samples` object correspondin
     sample_count(x, duration) * channel_count(x) * sizeof(x.sample_type)
 
 """
-sizeof_samples(x, duration::Period) = sample_count(x, duration) * channel_count(x) * sizeof(x.sample_type)
+sizeof_samples(x, duration::Period) = sample_count(x, duration) * channel_count(x) * sizeof(sample_type(x))
+
