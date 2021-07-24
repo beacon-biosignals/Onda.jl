@@ -104,7 +104,7 @@ Onda.downgrade_onda_dataset_to_v0_4!
 To install Onda for development, run:
 
 ```
-julia -e 'using Pkg; Pkg.develop(PackageSpec(url="https://github.com/beacon-biosignals/Onda.jl"))'
+julia -e 'using Pkg; Pkg.develop("Onda")'
 ```
 
 This will install Onda to the default package development directory, `~/.julia/dev/Onda`.
