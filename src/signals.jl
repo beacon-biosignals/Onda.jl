@@ -55,18 +55,6 @@ const SamplesInfo = @row("onda.samples-info@1",
                          sample_type::String = onda_sample_type_from_julia_type(sample_type),
                          sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
 
-
-# TODO:
-#   - requires https://github.com/JuliaData/Arrow.jl/pull/229
-#   - replace with upstream https://github.com/beacon-biosignals/Legolas.jl/pull/13#issuecomment-885396648
-
-const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.Onda.SamplesInfo")
-Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = SAMPLES_INFO_ARROW_NAME
-Arrow.ArrowTypes.ArrowType(::Type{SamplesInfo{F}}) where {F} = F
-Arrow.ArrowTypes.toarrow(info::SamplesInfo) = NamedTuple(info)
-Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{F}) where {F} = SamplesInfo{F}
-Arrow.ArrowTypes.fromarrow(::Type{SamplesInfo{F}}, args...) where {F} = SamplesInfo(F(args))
-
 #####
 ##### `Signal`
 #####

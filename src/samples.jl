@@ -515,26 +515,26 @@ end
 ##### Arrow conversion
 #####
 
-# const SamplesArrowType{T,S} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},S,Bool}}
+const SamplesArrowType{T,S} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},S,Bool}}
 
-# const SAMPLES_ARROW_NAME = Symbol("JuliaLang.Samples")
+const SAMPLES_ARROW_NAME = Symbol("JuliaLang.Samples")
 
-# Arrow.ArrowTypes.arrowname(::Type{<:Samples}) = SAMPLES_ARROW_NAME
+Arrow.ArrowTypes.arrowname(::Type{<:Samples}) = SAMPLES_ARROW_NAME
 
-# Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D,S}}) where {D,S} = SamplesArrowType{eltype(D),Arrow.ArrowTypes.ArrowType(S)}
+Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D,S}}) where {D,S} = SamplesArrowType{eltype(D),Arrow.ArrowTypes.ArrowType(S)}
 
-# function Arrow.ArrowTypes.toarrow(samples::Samples)
-#     return (data=vec(samples.data),
-#             info=Arrow.ArrowTypes.toarrow(samples.info),
-#             encoded=samples.encoded)
-# end
+function Arrow.ArrowTypes.toarrow(samples::Samples)
+    return (data=vec(samples.data),
+            info=Arrow.ArrowTypes.toarrow(samples.info),
+            encoded=samples.encoded)
+end
 
-# function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{SamplesArrowType{T,S}}) where {T,S}
-#     return Samples{Matrix{T},Arrow.ArrowTypes.JuliaType(Val(SAMPLES_INFO_ARROW_NAME), S)}
-# end
+function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{<:SamplesArrowType{T}}) where {T}
+    return Samples{Matrix{T},<:SamplesInfo}
+end
 
-# function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
-#     info = SamplesInfo(arrow_info)
-#     data = reshape(arrow_data, (channel_count(info), :))
-#     return Samples(data, info, arrow_encoded)
-# end
+function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
+    info = Arrow.ArrowTypes.fromarrow(SamplesInfo, arrow_info...)
+    data = reshape(arrow_data, (channel_count(info), :))
+    return Samples(data, info, arrow_encoded)
+end
