@@ -1,11 +1,10 @@
 # TODOs
 
 - [x] get non-deprecation unit tests passing
-- [ ] Arrow.jl upstream
-    - [ ] test/merge.tag https://github.com/JuliaData/Arrow.jl/pull/229
+- [x] Arrow.jl upstream
+    - [x] test/merge/tag https://github.com/JuliaData/Arrow.jl/pull/229
 - [ ] Legolas.jl upstream
-    - [ ] document `Legolas.locations`
-    - [ ] define/export `Legolas.extract(schema, row)` to replace temporary `Onda.extract_sample_info`
+    - [x] document `Legolas.locations`
     - [ ] fold in https://github.com/beacon-biosignals/Legolas.jl/pull/13#issuecomment-885396648
 - [ ] restore Arrow (de)serialization hooks for `Samples`
 - [ ] update `examples/flac.jl`
