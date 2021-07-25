@@ -20,7 +20,7 @@
     - [x] `Onda.gather`
     - [x] rename `Onda.validate_on_construction` -> `Onda.validate_samples_on_construction`
     - [x] deprecate positional argument constructors for `Annotation`/`SampleInfo`/`Signal`
-    - [ ] upgrade/downgrade methods for Onda data
+    - [x] upgrade/downgrade methods for Onda data (not needed, fully backwards compatible)
     - [ ] deprecation unit tests
 - [ ] update docs
 
@@ -42,7 +42,7 @@ Onda.jl is a Julia package for high-throughput manipulation of structured LPCM s
 
 ## The Onda Format Specification
 
-The Onda format is intentionally language-agnostic; any consumer/producer that supports Apache Arrow can read/write the Arrow tables defined by the Onda format. For the sake of convenience, however, this specification resides here (in the Onda.jl repository) and leverages the [Legolas](https://github.com/beacon-biosignals/Legolas.jl) framework to both define and version the Arrow tables relevant to the format.
+The Onda format is intentionally language-agnostic; any consumer/producer that supports Apache Arrow can read/write the Arrow tables defined by the Onda format. For the sake of convenience, however, this specification resides here (in the Onda.jl repository) and leverages the [Legolas](https://github.com/beacon-biosignals/Legolas.jl) framework to both define and version the Arrow table schemas relevant to the format.
 
 ## Terminology
 
@@ -96,7 +96,7 @@ The Onda format primarily consists of a collection of interelated [Legolas](http
 
 These schemas are largely orthogonal to one another - here's nothing inherent to the Onda format that prevents a dataset producer/consumer from separately constructing/manipulating/transferring/analyzing an `onda.signal` table and `onda.annotation` table. Furthermore, there's nothing that prevents dataset producers/consumers from working with multiple tables of the same schema, referencing the same set of recordings (e.g. splitting all of a dataset's annotations across multiple `onda.annotation` tables).
 
-The following sections provide [the version integer](https://github.com/beacon-biosignals/Legolas.jl/stable/schema/), per-column documentation, and examples for each of the above schemas. While per-column documentation refers to the [logical types defined by the Arrow specification](https://github.com/apache/arrow/blob/master/format/Schema.fbs), Onda reader/writer implementations may additionally employ Arrow extension types that directly alias a column's specified logical type in order to support application-level features (first-class UUID support, custom `file_path` type support, etc.).
+The following sections provide [the version integer](https://github.com/beacon-biosignals/Legolas.jl/stable/schema/), per-column documentation, and examples for each of the above Legolas schemas. In accordance with the Legolas framework, a table is considered to comply with a given schema as long as the specified required columns for that schema are present in any order. While per-column documentation refers to the [logical types defined by the Arrow specification](https://github.com/apache/arrow/blob/master/format/Schema.fbs), Onda reader/writer implementations may additionally employ Arrow extension types that directly alias a column's specified logical type in order to support application-level features (first-class UUID support, custom `file_path` type support, etc.).
 
 #### `onda.signal@1`
 
