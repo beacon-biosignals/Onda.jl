@@ -1,10 +1,7 @@
 # API Documentation
 
-Below is the API documentation for Onda.jl.
-
-For general information regarding the Onda Format itself, please see [beacon-biosignals/OndaFormat](https://github.com/beacon-biosignals/OndaFormat).
-
-For a nice introduction to the package, see the [Onda Tour](https://github.com/beacon-biosignals/Onda.jl/blob/master/examples/tour.jl).
+We highly recommend that newcomers walk through the [Onda Tour](https://github.com/beacon-biosignals/Onda.jl/blob/master/examples/tour.jl)
+before diving into this reference documentation.
 
 ```@meta
 CurrentModule = Onda
@@ -27,10 +24,11 @@ be overloaded for the backend's corresponding path type to enable further optimi
 Onda.read_byte_range
 ```
 
-## `*.onda.annotations.arrow`
+## `onda.annotation`
 
 ```@docs
 Annotation
+write_annotations
 merge_overlapping_annotations
 ```
 
@@ -38,6 +36,7 @@ merge_overlapping_annotations
 
 ```@docs
 Signal
+write_signals
 SamplesInfo
 channel(x, name)
 channel(x, i::Integer)
@@ -95,8 +94,6 @@ Onda.file_format_string
 
 ```@docs
 Onda.validate_samples_on_construction
-Onda.upgrade_onda_dataset_to_v0_5!
-Onda.downgrade_onda_dataset_to_v0_4!
 ```
 
 ## Developer Installation

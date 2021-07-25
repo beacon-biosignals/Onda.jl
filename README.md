@@ -22,7 +22,7 @@
     - [x] deprecate positional argument constructors for `Annotation`/`SampleInfo`/`Signal`
     - [x] upgrade/downgrade methods for Onda data (not needed, fully backwards compatible)
     - [ ] deprecation unit tests
-- [ ] update docs
+- [x] update docs
 
 # Onda.jl
 
@@ -36,13 +36,13 @@
 
 [See Other Examples](https://github.com/beacon-biosignals/Onda.jl/tree/master/examples)
 
-**Onda** is a lightweight format defined atop [Apache Arrow](https://arrow.apache.org/) for storing and manipulating sets of multi-sensor, multi-channel, LPCM-encodable, annotated, time-series recordings.
-
-Onda.jl is a Julia package for high-throughput manipulation of structured LPCM signal data across arbitrary domain-specific encodings, file formats and storage layers via the Onda format.
+Onda.jl is a Julia package for high-throughput manipulation of structured LPCM signal data across arbitrary domain-specific encodings, file formats and storage layers.
 
 ## The Onda Format Specification
 
-The Onda format is intentionally language-agnostic; any consumer/producer that supports Apache Arrow can read/write the Arrow tables defined by the Onda format. For the sake of convenience, however, this specification resides here (in the Onda.jl repository) and leverages the [Legolas](https://github.com/beacon-biosignals/Legolas.jl) framework to both define and version the Arrow table schemas relevant to the format.
+**Onda** is a lightweight format defined atop [Apache Arrow](https://arrow.apache.org/) for storing and manipulating sets of multi-sensor, multi-channel, LPCM-encodable, annotated, time-series recordings.
+
+This format is intentionally language-agnostic; any consumer/producer that supports Apache Arrow can read/write Onda-compliant Arrow tables. For the sake of convenience, the Onda specification resides here (in the Onda.jl repository) and leverages the [Legolas](https://github.com/beacon-biosignals/Legolas.jl) framework to both define and version the Arrow table schemas relevant to the format.
 
 ## Terminology
 
