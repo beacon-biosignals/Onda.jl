@@ -10,6 +10,13 @@ const Annotation = @row("onda.annotation@1",
                         id::UUID = UUID(id),
                         span::TimeSpan = TimeSpan(span))
 
+"""
+    write_annotations(io_or_path, table; kwargs...)
+
+Invoke/return `Legolas.write(path_or_io, annotations, Schema("onda.annotation@1"); kwargs...)`.
+"""
+write_annotations(path_or_io, annotations; kwargs...) = Legolas.write(path_or_io, annotations, Legolas.Schema("onda.annotation@1"); kwargs...)
+
 #####
 ##### utilities
 #####

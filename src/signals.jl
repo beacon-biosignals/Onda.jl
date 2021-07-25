@@ -91,6 +91,13 @@ extract_samples_info(signal) = SamplesInfo(; signal.kind, signal.channels, signa
                                            signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
                                            signal.sample_type, signal.sample_rate)
 
+"""
+    write_signals(io_or_path, table; kwargs...)
+
+Invoke/return `Legolas.write(path_or_io, signals, Schema("onda.signal@1"); kwargs...)`.
+"""
+write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Legolas.Schema("onda.signal@1"); kwargs...)
+
 #####
 ##### duck-typed utilities
 #####

@@ -10,8 +10,6 @@
 
 using Onda, Legolas, Arrow, TimeSpans, DataFrames, Dates, UUIDs, Test
 
-using Legolas: Schema
-
 #####
 ##### generate some mock data
 #####
@@ -69,7 +67,7 @@ for recording in signals_recordings
     end
 end
 path_to_signals = joinpath(root, "test.onda.signal.arrow")
-Legolas.write(path_to_signals, signals, Schema("onda.signal@1"))
+Onda.write_signals(path_to_signals, signals)
 Onda.log("wrote out $path_to_signals")
 
 annotations = Annotation[]
@@ -84,7 +82,7 @@ for recording in annotations_recordings
     end
 end
 path_to_annotations = joinpath(root, "test.onda.annotation.arrow")
-Legolas.write(path_to_annotations, annotations, Schema("onda.annotation@1"))
+Onda.write_annotations(path_to_annotations, annotations)
 Onda.log("wrote out $path_to_annotations")
 
 #####
@@ -107,72 +105,72 @@ Onda.log("wrote out $path_to_annotations")
 signals = DataFrame(Legolas.read(path_to_signals))
 annotations = DataFrame(Legolas.read(path_to_annotations))
 
-# # Get all signals from a given recording:
-# target = rand(signals.recording)
-# view(signals, findall(==(target), signals.recording), :)
+# Get all signals from a given recording:
+target = rand(signals.recording)
+view(signals, findall(==(target), signals.recording), :)
 
-# # One of the consumer/producer-friendly properties of Onda is that signals
-# # and annotations are both represented in flat tables, enabling you to easily
-# # impose whatever indexing structure is most convenient for your use case.
-# #
-# # For example, if you wish to primarily access signals by recording and kind,
-# # you can easily create a structure with that index via `groupby`:
-# target = rand(signals.recording)
-# grouped = groupby(signals, Cols(:recording, :kind))
-# grouped[(target, "eeg")]
+# One of the consumer/producer-friendly properties of Onda is that signals
+# and annotations are both represented in flat tables, enabling you to easily
+# impose whatever indexing structure is most convenient for your use case.
+#
+# For example, if you wish to primarily access signals by recording and kind,
+# you can easily create a structure with that index via `groupby`:
+target = rand(signals.recording)
+grouped = groupby(signals, Cols(:recording, :kind))
+grouped[(target, "eeg")]
 
-# # Group/index signals + annotations by recording together:
-# target = rand(signals.recording)
-# dict = Legolas.gather(:recording, signals, annotations)
-# dict[target]
+# Group/index signals + annotations by recording together:
+target = rand(signals.recording)
+dict = Legolas.gather(:recording, signals, annotations)
+dict[target]
 
-# # Count number of signals in each recording:
-# combine(groupby(signals, :recording), nrow)
+# Count number of signals in each recording:
+combine(groupby(signals, :recording), nrow)
 
-# # Grab the longest signal in each recording:
-# combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
+# Grab the longest signal in each recording:
+combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
 
-# # Grab all multichannel signals greater than 5 minutes long:
-# filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
+# Grab all multichannel signals greater than 5 minutes long:
+filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
 
-# # Load all sample data for a given recording:
-# target = rand(signals.recording)
-# transform(view(signals, findall(==(target), signals.recording), :),
-#           AsTable(:) => ByRow(load) => :samples)
+# Load all sample data for a given recording:
+target = rand(signals.recording)
+transform(view(signals, findall(==(target), signals.recording), :),
+          AsTable(:) => ByRow(load) => :samples)
 
-# # `mmap` sample data for a given LPCM signal:
-# target = first(s for s in eachrow(signals) if s.file_format == "lpcm")
-# Onda.mmap(target)
+# `mmap` sample data for a given LPCM signal:
+target = first(s for s in eachrow(signals) if s.file_format == "lpcm")
+Onda.mmap(target)
 
-# # Delete all sample data for a given recording (uncomment the
-# # inline-commented section to actual delete filtered signals'
-# # sample data!):
-# target = rand(signals.recording)
-# signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
-# filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
+# Delete all sample data for a given recording (uncomment the
+# inline-commented section to actual delete filtered signals'
+# sample data!):
+target = rand(signals.recording)
+signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
+filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
 
-# # Merge overlapping annotations of the same `quality` in the same recording.
-# # `merged` is an annotations table with a custom column of merged ids:
-# merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, :quality)))
-# m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
-# view(annotations, findall(in(m.from), annotations.id), :)
+# Merge overlapping annotations of the same `quality` in the same recording.
+# `merged` is an annotations table with a custom column of merged ids:
+merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, :quality)))
+m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
+view(annotations, findall(in(m.from), annotations.id), :)
 
-# # Load all the annotated segments that fall within a given signal's timespan:
-# within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
-# sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
-# transform(filter(ann -> within_signal(ann, sig), annotations),
-#           :span => ByRow(span -> load(sig, translate(span, -start(sig.span)))) => :samples)
+# Load all the annotated segments that fall within a given signal's timespan:
+within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
+sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => ByRow(span -> load(sig, translate(span, -start(sig.span)))) => :samples)
 
-# # In the above, we called `load(sig, span)` for each `span`. This invocation attempts to load
-# # *only* the sample data corresponding to `span`, which can be very efficient if the sample data
-# # file format + storage system supports random access and the full sample data file is very large.
-# # However, if random access isn't supported, or the sample data file is relatively small, or the
-# # requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
-# # the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
-# # want to support an optimal batch loader):
-# samples = load(sig)
-# transform(filter(ann -> within_signal(ann, sig), annotations),
-#           :span => ByRow(span -> view(samples, :, translate(span, -start(sig.span)))) => :samples)
+# In the above, we called `load(sig, span)` for each `span`. This invocation attempts to load
+# *only* the sample data corresponding to `span`, which can be very efficient if the sample data
+# file format + storage system supports random access and the full sample data file is very large.
+# However, if random access isn't supported, or the sample data file is relatively small, or the
+# requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
+# the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
+# want to support an optimal batch loader):
+samples = load(sig)
+transform(filter(ann -> within_signal(ann, sig), annotations),
+          :span => ByRow(span -> view(samples, :, translate(span, -start(sig.span)))) => :samples)
 
 #####
 ##### working with `Samples`
