@@ -1,7 +1,6 @@
 # API Documentation
 
-We highly recommend that newcomers walk through the [Onda Tour](https://github.com/beacon-biosignals/Onda.jl/blob/master/examples/tour.jl)
-before diving into this reference documentation.
+We highly recommend that newcomers walk through the [Onda Tour](https://github.com/beacon-biosignals/Onda.jl/blob/master/examples/tour.jl) before diving into this reference documentation.
 
 ```@meta
 CurrentModule = Onda
@@ -9,16 +8,12 @@ CurrentModule = Onda
 
 ## Support For Generic Path-Like Types
 
-Onda.jl attempts to be as agnostic as possible with respect to the storage system
-that sample data, Arrow files, etc. are read from/written to. As such, any path-like
-argument accepted by an Onda.jl API function should generically "work" as long
-as the argument's type supports:
+Onda.jl attempts to be as agnostic as possible with respect to the storage system that sample data, Arrow files, etc. are read from/written to. As such, any path-like argument accepted by an Onda.jl API function should generically "work" as long as the argument's type supports:
 
 - `Base.read(path)::Vector{UInt8}` (return the bytes stored at `path`)
 - `Base.write(path, bytes::Vector{UInt8})` (write `bytes` to the location specified by `path`)
 
-For backends which support direct byte range access (e.g. S3), `Onda.read_byte_range` may
-be overloaded for the backend's corresponding path type to enable further optimizations:
+For backends which support direct byte range access (e.g. S3), `Onda.read_byte_range` may be overloaded for the backend's corresponding path type to enable further optimizations:
 
 ```@docs
 Onda.read_byte_range
@@ -69,10 +64,7 @@ sample_count(samples::Samples)
 
 ## LPCM (De)serialization API
 
-Onda.jl's LPCM (De)serialization API facilitates low-level streaming sample
-data (de)serialization and provides a storage-agnostic abstraction layer
-that can be overloaded to support new file/byte formats for (de)serializing
-LPCM-encodeable sample data.
+Onda.jl's LPCM (De)serialization API facilitates low-level streaming sample data (de)serialization and provides a storage-agnostic abstraction layer that can be overloaded to support new file/byte formats for (de)serializing LPCM-encodeable sample data.
 
 ```@docs
 AbstractLPCMFormat

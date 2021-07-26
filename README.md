@@ -104,7 +104,7 @@ The following sections provide [the version integer](https://github.com/beacon-b
 
 - `recording` (128-bit `FixedSizeBinary`): The UUID identifying the recording with which the signal is associated.
 - `file_path` (`Utf8`): A string identifying the location of the signal's associated sample data file. This string must either be a [valid URI](https://en.wikipedia.org/wiki/Uniform_Resource_Identifier) or a file path relative to the location of the `onda.signal` table itself.
-- `file_format` (`Utf8`): A string identifying the format of the signal's associated sample data file. All Onda  Onda reader/writer implementations must support the following file formats (and may define and support additional values as desired):
+- `file_format` (`Utf8`): A string identifying the format of the signal's associated sample data file. All Onda reader/writer implementations must support the following file formats (and may define and support additional values as desired):
     - `"lpcm"`: signals are stored in raw interleaved LPCM format (see format description below).
     - `"lpcm.zst"`: signals stored in raw interleaved LPCM format and compressed via [`zstd`](https://github.com/facebook/zstd)
 - `span` (`Struct`): The signal's time span within the recording. This structure has two fields:
@@ -215,3 +215,7 @@ In this section, we describe several alternative technologies/solutions consider
 - JSON: In early Onda prototypes, JSON was used to serialize signal/annotation metadata. While JSON has the advantage of being ubiquitous/simple/flexible/human-readable, the performance overhead of textual decoding/encoding was greater than desired for datasets with lots of annotations. In comparison, switching to MessagePack yielded a ~3x performance increase in (de)serialization for practical usage. The subsequent switch from MessagePack to Arrow in modern versions of the Onda format yielded even greater (de)serialization improvements.
 
 - BSON: BSON was considered as a potential serialization format for signal/annotation metadata. In pre-Arrow versions of Onda, MessagePack was chosen over BSON due to the latter's relative complexity compared to the former. In Onda's current version, BSON remains less preferable than Arrow from a tabular data representation perspective.
+
+### Older Versions Of The Format
+
+Before the Onda.jl v0.14 release, the Onda Format Specification resided in a separate repository. This repository is now archived, but its contents and issue tracker are still available for historical purposes in a read-only fashion at https://github.com/beacon-biosignals/OndaFormat.
