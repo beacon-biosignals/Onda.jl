@@ -31,8 +31,8 @@ merge_overlapping_annotations
 
 ```@docs
 Signal
-write_signals
 SamplesInfo
+write_signals
 channel(x, name)
 channel(x, i::Integer)
 channel_count(x)

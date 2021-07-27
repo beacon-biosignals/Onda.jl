@@ -44,7 +44,20 @@ convert_number_to_lpcm_sample_type(x) = Float64(x)
 #####
 
 """
-TODO
+    const SamplesInfo = @row("onda.samples-info@1",
+                             kind::String,
+                             channels::Vector{String},
+                             sample_unit::String,
+                             sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION,
+                             sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION,
+                             sample_type::String = Onda.onda_sample_type_from_julia_type(sample_type),
+                             sample_rate::LPCM_SAMPLE_TYPE_UNION)
+
+A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.samples-info@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
+representing the bundle of `onda.signal` fields that are intrinsic to a signal's sample data,
+leaving out extrinsic file or recording information. This is useful when the latter information
+is irrelevant or does not yet exist (e.g. if sample data is being constructed/manipulated in-memory
+without yet having been serialized).
 """
 const SamplesInfo = @row("onda.samples-info@1",
                          kind::String,
@@ -60,7 +73,22 @@ const SamplesInfo = @row("onda.samples-info@1",
 #####
 
 """
-TODO
+    const Signal = @row("onda.signal@1" > "onda.samples-info@1",
+                        recording::UUID,
+                        file_format::String = (file_format isa AbstractLPCMFormat ?
+                                               Onda.file_format_string(file_format) :
+                                               file_format),
+                        span::TimeSpan,
+                        kind::String,
+                        channels::Vector{String},
+                        sample_unit::String)
+
+A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.signal@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
+representing an `onda.signal` as described by the [Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl#the-onda-format-specification).
+
+This type primarily exists to aid in the validated row construction, and is not intended to be used
+as a type constraint in function or struct definitions. Instead, you should generally duck-type any
+"signal-like" arguments/fields so that other generic row types will compose with your code.
 """
 const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     recording::UUID = UUID(recording),
