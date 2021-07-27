@@ -40,11 +40,13 @@ function read_signals(io_or_path; validate_schema::Bool=true)
     @warn "`Onda.read_signals(io_or_path)` is deprecated, use `Legolas.read(io_or_path)` instead"
     return _deprecated_read_table(io_or_path, validate_schema ? Legolas.Schema("onda.signal@1") : nothing)
 end
+export read_signals
 
 function read_annotations(io_or_path; validate_schema::Bool=true)
     @warn "`Onda.read_annotations(io_or_path)` is deprecated, use `Legolas.read(io_or_path)` instead"
     return _deprecated_read_table(io_or_path, validate_schema ? Legolas.Schema("onda.annotation@1") : nothing)
 end
+export read_annotations
 
 @deprecate materialize Legolas.materialize
 @deprecate gather Legolas.gather

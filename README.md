@@ -1,29 +1,3 @@
-# TODOs
-
-- [x] get non-deprecation unit tests passing
-- [x] Arrow.jl upstream
-    - [x] test/merge/tag https://github.com/JuliaData/Arrow.jl/pull/229
-- [x] Legolas.jl upstream
-    - [x] document `Legolas.locations`
-    - [x] fold in https://github.com/beacon-biosignals/Legolas.jl/pull/13#issuecomment-885396648
-        - ref https://github.com/beacon-biosignals/Legolas.jl/pull/16
-- [x] restore Arrow (de)serialization hooks for `Samples`
-- [x] update `examples/flac.jl`
-- [x] update `examples/tour.jl`
-- [ ] deprecations
-    - [x] `read_signals`
-    - [x] `write_signals`
-    - [x] `read_annotations`
-    - [x] `write_annotations`
-    - [x] `Onda.validate`
-    - [x] `Onda.materialize`
-    - [x] `Onda.gather`
-    - [x] rename `Onda.validate_on_construction` -> `Onda.validate_samples_on_construction`
-    - [x] deprecate positional argument constructors for `Annotation`/`SampleInfo`/`Signal`
-    - [x] upgrade/downgrade methods for Onda data (not needed, fully backwards compatible)
-    - [ ] deprecation unit tests
-- [x] update docs
-
 # Onda.jl
 
 [![CI](https://github.com/beacon-biosignals/Onda.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/beacon-biosignals/Onda.jl/actions/workflows/CI.yml)
