@@ -104,6 +104,10 @@ The following sections provide [the version integer](https://beacon-biosignals.g
     - `"float64"`: 64-bit floating point number
 - `sample_rate` (`Int` or `FloatingPoint`): The signal's sample rate.
 
+Note that this schema allows for the existence of multiple `onda.signal` instances with the same `kind` and `recording`. In this instance, these `onda.signal` instances should be interpreted as digitized outputs of the same underlying process at their respective `span`s, thus enabling the representation/storage of discontiguous/overlapping sample data. Beyond this definition, further specification for the resolution of sample data discontinuities and/or overlaps for specific `kind`s/`recording`s/etc. is left to downstream, use-case-specific extensions of the `onda.signal` schema. For example, there may exist an `onda.signal` with `kind="eeg"` and `span=(start=Nanosecond(0), stop=Nanosecond(1e9))`, and another with the same `recording`/`kind` but with `span=(start=Nanosecond(2e9), stop=Nanosecond(3e9))`; downstream consumers may interpret this as a single EEG signal that is sampled for 1 second starting at the beginning of the recording, followed by a 1 second gap, followed by another second of sampling.
+
+When feasible in practice, it is recommended that data producers manually concatenate discontiguous sample data into a single `onda.signal` and use `NaN` values to represent unsampled regions, rather than represent discontiguous segments via separate `onda.signal`s, as the former approach is often more convenient than the latter for downstream consumers.
+
 ##### Examples
 
 | `recording`                          | `file_path`                                        | `file_format`                                            | `span`                       | `kind`     | `channels`                              | `sample_unit` | `sample_resolution_in_unit` | `sample_offset_in_unit` | `sample_type` | `sample_rate` | `my_custom_value`             |
