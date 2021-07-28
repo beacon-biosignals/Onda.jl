@@ -75,6 +75,7 @@ const SamplesInfo = @row("onda.samples-info@1",
 """
     const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                         recording::UUID,
+                        file_path::Any,
                         file_format::String = (file_format isa AbstractLPCMFormat ?
                                                Onda.file_format_string(file_format) :
                                                file_format),
@@ -92,6 +93,7 @@ as a type constraint in function or struct definitions. Instead, you should gene
 """
 const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     recording::UUID = UUID(recording),
+                    file_path::Any,
                     file_format::String = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
                     span::TimeSpan = TimeSpan(span),
                     kind::String = _validate_signal_kind(kind),
