@@ -42,7 +42,7 @@ struct Annotation{R}
         recording::UUID = recording isa UUID ? recording : UUID(recording)
         id::UUID = id isa UUID ? id : UUID(id)
         span::TimeSpan = TimeSpan(span)
-        _row = (; recording, id, span, custom...)
+        _row = @compat (; recording, id, span, custom...)
         return new{typeof(_row)}(_row)
     end
 end
@@ -50,7 +50,7 @@ end
 Annotation(row) = Annotation(NamedTuple(Tables.Row(row)))
 Annotation(row::NamedTuple) = Annotation(; row...)
 Annotation(row::Annotation) = row
-Annotation(recording, id, span; custom...) = Annotation(; recording, id, span, custom...)
+Annotation(recording, id, span; custom...) = @compat Annotation(; recording, id, span, custom...)
 
 Base.propertynames(x::Annotation) = propertynames(getfield(x, :_row))
 Base.getproperty(x::Annotation, name::Symbol) = getproperty(getfield(x, :_row), name)
@@ -104,7 +104,7 @@ function write_annotations(io_or_path, table; kwargs...)
         @warn "Invalid schema in input `table`. Try calling `Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
         rethrow()
     end
-    return write_onda_table(io_or_path, table; validate_schema, kwargs...)
+    return @compat write_onda_table(io_or_path, table; validate_schema, kwargs...)
 end
 
 #####

@@ -41,8 +41,8 @@ end
 function test_signal_row(recording, file_path, file_format, span, kind, channels, sample_unit,
                          sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
                          custom...)
-    row = (; recording, file_path, file_format, span, kind, channels, sample_unit,
-           sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
+    row = @compat (; recording, file_path, file_format, span, kind, channels, sample_unit,
+                   sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
     row_with_custom = (; row..., custom...)
 
     # intended normalization of input fields for constructor
@@ -53,8 +53,8 @@ function test_signal_row(recording, file_path, file_format, span, kind, channels
     channels::Vector{String} = channels
     sample_unit::String = sample_unit
     sample_type::String = sample_type isa DataType ? Onda.onda_sample_type_from_julia_type(sample_type) : sample_type
-    norm_row = (; recording, file_path, file_format, span, kind, channels, sample_unit,
-                sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
+    norm_row = @compat (; recording, file_path, file_format, span, kind, channels, sample_unit,
+                        sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
     norm_row_with_custom = (; norm_row..., custom...)
 
     @test has_rows(test_signal_field_types(Signal(row)), norm_row)

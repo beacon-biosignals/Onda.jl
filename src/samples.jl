@@ -117,7 +117,7 @@ for f in (:getindex, :view)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
             channels = rows isa Colon ? samples.info.channels : samples.info.channels[rows]
-            info = setproperties(samples.info; channels)
+            info = @compat setproperties(samples.info; channels)
             return Samples($f(samples.data, rows, columns), info, samples.encoded; validate=false)
         end
     end
@@ -404,11 +404,11 @@ method defined for `Onda.read_byte_range(::typeof(file_path), ...)`) and `file_f
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
 function load(signal, span...; encoded::Bool=false)
-    return load(signal.file_path, signal.file_format, SamplesInfo(signal), span...; encoded)
+    return @compat load(signal.file_path, signal.file_format, SamplesInfo(signal), span...; encoded)
 end
 
 function load(file_path, file_format::AbstractString, info::SamplesInfo, span...; encoded::Bool=false)
-    return load(file_path, format(file_format, info), info, span...; encoded)
+    return @compat load(file_path, format(file_format, info), info, span...; encoded)
 end
 
 function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; encoded::Bool=false)
@@ -469,7 +469,7 @@ arguments are forwarded to an invocation of the `Signal` constructor).
 function store(file_path, file_format, samples::Samples, recording, start; custom...)
     store(file_path, file_format, samples)
     span = TimeSpan(start, Nanosecond(start) + TimeSpans.duration(samples))
-    return Signal(samples.info; recording, file_path, file_format, span, custom...)
+    return @compat Signal(samples.info; recording, file_path, file_format, span, custom...)
 end
 
 #####

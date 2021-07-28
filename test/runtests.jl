@@ -1,3 +1,4 @@
+using Compat: @compat
 using Test, UUIDs, Dates, Onda, MsgPack, ConstructionBase,
       Tables, TimeSpans, DataFrames, Random
 

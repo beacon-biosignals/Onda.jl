@@ -100,7 +100,7 @@ struct Signal{R}
         sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = sample_offset_in_unit isa LPCM_SAMPLE_TYPE_UNION ? sample_offset_in_unit : Float64(sample_offset_in_unit)
         sample_type::String = sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type
         sample_rate::LPCM_SAMPLE_TYPE_UNION = sample_rate isa LPCM_SAMPLE_TYPE_UNION ? sample_rate : Float64(sample_rate)
-        _row = (; recording, file_path, file_format, span, kind, channels, sample_unit,
+        _row = @compat (; recording, file_path, file_format, span, kind, channels, sample_unit,
                 sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
                 custom...)
         return new{typeof(_row)}(_row)
@@ -114,7 +114,7 @@ Signal(row::Signal) = row
 function Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
                 sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
                 custom...)
-    return Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
+    return @compat Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
                   sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
                   custom...)
 end
@@ -171,7 +171,7 @@ function write_signals(io_or_path, table; kwargs...)
         @warn "Invalid schema in input `table`. Try calling `Onda.Signal.(Tables.rows(table))` to see if it is convertible to the required schema."
         rethrow()
     end
-    return write_onda_table(io_or_path, table; validate_schema, kwargs...)
+    return @compat write_onda_table(io_or_path, table; validate_schema, kwargs...)
 end
 
 #####
@@ -243,15 +243,15 @@ function SamplesInfo(; kind, channels, sample_unit,
                      sample_resolution_in_unit, sample_offset_in_unit,
                      sample_type, sample_rate,
                      validate::Bool=Onda.validate_on_construction())
-    return SamplesInfo(kind, channels, sample_unit,
-                       sample_resolution_in_unit, sample_offset_in_unit,
-                       sample_type, sample_rate; validate)
+    return @compat SamplesInfo(kind, channels, sample_unit,
+                               sample_resolution_in_unit, sample_offset_in_unit,
+                               sample_type, sample_rate; validate)
 end
 
 function SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
-    return SamplesInfo(row.kind, row.channels, row.sample_unit,
-                       row.sample_resolution_in_unit, row.sample_offset_in_unit,
-                       row.sample_type, row.sample_rate; validate)
+    return @compat SamplesInfo(row.kind, row.channels, row.sample_unit,
+                               row.sample_resolution_in_unit, row.sample_offset_in_unit,
+                               row.sample_type, row.sample_rate; validate)
 end
 
 """
@@ -272,9 +272,9 @@ end
 Base.:(==)(a::SamplesInfo, b::SamplesInfo) = all(name -> getfield(a, name) == getfield(b, name), fieldnames(SamplesInfo))
 
 function Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
-    return Signal(; recording, file_path, file_format, span,
-                  info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
-                  info.sample_offset_in_unit, info.sample_type, info.sample_rate, custom...)
+    return @compat Signal(; recording, file_path, file_format, span,
+                          info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
+                          info.sample_offset_in_unit, info.sample_type, info.sample_rate, custom...)
 end
 
 #####
