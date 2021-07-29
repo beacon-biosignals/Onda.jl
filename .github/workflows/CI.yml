@@ -22,7 +22,6 @@ jobs:
         arch:
           - x64
     steps:
-      - run: sudo apt-get install -y flac
       - uses: actions/checkout@v2
         with:
           fetch-depth: 0
