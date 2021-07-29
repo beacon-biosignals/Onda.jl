@@ -57,6 +57,9 @@ function test_signal_row(recording, file_path, file_format, span, kind, channels
                 sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
     norm_row_with_custom = (; norm_row..., custom...)
 
+    @test Arrow.Table(Legolas.tobuffer([Tables.rowmerge(row; file_format, sample_type)], Legolas.Schema("onda.signal@1"); validate=true)) isa Arrow.Table
+    @test Arrow.Table(Legolas.tobuffer([Tables.rowmerge(row_with_custom; file_format, sample_type)], Legolas.Schema("onda.signal@1"); validate=true)) isa Arrow.Table
+
     @test has_rows(test_signal_field_types(Signal(row)), norm_row)
     @test has_rows(test_signal_field_types(Signal(row_with_custom)), norm_row_with_custom)
     @test has_rows(test_signal_field_types(Signal(Signal(row))), norm_row)

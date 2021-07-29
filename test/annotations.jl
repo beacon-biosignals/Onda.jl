@@ -2,6 +2,9 @@ function test_annotation_row(recording, id, span; custom...)
     row = (; recording, id, span)
     row_with_custom = (; row..., custom...)
 
+    @test Arrow.Table(Legolas.tobuffer([row], Legolas.Schema("onda.annotation@1"); validate=true)) isa Arrow.Table
+    @test Arrow.Table(Legolas.tobuffer([row_with_custom], Legolas.Schema("onda.annotation@1"); validate=true)) isa Arrow.Table
+
     # intended normalization of input fields for constructor
     recording::UUID = recording isa UUID ? recording : UUID(recording)
     id::UUID = id isa UUID ? id : UUID(id)

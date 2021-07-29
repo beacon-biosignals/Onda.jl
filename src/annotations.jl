@@ -2,6 +2,9 @@
 ##### Annotation
 #####
 
+# Note that the real field type restrictions here are more lax than the documented
+# ones for improved compatibility with data produced by older Onda.jl versions and/or
+# non-Julia producers.
 """
     const Annotation = Legolas.@row("onda.annotation@1",
                                     recording::UUID,
@@ -16,9 +19,9 @@ as a type constraint in function or struct definitions. Instead, you should gene
 "annotation-like" arguments/fields so that other generic row types will compose with your code.
 """
 const Annotation = @row("onda.annotation@1",
-                        recording::UUID = UUID(recording),
-                        id::UUID = UUID(id),
-                        span::TimeSpan = TimeSpan(span))
+                        recording::Union{UInt128,UUID} = UUID(recording),
+                        id::Union{UInt128,UUID} = UUID(id),
+                        span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span))
 
 """
     write_annotations(io_or_path, table; kwargs...)

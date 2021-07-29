@@ -60,18 +60,21 @@ is irrelevant or does not yet exist (e.g. if sample data is being constructed/ma
 without yet having been serialized).
 """
 const SamplesInfo = @row("onda.samples-info@1",
-                         kind::String,
-                         channels::Vector{String},
-                         sample_unit::String,
+                         kind::AbstractString = convert(String, kind),
+                         channels::AbstractVector{<:AbstractString} = convert(Vector{String}, channels),
+                         sample_unit::AbstractString = convert(String, sample_unit),
                          sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_resolution_in_unit),
                          sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_offset_in_unit),
-                         sample_type::String = onda_sample_type_from_julia_type(sample_type),
+                         sample_type::AbstractString = onda_sample_type_from_julia_type(sample_type),
                          sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
 
 #####
 ##### `Signal`
 #####
 
+# Note that the real field type restrictions here are more lax than the documented
+# ones for improved compatibility with data produced by older Onda.jl versions and/or
+# non-Julia producers.
 """
     const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                         recording::UUID,
@@ -92,13 +95,13 @@ as a type constraint in function or struct definitions. Instead, you should gene
 "signal-like" arguments/fields so that other generic row types will compose with your code.
 """
 const Signal = @row("onda.signal@1" > "onda.samples-info@1",
-                    recording::UUID = UUID(recording),
+                    recording::Union{UInt128,UUID} = UUID(recording),
                     file_path::Any,
-                    file_format::String = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
-                    span::TimeSpan = TimeSpan(span),
-                    kind::String = _validate_signal_kind(kind),
-                    channels::Vector{String} = _validate_signal_channels(channels),
-                    sample_unit::String = _validate_signal_sample_unit(sample_unit))
+                    file_format::AbstractString = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
+                    span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span),
+                    kind::AbstractString = _validate_signal_kind(kind),
+                    channels::AbstractVector{<:AbstractString} = _validate_signal_channels(channels),
+                    sample_unit::AbstractString = _validate_signal_sample_unit(sample_unit))
 
 function _validate_signal_kind(x)
     is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $x"))
