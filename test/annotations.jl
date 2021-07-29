@@ -1,12 +1,12 @@
 function test_annotation_row(recording, id, span; custom...)
-    row = (; recording, id, span)
+    row = @compat (; recording, id, span)
     row_with_custom = (; row..., custom...)
 
     # intended normalization of input fields for constructor
     recording::UUID = recording isa UUID ? recording : UUID(recording)
     id::UUID = id isa UUID ? id : UUID(id)
     span::TimeSpan = TimeSpan(span)
-    norm_row = (; recording, id, span)
+    norm_row = @compat (; recording, id, span)
     norm_row_with_custom = (; norm_row..., custom...)
 
     @test has_rows(Annotation(row), norm_row)
@@ -80,7 +80,7 @@ end
     @test Tables.columnnames(merged) == (:recording, :id, :span, :from)
     sources_id = [row.id for row in sources]
     @test !any(in(id, sources_id) for id in merged.id)
-    merged = Set(Tables.rowtable((; merged.recording, merged.span, merged.from)))
+    merged = @compat Set(Tables.rowtable((; merged.recording, merged.span, merged.from)))
     expected = Set([(recording=recs[1], span=TimeSpan(0, 100), from=[sources[1].id, sources[3].id, sources[7].id]),
                     (recording=recs[1], span=TimeSpan(111, 176), from=[sources[10].id, sources[4].id]),
                     (recording=recs[1], span=TimeSpan(200, 300), from=[sources[14].id]),

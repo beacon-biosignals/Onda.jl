@@ -1,5 +1,6 @@
 module Onda
 
+using Compat: @compat
 using UUIDs, Dates, Random, Mmap
 using TimeSpans, ConstructionBase
 using Arrow, Tables
@@ -82,23 +83,23 @@ function upgrade_onda_dataset_to_v0_5!(dataset_path;
         verbose && log("($i / $(length(raw_recordings))) converting recording $uuid...")
         recording = UUID(uuid)
         for (kind, signal) in raw["signals"]
-            push!(signals, Signal(; recording,
-                                  file_path=signal_file_path(recording, kind, signal["file_extension"]),
-                                  file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
-                                  span=TimeSpan(signal["start_nanosecond"], signal["stop_nanosecond"]),
-                                  kind,
-                                  channels=signal["channel_names"],
-                                  sample_unit=signal["sample_unit"],
-                                  sample_resolution_in_unit=signal["sample_resolution_in_unit"],
-                                  sample_offset_in_unit=signal["sample_offset_in_unit"],
-                                  sample_type=signal["sample_type"],
-                                  sample_rate=signal["sample_rate"]))
+            push!(signals, @compat Signal(; recording,
+                                          file_path=signal_file_path(recording, kind, signal["file_extension"]),
+                                          file_format=signal_file_format(signal["file_extension"], signal["file_options"]),
+                                          span=TimeSpan(signal["start_nanosecond"], signal["stop_nanosecond"]),
+                                          kind,
+                                          channels=signal["channel_names"],
+                                          sample_unit=signal["sample_unit"],
+                                          sample_resolution_in_unit=signal["sample_resolution_in_unit"],
+                                          sample_offset_in_unit=signal["sample_offset_in_unit"],
+                                          sample_type=signal["sample_type"],
+                                          sample_rate=signal["sample_rate"]))
         end
         for annotation in raw["annotations"]
-            push!(annotations, Annotation(; recording,
-                                          id=uuid_from_annotation(annotation),
-                                          span=TimeSpan(annotation["start_nanosecond"], annotation["stop_nanosecond"]),
-                                          value=annotation["value"]))
+            push!(annotations, @compat Annotation(; recording,
+                                                  id=uuid_from_annotation(annotation),
+                                                  span=TimeSpan(annotation["start_nanosecond"], annotation["stop_nanosecond"]),
+                                                  value=annotation["value"]))
         end
     end
     signals_file_path = joinpath(dataset_path, "upgraded.onda.signals.arrow")

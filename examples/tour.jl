@@ -53,7 +53,7 @@ for recording in signals_recordings
         file_format = rand(("lpcm", "lpcm.zst"))
         file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
         Onda.log("generating $file_path...")
-        info = SamplesInfo(; kind, channels,
+        info = SamplesInfo(; kind=kind, channels=channels,
                            sample_unit="microvolt",
                            sample_resolution_in_unit=rand((0.25, 1)),
                            sample_offset_in_unit=rand((-1, 0, 1)),
