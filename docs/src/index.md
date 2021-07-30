@@ -85,7 +85,7 @@ Onda.file_format_string
 ## Utilities
 
 ```@docs
-Onda.validate_samples_on_construction
+VALIDATE_SAMPLES_DEFAULT
 ```
 
 ## Developer Installation

@@ -30,7 +30,9 @@ export read_annotations
 
 @deprecate materialize Legolas.materialize
 @deprecate gather Legolas.gather
-@deprecate validate_on_construction validate_samples_on_construction
+
+# Note: no deprecation can be provided for when `validate_on_construction()` is re-defined
+@deprecate validate_on_construction VALIDATE_SAMPLES_DEFAULT[]
 
 if VERSION >= v"1.5"
     @deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)

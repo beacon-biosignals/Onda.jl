@@ -144,7 +144,7 @@ end
                                     16885   600  20880  -32493  -19305"""
 end
 
-@testset "Onda.validate_samples_on_construction" begin
+@testset "Onda.VALIDATE_SAMPLES_DEFAULT" begin
     info = SamplesInfo(kind="kind",
                        channels=["a", "b", "c"],
                        sample_unit="microvolt",
@@ -152,15 +152,15 @@ end
                        sample_offset_in_unit=0.0,
                        sample_type=Int16,
                        sample_rate=100.0)
-    @test Onda.validate_samples_on_construction()
+    @test Onda.VALIDATE_SAMPLES_DEFAULT[]
     @test_throws ArgumentError Samples(rand(4, 10), info, false)
     @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
-    Onda.validate_samples_on_construction() = false
+    Onda.VALIDATE_SAMPLES_DEFAULT[] = false
     @test Samples(rand(4, 10), info, false) isa Samples
     @test Samples(rand(Int32, 3, 10), info, true) isa Samples
     @test_throws ArgumentError Onda.validate(Samples(rand(4, 10), info, false))
     @test_throws ArgumentError Onda.validate(Samples(rand(Int32, 3, 10), info, true))
-    Onda.validate_samples_on_construction() = true
+    Onda.VALIDATE_SAMPLES_DEFAULT[] = true
     @test_throws ArgumentError Samples(rand(4, 10), info, false)
     @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
 end
