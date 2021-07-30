@@ -76,7 +76,7 @@ annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlappin
 for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:60))
-        annotation = Annotation(; recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
+        annotation = Annotation(; recording=recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
                                 rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
         push!(annotations, annotation)
     end
