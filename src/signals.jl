@@ -120,9 +120,9 @@ function _validate_signal_channels(x)
     return x
 end
 
-extract_samples_info(signal) = SamplesInfo(; signal.kind, signal.channels, signal.sample_unit,
-                                           signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
-                                           signal.sample_type, signal.sample_rate)
+extract_samples_info(signal) = @compat SamplesInfo(; signal.kind, signal.channels, signal.sample_unit,
+                                                   signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
+                                                   signal.sample_type, signal.sample_rate)
 
 """
     write_signals(io_or_path, table; kwargs...)
@@ -179,4 +179,3 @@ Returns the expected size (in bytes) of an encoded `Samples` object correspondin
 
 """
 sizeof_samples(x, duration::Period) = sample_count(x, duration) * channel_count(x) * sizeof(sample_type(x))
-

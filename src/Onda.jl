@@ -1,6 +1,6 @@
 module Onda
 
-using Base: NamedTuple
+using Compat: @compat
 using UUIDs, Dates, Random, Mmap
 using Compat, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
 using Legolas

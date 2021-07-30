@@ -1,3 +1,4 @@
+using Compat: @compat
 using Test, UUIDs, Dates, Onda, Legolas, Arrow, Tables, TimeSpans, DataFrames, Random
 
 function has_rows(a, b)

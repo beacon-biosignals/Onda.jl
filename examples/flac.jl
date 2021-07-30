@@ -1,8 +1,6 @@
-# This file demonstrates an implementation of FLAC support for Onda.jl. Note
-# that it's a naive implementation - it just shells out and assumes you have
-# the `flac` command line utility installed and available on your system.
+# This file demonstrates an implementation of FLAC support for Onda.jl.
 
-using Onda, Test, Random, Dates
+using Onda, FLAC_jll, Test, Random, Dates
 
 #####
 ##### FLACFormat
@@ -58,13 +56,17 @@ end
 
 function Onda.deserializing_lpcm_stream(format::FLACFormat, io)
     flags = flac_raw_specification_flags(format)
-    cmd = open(`flac - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`, io)
+    cmd = flac() do flac_path
+        return open(`$flac_path - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`, io)
+    end
     return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
 
 function Onda.serializing_lpcm_stream(format::FLACFormat, io)
     flags = flac_raw_specification_flags(format)
-    cmd = open(`flac --totally-silent $(flags) -`, io; write=true)
+    cmd = flac() do flac_path
+        return open(`$flac_path --totally-silent $(flags) -`, io; write=true)
+    end
     return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
 

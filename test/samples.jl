@@ -25,9 +25,9 @@
     for (expected, signal) in zip(expected_parameters, signals)
         expected_info = Onda.extract_samples_info(expected)
         for encoded in (false, true)
-            s = load(signal; encoded)
-            s1 = load(expected.file_path, expected.file_format, expected_info; encoded)
-            s2 = load(expected.file_path, Onda.format(expected.file_format, expected_info), expected_info; encoded)
+            s = @compat load(signal; encoded)
+            s1 = @compat load(expected.file_path, expected.file_format, expected_info; encoded)
+            s2 = @compat load(expected.file_path, Onda.format(expected.file_format, expected_info), expected_info; encoded)
             @test s == s1 == s2
             @test s.info == expected_info
             @test TimeSpans.istimespan(s)
