@@ -29,7 +29,7 @@
         end
     end
     x = first(annotations)
-    y = Annotation(x.recording, x.id, x.span; x.a, x.b, x.c)
+    y = @compat Annotation(x.recording, x.id, x.span; x.a, x.b, x.c)
     @test x == y
     df = DataFrame(annotations)
     @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
