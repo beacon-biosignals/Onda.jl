@@ -67,8 +67,8 @@ end
                          read_signals(signals_file_path_1; validate_schema=true),
                          read_signals(signals_file_path_2; validate_schema=false),
                          read_signals(signals_file_path_2; validate_schema=true),
-                         @test_deprecated Onda.materialize(read_signals(io)),
-                         @test_deprecated Onda.materialize(read_signals(io2)),
+                         (tmp=read_signals(io); @test_deprecated Onda.materialize(tmp)),
+                         (tmp=read_signals(io2); @test_deprecated Onda.materialize(tmp)),
                          read_signals(seekstart(io); validate_schema=true))
         roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(signals)
