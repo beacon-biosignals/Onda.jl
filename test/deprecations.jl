@@ -4,7 +4,7 @@
     annotations = Annotation[Annotation(recording=rand(possible_recordings),
                                         id=uuid4(),
                                         span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
-                                        a=join(rand('a':'z', 10)),
+                                        a=randstring('a':'z', 10),
                                         b=rand(Int, 1),
                                         c=rand(3)) for i in 1:50]
     annotations_file_path_1 = joinpath(root, "test-1.onda.annotations.arrow")
