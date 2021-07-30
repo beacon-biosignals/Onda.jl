@@ -29,7 +29,7 @@
         end
     end
     x = first(annotations)
-    y = Annotation(x.recording, x.id, x.span; x.a, x.b, x.c)
+    y = @compat Annotation(x.recording, x.id, x.span; x.a, x.b, x.c)
     @test x == y
     df = DataFrame(annotations)
     @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
@@ -78,9 +78,9 @@ end
         end
     end
     x = first(signals)
-    y = Signal(x.recording, x.file_path, x.file_format, x.span, x.kind, x.channels, x.sample_unit,
-               x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate;
-               x.a, x.b, x.c)
+    y = @compat Signal(x.recording, x.file_path, x.file_format, x.span, x.kind, x.channels, x.sample_unit,
+                       x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate;
+                       x.a, x.b, x.c)
     @test x == y
     x = Onda.extract_samples_info(x)
     y = SamplesInfo(x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate)
