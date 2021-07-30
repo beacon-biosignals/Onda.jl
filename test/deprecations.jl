@@ -85,7 +85,7 @@ end
     x = Onda.extract_samples_info(x)
     y = SamplesInfo(x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate)
     @test x == y
-    @test isnothing(Onda.validate(y))
+    @test isnothing(@test_deprecated Onda.validate(y))
     df = DataFrame(signals)
     @test (@test_deprecated Onda.gather(:recording, df)) == Legolas.gather(:recording, df)
 end
