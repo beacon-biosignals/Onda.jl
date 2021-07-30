@@ -4,7 +4,7 @@
     annotations = Annotation[Annotation(recording=rand(possible_recordings),
                                         id=uuid4(),
                                         span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
-                                        a=join(rand('a':'z', 10)),
+                                        a=randstring('a':'z', 10),
                                         b=rand(Int, 1),
                                         c=rand(3)) for i in 1:50]
     annotations_file_path_1 = joinpath(root, "test-1.onda.annotations.arrow")
@@ -67,8 +67,8 @@ end
                          read_signals(signals_file_path_1; validate_schema=true),
                          read_signals(signals_file_path_2; validate_schema=false),
                          read_signals(signals_file_path_2; validate_schema=true),
-                         Onda.materialize(read_signals(io)),
-                         Onda.materialize(read_signals(io2)),
+                         @test_deprecated Onda.materialize(read_signals(io)),
+                         @test_deprecated Onda.materialize(read_signals(io2)),
                          read_signals(seekstart(io); validate_schema=true))
         roundtripped = collect(Tables.rows(roundtripped))
         @test length(roundtripped) == length(signals)
@@ -85,7 +85,7 @@ end
     x = Onda.extract_samples_info(x)
     y = SamplesInfo(x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate)
     @test x == y
-    @test isnothing(Onda.validate(y))
+    @test isnothing(@test_deprecated Onda.validate(y))
     df = DataFrame(signals)
-    @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
+    @test (@test_deprecated Onda.gather(:recording, df)) == Legolas.gather(:recording, df)
 end
