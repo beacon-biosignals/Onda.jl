@@ -87,5 +87,5 @@ end
     @test x == y
     @test isnothing(Onda.validate(y))
     df = DataFrame(signals)
-    @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
+    @test (@test_deprecated Onda.gather(:recording, df)) == Legolas.gather(:recording, df)
 end
