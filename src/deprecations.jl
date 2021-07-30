@@ -31,19 +31,37 @@ export read_annotations
 @deprecate materialize Legolas.materialize
 @deprecate gather Legolas.gather
 @deprecate validate_on_construction validate_samples_on_construction
-@deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)
-@deprecate(Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
-                  sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
-                  custom...),
-           Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
-                  sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-                  custom...))
-@deprecate(SamplesInfo(kind, channels, sample_unit,
-                       sample_resolution_in_unit, sample_offset_in_unit,
-                       sample_type, sample_rate; custom...),
-           SamplesInfo(; kind, channels, sample_unit,
-                       sample_resolution_in_unit, sample_offset_in_unit,
-                       sample_type, sample_rate, custom...))
+
+if VERSION >= v"1.5"
+    @deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)
+    @deprecate(Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
+                      sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
+                      custom...),
+               Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
+                      sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
+                      custom...))
+    @deprecate(SamplesInfo(kind, channels, sample_unit,
+                           sample_resolution_in_unit, sample_offset_in_unit,
+                           sample_type, sample_rate; custom...),
+               SamplesInfo(; kind, channels, sample_unit,
+                           sample_resolution_in_unit, sample_offset_in_unit,
+                           sample_type, sample_rate, custom...))
+else
+    @deprecate(Annotation(recording, id, span; custom...),
+               @compat Annotation(; recording, id, span, custom...))
+    @deprecate(Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
+                      sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
+                      custom...),
+               @compat Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
+                              sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
+                              custom...))
+    @deprecate(SamplesInfo(kind, channels, sample_unit,
+                           sample_resolution_in_unit, sample_offset_in_unit,
+                           sample_type, sample_rate; custom...),
+               @compat SamplesInfo(; kind, channels, sample_unit,
+                                   sample_resolution_in_unit, sample_offset_in_unit,
+                                   sample_type, sample_rate, custom...))
+end
 
 function validate(::SamplesInfo)
     depwarn("`validate(::SamplesInfo)` is deprecated; avoid invoking this method in favor of calling `validate(::Samples)`", :validate)

@@ -19,7 +19,7 @@ UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 [compat]
 Arrow = "1.6.2"
 CodecZstd = "0.6, 0.7"
-Compat = "3.31"
+Compat = "3.32"
 DataFrames = "1.2"
 Legolas = "0.2.2"
 Tables = "1.4"
