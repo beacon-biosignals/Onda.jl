@@ -100,7 +100,7 @@ const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     file_format::AbstractString = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
                     span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span),
                     kind::AbstractString = _validate_signal_kind(kind),
-                    channels::AbstractVector{<:AbstractString} = _validate_signal_channels(channels),
+                    channels::AbstractVector{<:AbstractString} = (foreach(_validate_signal_channel, channels); channels),
                     sample_unit::AbstractString = _validate_signal_sample_unit(sample_unit))
 
 function _validate_signal_kind(x)
@@ -113,10 +113,8 @@ function _validate_signal_sample_unit(x)
     return x
 end
 
-function _validate_signal_channels(x)
-    for c in x
-        is_lower_snake_case_alphanumeric(c, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
-    end
+function _validate_signal_channel(x)
+    is_lower_snake_case_alphanumeric(x, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
     return x
 end
 
