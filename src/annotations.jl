@@ -12,7 +12,7 @@
                                     span::TimeSpan)
 
 A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.annotation@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
-representing an `onda.annotation` as described by the [Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl#the-onda-format-specification).
+representing an [`onda.annotation` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondaannotation1).
 
 This type primarily exists to aid in the validated row construction, and is not intended to be used
 as a type constraint in function or struct definitions. Instead, you should generally duck-type any
