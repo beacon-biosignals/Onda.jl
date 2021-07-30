@@ -72,7 +72,7 @@ function merge_overlapping_annotations(annotations)
                 push!(prev.from, next.id)
                 merged[end] = Annotation(Tables.rowmerge(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span))))
             else
-                push!(merged, Annotation(; next.recording, id=uuid4(), next.span, from=[next.id]))
+                push!(merged, Annotation(; next.recording, id=uuid4(), span=next.span, from=[next.id]))
             end
         end
     end
