@@ -32,6 +32,14 @@ export read_annotations
 @deprecate gather Legolas.gather false
 @deprecate validate_on_construction validate_samples_on_construction false
 
+@deprecate(validate_signal_schema(s),
+           isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.signal@1")),
+           false)
+
+@deprecate(validate_annotation_schema(s),
+           isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.annotation@1")),
+           false)
+
 if VERSION >= v"1.5"
     @deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)
     @deprecate(Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
