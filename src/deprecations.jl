@@ -28,9 +28,9 @@ function read_annotations(io_or_path; validate_schema::Bool=true)
 end
 export read_annotations
 
-@deprecate materialize Legolas.materialize
-@deprecate gather Legolas.gather
-@deprecate validate_on_construction validate_samples_on_construction
+@deprecate materialize Legolas.materialize false
+@deprecate gather Legolas.gather false
+@deprecate validate_on_construction validate_samples_on_construction false
 
 if VERSION >= v"1.5"
     @deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)
