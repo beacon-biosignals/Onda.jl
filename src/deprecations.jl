@@ -28,11 +28,19 @@ function read_annotations(io_or_path; validate_schema::Bool=true)
 end
 export read_annotations
 
-@deprecate materialize Legolas.materialize
-@deprecate gather Legolas.gather
+@deprecate materialize Legolas.materialize false
+@deprecate gather Legolas.gather false
 
 # Note: no deprecation can be provided for when `validate_on_construction()` is re-defined
 @deprecate validate_on_construction VALIDATE_SAMPLES_DEFAULT[]
+
+@deprecate(validate_signal_schema(s),
+           isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.signal@1")),
+           false)
+
+@deprecate(validate_annotation_schema(s),
+           isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.annotation@1")),
+           false)
 
 if VERSION >= v"1.5"
     @deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)

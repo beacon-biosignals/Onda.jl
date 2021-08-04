@@ -33,6 +33,12 @@
     @test x == y
     df = DataFrame(annotations)
     @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
+
+    names = (:recording, :id, :span)
+    types = Tuple{Union{UInt128,UUID},Union{UInt128,UUID},Union{Onda.NamedTupleTimeSpan,TimeSpan}}
+    @test (@test_deprecated Onda.validate_annotation_schema(nothing)) === nothing
+    @test (@test_deprecated Onda.validate_annotation_schema(Tables.Schema(names, types))) === nothing
+    @test_throws ArgumentError Onda.validate_annotation_schema(Tables.Schema((:x, :y), (Any, Any)))
 end
 
 @testset "onda.signal deprecations" begin
@@ -88,4 +94,11 @@ end
     @test isnothing(@test_deprecated Onda.validate(y))
     df = DataFrame(signals)
     @test (@test_deprecated Onda.gather(:recording, df)) == Legolas.gather(:recording, df)
+
+    names = (:recording, :file_path, :file_format, :span, :kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate)
+    types = Tuple{Union{UInt128,UUID},Any,AbstractString,Union{Onda.NamedTupleTimeSpan,TimeSpan},AbstractString,AbstractVector{<:AbstractString},AbstractString,
+                  Onda.LPCM_SAMPLE_TYPE_UNION,Onda.LPCM_SAMPLE_TYPE_UNION,AbstractString,Onda.LPCM_SAMPLE_TYPE_UNION}
+    @test (@test_deprecated Onda.validate_signal_schema(nothing)) === nothing
+    @test (@test_deprecated Onda.validate_signal_schema(Tables.Schema(names, types))) === nothing
+    @test_throws ArgumentError Onda.validate_signal_schema(Tables.Schema((:x, :y), (Any, Any)))
 end
