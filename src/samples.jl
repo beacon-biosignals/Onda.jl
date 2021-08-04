@@ -3,23 +3,24 @@
 #####
 
 """
-    Onda.validate_samples_on_construction()
+    VALIDATE_SAMPLES_DEFAULT[]
 
-Returns `true` by default.
+Defaults to `true`.
 
-If this function returns `true`, `Samples` objects will be validated upon construction
-for compliance with the Onda specification.
+When set to `true`, `Samples` objects will be validated upon construction for compliance
+with the Onda specification.
 
-Users may interactively redefine this method to `false` in order to disable this extra layer
+Users may interactively set this reference to `false` in order to disable this extra layer
 validation, which can be useful when working with malformed Onda datasets.
 
 See also: [`Onda.validate`](@ref)
 """
-validate_samples_on_construction() = true
+const VALIDATE_SAMPLES_DEFAULT = Ref{Bool}(true)
+
 
 """
     Samples(data::AbstractMatrix, info::SamplesInfo, encoded::Bool;
-            validate::Bool=Onda.validate_samples_on_construction())
+            validate::Bool=Onda.VALIDATE_SAMPLES_DEFAULT[])
 
 Return a `Samples` instance with the following fields:
 
@@ -48,7 +49,7 @@ struct Samples{D<:AbstractMatrix,S<:SamplesInfo}
     info::S
     encoded::Bool
     function Samples(data, info::SamplesInfo, encoded::Bool;
-                     validate::Bool=validate_samples_on_construction())
+                     validate::Bool=VALIDATE_SAMPLES_DEFAULT[])
         samples = new{typeof(data),typeof(info)}(data, info, encoded)
         validate && Onda.validate(samples)
         return samples

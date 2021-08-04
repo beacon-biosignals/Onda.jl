@@ -30,7 +30,9 @@ export read_annotations
 
 @deprecate materialize Legolas.materialize false
 @deprecate gather Legolas.gather false
-@deprecate validate_on_construction validate_samples_on_construction false
+
+# Note: no deprecation can be provided for when `validate_on_construction()` is re-defined
+@deprecate validate_on_construction VALIDATE_SAMPLES_DEFAULT[]
 
 @deprecate(validate_signal_schema(s),
            isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.signal@1")),
