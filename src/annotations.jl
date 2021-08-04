@@ -1,111 +1,34 @@
 #####
-##### validation
-#####
-
-validate_annotation_schema(::Nothing) = @warn "`schema == nothing`; skipping schema validation"
-
-function validate_annotation_schema(schema::Tables.Schema)
-    length(schema.names) >= 3 || throw(ArgumentError("invalid `Annotation` fields: need at least 3 fields, input has $(length(schema.names))"))
-    for (i, (name, T)) in enumerate((:recording => Union{UInt128,UUID},
-                                     :id => Union{UInt128,UUID},
-                                     :span => Union{NamedTupleTimeSpan,TimeSpan}))
-        schema.names[i] === name || throw(ArgumentError("invalid `Annotation` fields: field $i must be named `:$(name)`, got $(schema.names[i])"))
-        schema.types[i] <: T || throw(ArgumentError("invalid `Annotation` fields: invalid `:$(name)` field type: $(schema.types[i])"))
-    end
-    return nothing
-end
-
-#####
 ##### Annotation
 #####
 
+# Note that the real field type restrictions here are more lax than the documented
+# ones for improved compatibility with data produced by older Onda.jl versions and/or
+# non-Julia producers.
 """
-    Annotation(annotations_table_row)
-    Annotation(recording, id, span; custom...)
-    Annotation(; recording, id, span, custom...)
+    const Annotation = Legolas.@row("onda.annotation@1",
+                                    recording::UUID,
+                                    id::UUID,
+                                    span::TimeSpan)
 
-Return an `Annotation` instance that represents a row of an `*.onda.annotations.arrow` table.
+A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.annotation@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
+representing an [`onda.annotation` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondaannotation1).
 
-The names, types, and order of the columns of an `Annotation` instance are guaranteed to
-result in a `*.onda.annotations.arrow`-compliant row when written out via `write_annotations`.
-
-This type primarily exists to aid in the validated construction of such rows/tables,
-and is not intended to be used as a type constraint in function or struct definitions.
-Instead, you should generally duck-type any "annotation-like" arguments/fields so that
-other generic row types will compose with your code.
-
-This type supports Tables.jl's `AbstractRow` interface (but does not subtype `AbstractRow`).
+This type primarily exists to aid in the validated row construction, and is not intended to be used
+as a type constraint in function or struct definitions. Instead, you should generally duck-type any
+"annotation-like" arguments/fields so that other generic row types will compose with your code.
 """
-struct Annotation{R}
-    _row::R
-    function Annotation(; recording, id, span, custom...)
-        recording::UUID = recording isa UUID ? recording : UUID(recording)
-        id::UUID = id isa UUID ? id : UUID(id)
-        span::TimeSpan = TimeSpan(span)
-        _row = @compat (; recording, id, span, custom...)
-        return new{typeof(_row)}(_row)
-    end
-end
-
-Annotation(row) = Annotation(NamedTuple(Tables.Row(row)))
-Annotation(row::NamedTuple) = Annotation(; row...)
-Annotation(row::Annotation) = row
-Annotation(recording, id, span; custom...) = @compat Annotation(; recording, id, span, custom...)
-
-Base.propertynames(x::Annotation) = propertynames(getfield(x, :_row))
-Base.getproperty(x::Annotation, name::Symbol) = getproperty(getfield(x, :_row), name)
-
-ConstructionBase.setproperties(x::Annotation, patch::NamedTuple) = Annotation(setproperties(getfield(x, :_row), patch))
-
-Tables.getcolumn(x::Annotation, i::Int) = Tables.getcolumn(getfield(x, :_row), i)
-Tables.getcolumn(x::Annotation, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
-Tables.columnnames(x::Annotation) = Tables.columnnames(getfield(x, :_row))
-
-#####
-##### read/write
-#####
-
-"""
-    read_annotations(io_or_path; validate_schema::Bool=true)
-
-Return the `*.onda.annotations.arrow`-compliant table read from `io_or_path`.
-
-If `validate_schema` is `true`, the table's schema will be validated to ensure it is
-a `*.onda.annotations.arrow`-compliant table. An `ArgumentError` will be thrown if
-any schema violation is detected.
-"""
-function read_annotations(io_or_path; materialize::Union{Missing,Bool}=missing, validate_schema::Bool=true)
-    table = read_onda_table(io_or_path)
-    validate_schema && validate_annotation_schema(Tables.schema(table))
-    if materialize isa Bool
-        if materialize
-            @warn "`read_annotations(x; materialize=true)` is deprecated; use `Onda.materialize(read_annotations(x))` instead"
-            return Onda.materialize(table)
-        else
-            @warn "`read_annotations(x; materialize=false)` is deprecated; use `read_annotations(x)` instead"
-        end
-    end
-    return table
-end
+const Annotation = @row("onda.annotation@1",
+                        recording::Union{UInt128,UUID} = UUID(recording),
+                        id::Union{UInt128,UUID} = UUID(id),
+                        span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span))
 
 """
     write_annotations(io_or_path, table; kwargs...)
 
-Write `table` to `io_or_path`, first validating that `table` is a
-`*.onda.annotations.arrow`-compliant table. An `ArgumentError` will
-be thrown if any schema violation is detected.
-
-`kwargs` is forwarded to an internal invocation of `Arrow.write(...; file=true, kwargs...)`.
+Invoke/return `Legolas.write(path_or_io, annotations, Schema("onda.annotation@1"); kwargs...)`.
 """
-function write_annotations(io_or_path, table; kwargs...)
-    validate_schema = schema -> try
-        validate_annotation_schema(schema)
-    catch
-        @warn "Invalid schema in input `table`. Try calling `Annotation.(Tables.rows(table))` to see if it is convertible to the required schema."
-        rethrow()
-    end
-    return @compat write_onda_table(io_or_path, table; validate_schema, kwargs...)
-end
+write_annotations(path_or_io, annotations; kwargs...) = Legolas.write(path_or_io, annotations, Legolas.Schema("onda.annotation@1"); kwargs...)
 
 #####
 ##### utilities
@@ -114,7 +37,7 @@ end
 """
     merge_overlapping_annotations(annotations)
 
-Given the `*.onda.annotations.arrow`-compliant table `annotations`, return
+Given the `onda.annotation`-compliant table `annotations`, return
 a table corresponding to `annotations` except that overlapping entries have
 been merged.
 
@@ -137,19 +60,19 @@ memory if `!Tables.columnaccess(annotations)`.
 function merge_overlapping_annotations(annotations)
     columns = Tables.columns(annotations)
     merged = Annotation[]
-    for (rid, (locs,)) in locations((columns.recording,))
+    for (rid, (locs,)) in Legolas.locations((columns.recording,))
         subset = (recording=view(columns.recording, locs), id=view(columns.id, locs), span=view(columns.span, locs))
         p = sortperm(subset.span; by=TimeSpans.start)
         sorted = Tables.rows((recording=view(subset.recording, p), id=view(subset.id, p), span=view(subset.span, p)))
         init = first(sorted)
-        push!(merged, Annotation(rid, uuid4(), init.span; from=[init.id]))
+        push!(merged, Annotation(recording=rid, id=uuid4(), span=init.span, from=[init.id]))
         for next in Iterators.drop(sorted, 1)
             prev = merged[end]
             if next.recording == prev.recording && TimeSpans.overlaps(next.span, prev.span)
                 push!(prev.from, next.id)
-                merged[end] = setproperties(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span)))
+                merged[end] = Annotation(Tables.rowmerge(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span))))
             else
-                push!(merged, Annotation(next.recording, uuid4(), next.span; from=[next.id]))
+                push!(merged, Annotation(; recording=next.recording, id=uuid4(), span=next.span, from=[next.id]))
             end
         end
     end

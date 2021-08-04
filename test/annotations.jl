@@ -2,6 +2,9 @@ function test_annotation_row(recording, id, span; custom...)
     row = @compat (; recording, id, span)
     row_with_custom = (; row..., custom...)
 
+    @test Arrow.Table(Legolas.tobuffer([row], Legolas.Schema("onda.annotation@1"); validate=true)) isa Arrow.Table
+    @test Arrow.Table(Legolas.tobuffer([row_with_custom], Legolas.Schema("onda.annotation@1"); validate=true)) isa Arrow.Table
+
     # intended normalization of input fields for constructor
     recording::UUID = recording isa UUID ? recording : UUID(recording)
     id::UUID = id isa UUID ? id : UUID(id)
@@ -15,9 +18,7 @@ function test_annotation_row(recording, id, span; custom...)
     @test has_rows(Annotation(Annotation(row_with_custom)), norm_row_with_custom)
     @test has_rows(Annotation(Tables.Row(row)), norm_row)
     @test has_rows(Annotation(Tables.Row(row_with_custom)), norm_row_with_custom)
-    @test has_rows(Annotation(row...), norm_row)
     @test has_rows(Annotation(; row...), norm_row)
-    @test has_rows(Annotation(row...; custom...), norm_row_with_custom)
     @test has_rows(Annotation(; row..., custom...), norm_row_with_custom)
 end
 
@@ -27,55 +28,22 @@ end
     test_annotation_row(uuid4(), uuid4(), TimeSpan(Nanosecond(1), Nanosecond(100)); custom...)
 end
 
-@testset "`read_annotations`/`write_annotations`" begin
-    root = mktempdir()
-    possible_recordings = (uuid4(), uuid4(), uuid4())
-    annotations = Annotation[Annotation(recording=rand(possible_recordings),
-                                        id=uuid4(),
-                                        span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
-                                        a=join(rand('a':'z', 10)),
-                                        b=rand(Int, 1),
-                                        c=rand(3)) for i in 1:50]
-    annotations_file_path = joinpath(root, "test.onda.annotations.arrow")
-    cols = Tables.columns(annotations)
-    Onda.assign_to_table_metadata!(cols, ("a" => "b", "x" => "y"))
-    io = IOBuffer()
-    write_annotations(annotations_file_path, cols)
-    write_annotations(io, cols)
-    seekstart(io)
-    for roundtripped in (read_annotations(annotations_file_path; materialize=false, validate_schema=false),
-                         read_annotations(annotations_file_path; materialize=true, validate_schema=true),
-                         Onda.materialize(read_annotations(io)),
-                         read_annotations(seekstart(io); validate_schema=true))
-        if roundtripped isa Onda.Arrow.Table
-            @test Onda.table_has_metadata(m -> m["onda_format_version"] == "v$(Onda.MAXIMUM_ONDA_FORMAT_VERSION)" &&
-                                               m["a"] == "b" && m["x"] == "y", roundtripped)
-        end
-        roundtripped = collect(Tables.rows(roundtripped))
-        @test length(roundtripped) == length(annotations)
-        for (r, a) in zip(roundtripped, annotations)
-            @test getfield(a, :_row) == NamedTuple(r)
-            @test getfield(a, :_row) == getfield(Annotation(r), :_row)
-        end
-    end
-end
-
 @testset "`merge_overlapping_annotations`" begin
     recs = (uuid4(), uuid4(), uuid4())
-    sources = [#= 1 =#  Annotation(recs[1], uuid4(), TimeSpan(0, 100)),
-               #= 2 =#  Annotation(recs[2], uuid4(), TimeSpan(55, 100)),
-               #= 3 =#  Annotation(recs[1], uuid4(), TimeSpan(34, 76)),
-               #= 4 =#  Annotation(recs[1], uuid4(), TimeSpan(120, 176)),
-               #= 5 =#  Annotation(recs[2], uuid4(), TimeSpan(67, 95)),
-               #= 6 =#  Annotation(recs[2], uuid4(), TimeSpan(15, 170)),
-               #= 7 =#  Annotation(recs[1], uuid4(), TimeSpan(43, 89)),
-               #= 8 =#  Annotation(recs[3], uuid4(), TimeSpan(0, 50)),
-               #= 9 =#  Annotation(recs[2], uuid4(), TimeSpan(2, 10)),
-               #= 10 =# Annotation(recs[1], uuid4(), TimeSpan(111, 140)),
-               #= 11 =# Annotation(recs[3], uuid4(), TimeSpan(60, 100)),
-               #= 12 =# Annotation(recs[3], uuid4(), TimeSpan(23, 80)),
-               #= 13 =# Annotation(recs[3], uuid4(), TimeSpan(100, 110)),
-               #= 14 =# Annotation(recs[1], uuid4(), TimeSpan(200, 300))]
+    sources = [#= 1 =#  Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(0, 100)),
+               #= 2 =#  Annotation(recording=recs[2], id=uuid4(), span=TimeSpan(55, 100)),
+               #= 3 =#  Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(34, 76)),
+               #= 4 =#  Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(120, 176)),
+               #= 5 =#  Annotation(recording=recs[2], id=uuid4(), span=TimeSpan(67, 95)),
+               #= 6 =#  Annotation(recording=recs[2], id=uuid4(), span=TimeSpan(15, 170)),
+               #= 7 =#  Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(43, 89)),
+               #= 8 =#  Annotation(recording=recs[3], id=uuid4(), span=TimeSpan(0, 50)),
+               #= 9 =#  Annotation(recording=recs[2], id=uuid4(), span=TimeSpan(2, 10)),
+               #= 10 =# Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(111, 140)),
+               #= 11 =# Annotation(recording=recs[3], id=uuid4(), span=TimeSpan(60, 100)),
+               #= 12 =# Annotation(recording=recs[3], id=uuid4(), span=TimeSpan(23, 80)),
+               #= 13 =# Annotation(recording=recs[3], id=uuid4(), span=TimeSpan(100, 110)),
+               #= 14 =# Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(200, 300))]
     merged = Tables.columns(merge_overlapping_annotations(sources))
     @test Tables.columnnames(merged) == (:recording, :id, :span, :from)
     sources_id = [row.id for row in sources]

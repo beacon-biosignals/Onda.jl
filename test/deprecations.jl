@@ -1,50 +1,109 @@
-@testset "upgrade_onda_dataset_to_v0_5!/downgrade_onda_dataset_to_v0_4!" begin
-    new_path = mktempdir()
-    old_path = joinpath(@__DIR__, "old_test_v0_3.onda")
-    cp(old_path, new_path; force=true)
-    Onda.upgrade_onda_dataset_to_v0_5!(new_path)
-    signals = DataFrame(read_signals(joinpath(new_path, "upgraded.onda.signals.arrow")))
-    annotations = DataFrame(read_annotations(joinpath(new_path, "upgraded.onda.annotations.arrow")))
-
-    downgraded_path = mktempdir()
-    Onda.downgrade_onda_dataset_to_v0_4!(downgraded_path, signals, annotations)
-    downgraded_header, downgraded_recordings = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(downgraded_path, "recordings.msgpack.zst"))))
-    @test downgraded_header == Dict("onda_format_version" => "v0.4.0", "ordered_keys" => false)
-
-    _, old_recordings = MsgPack.unpack(Onda.zstd_decompress(read(joinpath(new_path, "recordings.msgpack.zst"))))
-    new_recordings = Onda.gather(:recording, signals, annotations)
-    for (uuid, old_recording) in old_recordings
-        new_signals, new_annotations = new_recordings[UUID(uuid)]
-        downgraded_recording = downgraded_recordings[uuid]
-        @test length(old_recording["signals"]) == nrow(new_signals)
-        @test length(old_recording["annotations"]) == nrow(new_annotations)
-        for (old_kind, old_signal) in old_recording["signals"]
-            new_signal = view(new_signals, findall(==(old_kind), new_signals.kind), :)
-            @test old_signal == downgraded_recording["signals"][old_kind]
-            @test nrow(new_signal) == 1
-            @test new_signal.file_path[] == joinpath("samples", uuid, old_kind * "." * old_signal["file_extension"])
-            @test new_signal.file_format[] == old_signal["file_extension"]
-            @test new_signal.span[] == TimeSpan(old_signal["start_nanosecond"], old_signal["stop_nanosecond"])
-            @test new_signal.channels[] == old_signal["channel_names"]
-            @test new_signal.sample_unit[] == old_signal["sample_unit"]
-            @test new_signal.sample_resolution_in_unit[] == old_signal["sample_resolution_in_unit"]
-            @test new_signal.sample_offset_in_unit[] == old_signal["sample_offset_in_unit"]
-            @test new_signal.sample_type[] == old_signal["sample_type"]
-            @test new_signal.sample_rate[] == old_signal["sample_rate"]
-        end
-        for old_annotation in old_recording["annotations"]
-            old_span = TimeSpan(old_annotation["start_nanosecond"], old_annotation["stop_nanosecond"])
-            new_annotation = filter(a -> a.value == old_annotation["value"] && a.span == old_span, new_annotations)
-            @test nrow(new_annotation) == 1
-            @test new_annotation.recording[] == UUID(uuid)
-        end
-        for downgraded_annotation in downgraded_recording["annotations"]
-            downgraded_span = TimeSpan(downgraded_annotation["start_nanosecond"], downgraded_annotation["stop_nanosecond"])
-            downgraded_value = Onda.JSON3.read(downgraded_annotation["value"])
-            new_annotation = filter(a -> a.id == UUID(downgraded_value.id) && a.span == downgraded_span && a.value == downgraded_value.value,
-                                    new_annotations)
-            @test nrow(new_annotation) == 1
-            @test new_annotation.recording[] == UUID(uuid)
+@testset "onda.annotation deprecations" begin
+    root = mktempdir()
+    possible_recordings = (uuid4(), uuid4(), uuid4())
+    annotations = Annotation[Annotation(recording=rand(possible_recordings),
+                                        id=uuid4(),
+                                        span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
+                                        a=randstring('a':'z', 10),
+                                        b=rand(Int, 1),
+                                        c=rand(3)) for i in 1:50]
+    annotations_file_path_1 = joinpath(root, "test-1.onda.annotations.arrow")
+    annotations_file_path_2 = joinpath(root, "test-2.onda.annotations.arrow")
+    cols = Tables.columns(annotations)
+    io = IOBuffer()
+    write_annotations(annotations_file_path_1, cols)
+    Arrow.write(annotations_file_path_2, cols)
+    write_annotations(io, cols)
+    seekstart(io)
+    for roundtripped in (read_annotations(annotations_file_path_1; validate_schema=false),
+                         read_annotations(annotations_file_path_1; validate_schema=true),
+                         read_annotations(annotations_file_path_2; validate_schema=false),
+                         read_annotations(annotations_file_path_2; validate_schema=true),
+                         Onda.materialize(read_annotations(io)),
+                         read_annotations(seekstart(io); validate_schema=true))
+        roundtripped = collect(Tables.rows(roundtripped))
+        @test length(roundtripped) == length(annotations)
+        for (r, a) in zip(roundtripped, annotations)
+            @test NamedTuple(a) == NamedTuple(r)
+            @test NamedTuple(a) == NamedTuple(Annotation(r))
         end
     end
+    x = first(annotations)
+    y = @compat Annotation(x.recording, x.id, x.span; x.a, x.b, x.c)
+    @test x == y
+    @test (@test_deprecated setproperties(y; a='+')) == Annotation(Tables.rowmerge(y; a='+'))
+    df = DataFrame(annotations)
+    @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
+
+    names = (:recording, :id, :span)
+    types = Tuple{Union{UInt128,UUID},Union{UInt128,UUID},Union{Onda.NamedTupleTimeSpan,TimeSpan}}
+    @test (@test_deprecated Onda.validate_annotation_schema(nothing)) === nothing
+    @test (@test_deprecated Onda.validate_annotation_schema(Tables.Schema(names, types))) === nothing
+    @test_throws ArgumentError Onda.validate_annotation_schema(Tables.Schema((:x, :y), (Any, Any)))
+end
+
+@testset "onda.signal deprecations" begin
+    root = mktempdir()
+    possible_recordings = (uuid4(), uuid4(), uuid4())
+    possible_sample_types = (UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64)
+    signals = Signal[Signal(recording=rand(possible_recordings),
+                            file_path=joinpath(root, "x_$(i)_file"),
+                            file_format=rand(("lpcm", "lpcm.zst")),
+                            span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
+                            kind="x_$i",
+                            channels=["a_$i", "b_$i", "c_$i"],
+                            sample_unit="unit_$i",
+                            sample_resolution_in_unit=rand((0.25, 1)),
+                            sample_offset_in_unit=rand((-0.25, 0.25)),
+                            sample_type=rand(possible_sample_types),
+                            sample_rate=rand((128, 50.5)),
+                            a=join(rand('a':'z', 10)),
+                            b=rand(Int, 1),
+                            c=rand(3)) for i in 1:50]
+    signals_file_path_1 = joinpath(root, "test-1.onda.signals.arrow")
+    signals_file_path_2 = joinpath(root, "test-2.onda.signals.arrow")
+    io = IOBuffer()
+    write_signals(signals_file_path_1, signals)
+    Arrow.write(signals_file_path_2, signals)
+    write_signals(io, signals)
+    seekstart(io)
+    io2 = IOBuffer()
+    write_signals(io2, signals; file=false)
+    seekstart(io2)
+    for roundtripped in (read_signals(signals_file_path_1; validate_schema=false),
+                         read_signals(signals_file_path_1; validate_schema=true),
+                         read_signals(signals_file_path_2; validate_schema=false),
+                         read_signals(signals_file_path_2; validate_schema=true),
+                         (tmp=read_signals(io); @test_deprecated Onda.materialize(tmp)),
+                         (tmp=read_signals(io2); @test_deprecated Onda.materialize(tmp)),
+                         read_signals(seekstart(io); validate_schema=true))
+        roundtripped = collect(Tables.rows(roundtripped))
+        @test length(roundtripped) == length(signals)
+        for (r, s) in zip(roundtripped, signals)
+            @test NamedTuple(s) == NamedTuple(r)
+            @test NamedTuple(s) == NamedTuple(Signal(r))
+        end
+    end
+    x = first(signals)
+    y = @compat Signal(x.recording, x.file_path, x.file_format, x.span, x.kind, x.channels, x.sample_unit,
+                       x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate;
+                       x.a, x.b, x.c)
+    @test x == y
+    x = Onda.extract_samples_info(x)
+    z = @test_deprecated (@compat Signal(x; y.recording, y.file_path, y.file_format, y.span, y.a, y.b, y.c))
+    @test y == z
+    @test (@test_deprecated setproperties(z; sample_rate=1.0)) == Signal(Tables.rowmerge(z; sample_rate=1.0))
+    y = SamplesInfo(x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate)
+    @test x == y
+    @test (@test_deprecated setproperties(y; sample_rate=1.0)) == SamplesInfo(Tables.rowmerge(y; sample_rate=1.0))
+    @test isnothing(@test_deprecated Onda.validate(y))
+    df = DataFrame(signals)
+    @test (@test_deprecated Onda.gather(:recording, df)) == Legolas.gather(:recording, df)
+
+    names = (:recording, :file_path, :file_format, :span, :kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate)
+    types = Tuple{Union{UInt128,UUID},Any,AbstractString,Union{Onda.NamedTupleTimeSpan,TimeSpan},AbstractString,AbstractVector{<:AbstractString},AbstractString,
+                  Onda.LPCM_SAMPLE_TYPE_UNION,Onda.LPCM_SAMPLE_TYPE_UNION,AbstractString,Onda.LPCM_SAMPLE_TYPE_UNION}
+    @test (@test_deprecated Onda.validate_signal_schema(nothing)) === nothing
+    @test (@test_deprecated Onda.validate_signal_schema(Tables.Schema(names, types))) === nothing
+    @test_throws ArgumentError Onda.validate_signal_schema(Tables.Schema((:x, :y), (Any, Any)))
 end

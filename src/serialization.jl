@@ -213,7 +213,7 @@ interleaved LPCM format assumed for sample data files with the "lpcm"
 extension.
 
 `channel_count` corresponds to `length(info.channels)`, while `sample_type`
-corresponds to `info.sample_type`
+corresponds to `sample_type(info)`
 
 Note that bytes (de)serialized to/from this format are little-endian (per the
 Onda specification).
@@ -223,7 +223,7 @@ struct LPCMFormat{S<:LPCM_SAMPLE_TYPE_UNION} <: AbstractLPCMFormat
     sample_type::Type{S}
 end
 
-LPCMFormat(info::SamplesInfo) = LPCMFormat(length(info.channels), info.sample_type)
+LPCMFormat(info::SamplesInfo) = LPCMFormat(length(info.channels), sample_type(info))
 
 register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCMFormat : nothing)
 

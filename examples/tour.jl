@@ -4,11 +4,11 @@
 # concrete manner, and so that we can ensure examples stay updated as the
 # package evolves.
 #
-# NOTE: You should read https://github.com/beacon-biosignals/OndaFormat
+# NOTE: You should read https://github.com/beacon-biosignals/README.md#the-onda-format-specification
 # before and/or alongside the completion of this tour; it explains the
 # purpose/structure of the format.
 
-using Onda, TimeSpans, DataFrames, Dates, UUIDs, Test, ConstructionBase, Arrow
+using Onda, Legolas, Arrow, TimeSpans, DataFrames, Dates, UUIDs, Test
 
 #####
 ##### generate some mock data
@@ -41,7 +41,7 @@ saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
 root = mktempdir()
 
 signals = Signal[]
-signals_recordings = [uuid4() for _ in 1:10]
+signals_recordings = [uuid4() for _ in 1:2]
 for recording in signals_recordings
     for (kind, channels) in ("eeg" => ["fp1", "f3", "c3", "p3",
                                        "f7", "t3", "t5", "o1",
@@ -66,9 +66,9 @@ for recording in signals_recordings
         push!(signals, signal)
     end
 end
-path_to_signals_file = joinpath(root, "test.onda.signals.arrow")
-write_signals(path_to_signals_file, signals)
-Onda.log("wrote out $path_to_signals_file")
+path_to_signals = joinpath(root, "test.onda.signal.arrow")
+Onda.write_signals(path_to_signals, signals)
+Onda.log("wrote out $path_to_signals")
 
 annotations = Annotation[]
 sources = (uuid4(), uuid4(), uuid4())
@@ -76,14 +76,14 @@ annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlappin
 for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:60))
-        annotation = Annotation(recording, uuid4(), TimeSpan(start, start + Second(rand(1:30)));
+        annotation = Annotation(; recording=recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
                                 rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
-        push!(annotations,  annotation)
+        push!(annotations, annotation)
     end
 end
-path_to_annotations_file = joinpath(root, "test.onda.annotations.arrow")
-write_annotations(path_to_annotations_file, annotations)
-Onda.log("wrote out $path_to_annotations_file")
+path_to_annotations = joinpath(root, "test.onda.annotation.arrow")
+Onda.write_annotations(path_to_annotations, annotations)
+Onda.log("wrote out $path_to_annotations")
 
 #####
 ##### basic Onda + DataFrames patterns
@@ -102,8 +102,8 @@ Onda.log("wrote out $path_to_annotations_file")
 # signals and annotations tables.
 
 # Read Onda Arrow files into `DataFrame`s:
-signals = DataFrame(read_signals(path_to_signals_file))
-annotations = DataFrame(read_annotations(path_to_annotations_file))
+signals = DataFrame(Legolas.read(path_to_signals))
+annotations = DataFrame(Legolas.read(path_to_annotations))
 
 # Get all signals from a given recording:
 target = rand(signals.recording)
@@ -121,7 +121,7 @@ grouped[(target, "eeg")]
 
 # Group/index signals + annotations by recording together:
 target = rand(signals.recording)
-dict = Onda.gather(:recording, signals, annotations)
+dict = Legolas.gather(:recording, signals, annotations)
 dict[target]
 
 # Count number of signals in each recording:

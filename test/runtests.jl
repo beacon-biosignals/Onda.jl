@@ -1,6 +1,6 @@
 using Compat: @compat
-using Test, UUIDs, Dates, Onda, MsgPack, ConstructionBase,
-      Tables, TimeSpans, DataFrames, Random
+using Test, UUIDs, Dates, Onda, Legolas, Arrow, Tables, TimeSpans, DataFrames, Random
+using ConstructionBase
 
 function has_rows(a, b)
     for name in propertynames(b)
@@ -12,7 +12,6 @@ function has_rows(a, b)
     return true
 end
 
-include("utilities.jl")
 include("annotations.jl")
 include("signals.jl")
 include("serialization.jl")

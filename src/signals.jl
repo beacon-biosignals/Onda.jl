@@ -18,6 +18,8 @@ function julia_type_from_onda_sample_type(t::AbstractString)
     throw(ArgumentError("sample type $t is not supported by Onda"))
 end
 
+julia_type_from_onda_sample_type(T::Type{<:LPCM_SAMPLE_TYPE_UNION}) = T
+
 function onda_sample_type_from_julia_type(T::Type)
     T === Int8 && return "int8"
     T === Int16 && return "int16"
@@ -32,279 +34,100 @@ function onda_sample_type_from_julia_type(T::Type)
     throw(ArgumentError("sample type $T is not supported by Onda"))
 end
 
-#####
-##### validation
-#####
+onda_sample_type_from_julia_type(t::AbstractString) = onda_sample_type_from_julia_type(julia_type_from_onda_sample_type(t))
 
-validate_signal_schema(::Nothing) = @warn "`schema == nothing`; skipping schema validation"
-
-function validate_signal_schema(schema::Tables.Schema)
-    length(schema.names) >= 11 || throw(ArgumentError("invalid `Signal` fields: need at least 11 fields, input has $(length(schema.names))"))
-    for (i, (name, T)) in enumerate((:recording => Union{UInt128,UUID},
-                                     :file_path => Any,
-                                     :file_format => AbstractString,
-                                     :span => Union{NamedTupleTimeSpan,TimeSpan},
-                                     :kind => AbstractString,
-                                     :channels => AbstractVector{<:AbstractString},
-                                     :sample_unit => AbstractString,
-                                     :sample_resolution_in_unit => LPCM_SAMPLE_TYPE_UNION,
-                                     :sample_offset_in_unit => LPCM_SAMPLE_TYPE_UNION,
-                                     :sample_type => AbstractString,
-                                     :sample_rate => LPCM_SAMPLE_TYPE_UNION))
-        schema.names[i] === name || throw(ArgumentError("invalid `Signal` fields: field $i must be named `:$(name)`, got $(schema.names[i])"))
-        schema.types[i] <: T || throw(ArgumentError("invalid `Signal` fields: invalid `:$(name)` field type: $(schema.types[i])"))
-    end
-    return nothing
-end
-
-#####
-##### Signal
-#####
-
-"""
-    Signal(signals_table_row)
-    Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
-           sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
-           custom...)
-    Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
-           sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-           custom...)
-    Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
-
-Return a `Signal` instance that represents a row of an `*.onda.signals.arrow` table
-
-The names, types, and order of the columns of a `Signal` instance are guaranteed to
-result in a `*.onda.signals.arrow`-compliant row when written out via `write_signals`.
-The exception is the `file_path` column, whose type is unchecked in order to allow
-callers to utilize custom path types.
-
-This type primarily exists to aid in the validated construction of such rows/tables,
-and is not intended to be used as a type constraint in function or struct definitions.
-Instead, you should generally duck-type any "signal-like" arguments/fields so that
-other generic row types will compose with your code.
-
-This type supports Tables.jl's `AbstractRow` interface (but does not subtype `AbstractRow`).
-"""
-struct Signal{R}
-    _row::R
-    function Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
-                    sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-                    custom...)
-        recording::UUID = recording isa UUID ? recording : UUID(recording)
-        file_format::String = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format
-        span::TimeSpan = TimeSpan(span)
-        kind::String = kind
-        channels::Vector{String} = channels
-        sample_unit::String = sample_unit
-        sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION = sample_resolution_in_unit isa LPCM_SAMPLE_TYPE_UNION ? sample_resolution_in_unit : Float64(sample_resolution_in_unit)
-        sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = sample_offset_in_unit isa LPCM_SAMPLE_TYPE_UNION ? sample_offset_in_unit : Float64(sample_offset_in_unit)
-        sample_type::String = sample_type isa DataType ? onda_sample_type_from_julia_type(sample_type) : sample_type
-        sample_rate::LPCM_SAMPLE_TYPE_UNION = sample_rate isa LPCM_SAMPLE_TYPE_UNION ? sample_rate : Float64(sample_rate)
-        _row = @compat (; recording, file_path, file_format, span, kind, channels, sample_unit,
-                sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-                custom...)
-        return new{typeof(_row)}(_row)
-    end
-end
-
-Signal(row) = Signal(NamedTuple(Tables.Row(row)))
-Signal(row::NamedTuple) = Signal(; row...)
-Signal(row::Signal) = row
-
-function Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
-                sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
-                custom...)
-    return @compat Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
-                  sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-                  custom...)
-end
-
-Base.propertynames(x::Signal) = propertynames(getfield(x, :_row))
-Base.getproperty(x::Signal, name::Symbol) = getproperty(getfield(x, :_row), name)
-
-ConstructionBase.setproperties(x::Signal, patch::NamedTuple) = Signal(setproperties(getfield(x, :_row), patch))
-
-Tables.getcolumn(x::Signal, i::Int) = Tables.getcolumn(getfield(x, :_row), i)
-Tables.getcolumn(x::Signal, nm::Symbol) = Tables.getcolumn(getfield(x, :_row), nm)
-Tables.columnnames(x::Signal) = Tables.columnnames(getfield(x, :_row))
-
-#####
-##### read/write
-#####
-
-"""
-    read_signals(io_or_path; validate_schema::Bool=false)
-
-Return the `*.onda.signals.arrow`-compliant table read from `io_or_path`.
-
-If `validate_schema` is `true`, the table's schema will be validated to ensure it is
-a `*.onda.signals.arrow`-compliant table. An `ArgumentError` will be thrown if
-any schema violation is detected.
-"""
-function read_signals(io_or_path; materialize::Union{Missing,Bool}=missing, validate_schema::Bool=false)
-    table = read_onda_table(io_or_path)
-    validate_schema && validate_signal_schema(Tables.schema(table))
-    if materialize isa Bool
-        if materialize
-            @warn "`read_signals(x; materialize=true)` is deprecated; use `Onda.materialize(read_signals(x))` instead"
-            return Onda.materialize(table)
-        else
-            @warn "`read_signals(x; materialize=false)` is deprecated; use `read_signals(x)` instead"
-        end
-    end
-    return table
-end
-
-"""
-    write_signals(io_or_path, table; kwargs...)
-
-Write `table` to `io_or_path`, first validating that `table` is a compliant
-`*.onda.signals.arrow` table. An `ArgumentError` will be thrown if any
-schema violation is detected.
-
-`kwargs` is forwarded to an internal invocation of `Arrow.write(...; file=true, kwargs...)`.
-"""
-function write_signals(io_or_path, table; kwargs...)
-    validate_schema = schema -> try
-        validate_signal_schema(schema)
-    catch
-        @warn "Invalid schema in input `table`. Try calling `Onda.Signal.(Tables.rows(table))` to see if it is convertible to the required schema."
-        rethrow()
-    end
-    return @compat write_onda_table(io_or_path, table; validate_schema, kwargs...)
-end
+convert_number_to_lpcm_sample_type(x::LPCM_SAMPLE_TYPE_UNION) = x
+convert_number_to_lpcm_sample_type(x) = Float64(x)
 
 #####
 ##### `SamplesInfo`
 #####
 
 """
-    SamplesInfo(; kind, channels, sample_unit,
-                sample_resolution_in_unit, sample_offset_in_unit,
-                sample_type, sample_rate,
-                validate::Bool=Onda.validate_on_construction())
-    SamplesInfo(kind, channels, sample_unit,
-                sample_resolution_in_unit, sample_offset_in_unit,
-                sample_type, sample_rate;
-                validate::Bool=Onda.validate_on_construction())
-    SamplesInfo(signals_table_row; validate::Bool=Onda.validate_on_construction())
+    const SamplesInfo = @row("onda.samples-info@1",
+                             kind::String,
+                             channels::Vector{String},
+                             sample_unit::String,
+                             sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION,
+                             sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION,
+                             sample_type::String = Onda.onda_sample_type_from_julia_type(sample_type),
+                             sample_rate::LPCM_SAMPLE_TYPE_UNION)
 
-Return a `SamplesInfo` instance whose fields are a subset of a `*.onda.signals.arrow` row:
-
-- `kind`
-- `channels`
-- `sample_unit`
-- `sample_resolution_in_unit`
-- `sample_offset_in_unit`
-- `sample_type`
-- `sample_rate`
-
-The `SamplesInfo` struct bundles together the fields of a `*.onda.signals.arrow` row that are
-intrinsic to a signal's sample data, leaving out extrinsic file or recording information.
-This is useful when the latter information is irrelevant or does not yet exist (e.g. if
-sample data is being constructed/manipulated in-memory without yet having been serialized).
-
-Bundling these fields together under a common type facilitates dispatch for various Onda API
-functions. Additionally:
-
-- If `validate` is `true`, then `Onda.validate` is called on new instances upon construction.
-
-- The provided `sample_type` may be either an Onda-compliant string or a `DataType`. If it is
-  a string, it will be converted to its corresponding `DataType`.
+A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.samples-info@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
+representing the bundle of `onda.signal` fields that are intrinsic to a signal's sample data,
+leaving out extrinsic file or recording information. This is useful when the latter information
+is irrelevant or does not yet exist (e.g. if sample data is being constructed/manipulated in-memory
+without yet having been serialized).
 """
-struct SamplesInfo{K<:AbstractString,
-                   C<:AbstractVector{<:AbstractString},
-                   U<:AbstractString,
-                   R<:LPCM_SAMPLE_TYPE_UNION,
-                   O<:LPCM_SAMPLE_TYPE_UNION,
-                   S<:LPCM_SAMPLE_TYPE_UNION,
-                   SR<:LPCM_SAMPLE_TYPE_UNION}
-    kind::K
-    channels::C
-    sample_unit::U
-    sample_resolution_in_unit::R
-    sample_offset_in_unit::O
-    sample_type::Type{S}
-    sample_rate::SR
-    function SamplesInfo(kind::K, channels::C, sample_unit::U,
-                         sample_resolution_in_unit::R,
-                         sample_offset_in_unit::O,
-                         sample_type, sample_rate::SR;
-                         validate::Bool=Onda.validate_on_construction()) where {K,C,U,R,O,SR}
-        S = sample_type isa Type ? sample_type : julia_type_from_onda_sample_type(sample_type)
-        info = new{K,C,U,R,O,S,SR}(kind, channels, sample_unit, sample_resolution_in_unit,
-                                   sample_offset_in_unit, S, sample_rate)
-        validate && Onda.validate(info)
-        return info
-    end
-end
-
-function SamplesInfo(; kind, channels, sample_unit,
-                     sample_resolution_in_unit, sample_offset_in_unit,
-                     sample_type, sample_rate,
-                     validate::Bool=Onda.validate_on_construction())
-    return @compat SamplesInfo(kind, channels, sample_unit,
-                               sample_resolution_in_unit, sample_offset_in_unit,
-                               sample_type, sample_rate; validate)
-end
-
-function SamplesInfo(row; validate::Bool=Onda.validate_on_construction())
-    return @compat SamplesInfo(row.kind, row.channels, row.sample_unit,
-                               row.sample_resolution_in_unit, row.sample_offset_in_unit,
-                               row.sample_type, row.sample_rate; validate)
-end
-
-"""
-    validate(info::SamplesInfo)
-
-Returns `nothing`, checking that the given `info.kind`, `info.channels` and `info.sample_unit`
-are valid w.r.t. the Onda specification. If a violation is found, an `ArgumentError` is thrown.
-"""
-function validate(info::SamplesInfo)
-    is_lower_snake_case_alphanumeric(info.kind) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $(info.kind)"))
-    is_lower_snake_case_alphanumeric(info.sample_unit) || throw(ArgumentError("invalid sample unit (must be lowercase/snakecase/alphanumeric): $(info.sample_unit)"))
-    for c in info.channels
-        is_lower_snake_case_alphanumeric(c, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
-    end
-    return nothing
-end
-
-Base.:(==)(a::SamplesInfo, b::SamplesInfo) = all(name -> getfield(a, name) == getfield(b, name), fieldnames(SamplesInfo))
-
-function Signal(info::SamplesInfo; recording, file_path, file_format, span, custom...)
-    return @compat Signal(; recording, file_path, file_format, span,
-                          info.kind, info.channels, info.sample_unit, info.sample_resolution_in_unit,
-                          info.sample_offset_in_unit, info.sample_type, info.sample_rate, custom...)
-end
+const SamplesInfo = @row("onda.samples-info@1",
+                         kind::AbstractString = convert(String, kind),
+                         channels::AbstractVector{<:AbstractString} = convert(Vector{String}, channels),
+                         sample_unit::AbstractString = convert(String, sample_unit),
+                         sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_resolution_in_unit),
+                         sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_offset_in_unit),
+                         sample_type::AbstractString = onda_sample_type_from_julia_type(sample_type),
+                         sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
 
 #####
-##### Arrow conversion
+##### `Signal`
 #####
 
-const SamplesInfoArrowType{R,O,SR} = NamedTuple{(:kind, :channels, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate),
-                                                Tuple{String,Vector{String},String,R,O,String,SR}}
+# Note that the real field type restrictions here are more lax than the documented
+# ones for improved compatibility with data produced by older Onda.jl versions and/or
+# non-Julia producers.
+"""
+    const Signal = @row("onda.signal@1" > "onda.samples-info@1",
+                        recording::UUID,
+                        file_path::Any,
+                        file_format::String = (file_format isa AbstractLPCMFormat ?
+                                               Onda.file_format_string(file_format) :
+                                               file_format),
+                        span::TimeSpan,
+                        kind::String,
+                        channels::Vector{String},
+                        sample_unit::String)
 
-const SAMPLES_INFO_ARROW_NAME = Symbol("JuliaLang.SamplesInfo")
+A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.signal@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
+representing an [`onda.signal` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondasignal1).
 
-Arrow.ArrowTypes.arrowname(::Type{<:SamplesInfo}) = SAMPLES_INFO_ARROW_NAME
+This type primarily exists to aid in the validated row construction, and is not intended to be used
+as a type constraint in function or struct definitions. Instead, you should generally duck-type any
+"signal-like" arguments/fields so that other generic row types will compose with your code.
+"""
+const Signal = @row("onda.signal@1" > "onda.samples-info@1",
+                    recording::Union{UInt128,UUID} = UUID(recording),
+                    file_path::Any,
+                    file_format::AbstractString = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
+                    span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span),
+                    kind::AbstractString = _validate_signal_kind(kind),
+                    channels::AbstractVector{<:AbstractString} = (foreach(_validate_signal_channel, channels); channels),
+                    sample_unit::AbstractString = _validate_signal_sample_unit(sample_unit))
 
-Arrow.ArrowTypes.ArrowType(::Type{<:SamplesInfo{<:Any,<:Any,<:Any,R,O,<:Any,SR}}) where {R,O,SR} = SamplesInfoArrowType{R,O,SR}
-
-function Arrow.ArrowTypes.toarrow(info::SamplesInfo)
-    return (kind=convert(String, info.kind),
-            channels=convert(Vector{String}, info.channels),
-            sample_unit=convert(String, info.sample_unit),
-            sample_resolution_in_unit=info.sample_resolution_in_unit,
-            sample_offset_in_unit=info.sample_offset_in_unit,
-            sample_type=onda_sample_type_from_julia_type(info.sample_type),
-            sample_rate=info.sample_rate)
+function _validate_signal_kind(x)
+    is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $x"))
+    return x
 end
 
-function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_INFO_ARROW_NAME}, ::Type{SamplesInfoArrowType{R,O,SR}}) where {R,O,SR}
-    return SamplesInfo{String,Vector{String},String,R,O,<:LPCM_SAMPLE_TYPE_UNION,SR}
+function _validate_signal_sample_unit(x)
+    is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal sample unit (must be lowercase/snakecase/alphanumeric): $x"))
+    return x
 end
 
-Arrow.ArrowTypes.fromarrow(::Type{<:SamplesInfo}, fields...) = SamplesInfo(fields...; validate=false)
+function _validate_signal_channel(x)
+    is_lower_snake_case_alphanumeric(x, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
+    return x
+end
+
+extract_samples_info(signal) = @compat SamplesInfo(; signal.kind, signal.channels, signal.sample_unit,
+                                                   signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
+                                                   signal.sample_type, signal.sample_rate)
+
+"""
+    write_signals(io_or_path, table; kwargs...)
+
+Invoke/return `Legolas.write(path_or_io, signals, Schema("onda.signal@1"); kwargs...)`.
+"""
+write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Legolas.Schema("onda.signal@1"); kwargs...)
 
 #####
 ##### duck-typed utilities
@@ -339,6 +162,13 @@ Return the number of multichannel samples that fit within `duration` given `x.sa
 sample_count(x, duration::Period) = TimeSpans.index_from_time(x.sample_rate, duration) - 1
 
 """
+    sample_type(x)
+
+Return `x.sample_type` as an `Onda.LPCM_SAMPLE_TYPE_UNION` subtype. If `x.sample_type` is an Onda-specified `sample_type` string (e.g. `"int16"`), it will be converted to the corresponding Julia type. If `x.sample_type <: Onda.LPCM_SAMPLE_TYPE_UNION`, this function simply returns `x.sample_type` as-is.
+"""
+sample_type(x) = julia_type_from_onda_sample_type(x.sample_type)
+
+"""
     sizeof_samples(x, duration::Period)
 
 Returns the expected size (in bytes) of an encoded `Samples` object corresponding to `x` and `duration`:
@@ -346,4 +176,4 @@ Returns the expected size (in bytes) of an encoded `Samples` object correspondin
     sample_count(x, duration) * channel_count(x) * sizeof(x.sample_type)
 
 """
-sizeof_samples(x, duration::Period) = sample_count(x, duration) * channel_count(x) * sizeof(x.sample_type)
+sizeof_samples(x, duration::Period) = sample_count(x, duration) * channel_count(x) * sizeof(sample_type(x))

@@ -57,15 +57,16 @@ function test_signal_row(recording, file_path, file_format, span, kind, channels
                         sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
     norm_row_with_custom = (; norm_row..., custom...)
 
+    @test Arrow.Table(Legolas.tobuffer([@compat Tables.rowmerge(row; file_format, sample_type)], Legolas.Schema("onda.signal@1"); validate=true)) isa Arrow.Table
+    @test Arrow.Table(Legolas.tobuffer([@compat Tables.rowmerge(row_with_custom; file_format, sample_type)], Legolas.Schema("onda.signal@1"); validate=true)) isa Arrow.Table
+
     @test has_rows(test_signal_field_types(Signal(row)), norm_row)
     @test has_rows(test_signal_field_types(Signal(row_with_custom)), norm_row_with_custom)
     @test has_rows(test_signal_field_types(Signal(Signal(row))), norm_row)
     @test has_rows(test_signal_field_types(Signal(Signal(row_with_custom))), norm_row_with_custom)
     @test has_rows(test_signal_field_types(Signal(Tables.Row(row))), norm_row)
     @test has_rows(test_signal_field_types(Signal(Tables.Row(row_with_custom))), norm_row_with_custom)
-    @test has_rows(test_signal_field_types(Signal(row...)), norm_row)
     @test has_rows(test_signal_field_types(Signal(; row...)), norm_row)
-    @test has_rows(test_signal_field_types(Signal(row...; custom...)), norm_row_with_custom)
     @test has_rows(test_signal_field_types(Signal(; row..., custom...)), norm_row_with_custom)
 end
 
@@ -81,44 +82,4 @@ end
                     256; custom...)
     test_signal_row(uuid4(), "/file/path", LPCMZstFormat(LPCMFormat(3, UInt16)), TimeSpan(Nanosecond(1), Nanosecond(100)),
                     "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
-end
-
-@testset "`read_signals`/`write_signals`" begin
-    root = mktempdir()
-    possible_recordings = (uuid4(), uuid4(), uuid4())
-    possible_sample_types = (UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64)
-    signals = Signal[Signal(recording=rand(possible_recordings),
-                            file_path=joinpath(root, "x_$(i)_file"),
-                            file_format=rand(("lpcm", "lpcm.zst")),
-                            span=TimeSpan(Second(rand(0:30)), Second(rand(31:60))),
-                            kind="x_$i",
-                            channels=["a_$i", "b_$i", "c_$i"],
-                            sample_unit="unit_$i",
-                            sample_resolution_in_unit=rand((0.25, 1)),
-                            sample_offset_in_unit=rand((-0.25, 0.25)),
-                            sample_type=rand(possible_sample_types),
-                            sample_rate=rand((128, 50.5)),
-                            a=join(rand('a':'z', 10)),
-                            b=rand(Int, 1),
-                            c=rand(3)) for i in 1:50]
-    signals_file_path = joinpath(root, "test.onda.signals.arrow")
-    io = IOBuffer()
-    write_signals(signals_file_path, signals)
-    write_signals(io, signals)
-    seekstart(io)
-    io2 = IOBuffer()
-    write_signals(io2, signals; file=false)
-    seekstart(io2)
-    for roundtripped in (read_signals(signals_file_path; materialize=false, validate_schema=false),
-                         read_signals(signals_file_path; materialize=true, validate_schema=true),
-                         Onda.materialize(read_signals(io)),
-                         Onda.materialize(read_signals(io2)),
-                         read_signals(seekstart(io); validate_schema=true))
-        roundtripped = collect(Tables.rows(roundtripped))
-        @test length(roundtripped) == length(signals)
-        for (r, s) in zip(roundtripped, signals)
-            @test getfield(s, :_row) == NamedTuple(r)
-            @test getfield(s, :_row) == getfield(Signal(r), :_row)
-        end
-    end
 end
