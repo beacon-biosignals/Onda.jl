@@ -75,6 +75,14 @@ end
 
 @deprecate Signal(info::SamplesInfo; kwargs...) Signal(Tables.rowmerge(info; kwargs...))
 
+for T in (:SamplesInfo, :Signal, :Annotation)
+    S = string(T)
+    @eval function ConstructionBase.setproperties(x::$T, patch::NamedTuple)
+        depwarn("`setproperties(x::$($S), patch)` is deprecated in favor of $($S)(Tables.rowmerge(x, patch))", :setproperties)
+        return $T(Tables.rowmerge(x, patch))
+    end
+end
+
 function validate(::SamplesInfo)
     depwarn("`validate(::SamplesInfo)` is deprecated; avoid invoking this method in favor of calling `validate(::Samples)`", :validate)
     return nothing

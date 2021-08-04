@@ -3,6 +3,7 @@ module Onda
 using Compat: @compat
 using UUIDs, Dates, Random, Mmap
 using Compat, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
+using ConstructionBase # here for deprecations only
 using Legolas
 using Legolas: @row
 

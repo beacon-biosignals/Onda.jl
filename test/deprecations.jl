@@ -31,6 +31,7 @@
     x = first(annotations)
     y = @compat Annotation(x.recording, x.id, x.span; x.a, x.b, x.c)
     @test x == y
+    @test (@test_deprecated setproperties(y; a='+')) == Annotation(Tables.rowmerge(y; a='+'))
     df = DataFrame(annotations)
     @test Onda.gather(:recording, df) == Legolas.gather(:recording, df)
 
@@ -91,8 +92,10 @@ end
     x = Onda.extract_samples_info(x)
     z = @test_deprecated (@compat Signal(x; y.recording, y.file_path, y.file_format, y.span, y.a, y.b, y.c))
     @test y == z
+    @test (@test_deprecated setproperties(z; sample_rate=1.0)) == Signal(Tables.rowmerge(z; sample_rate=1.0))
     y = SamplesInfo(x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate)
     @test x == y
+    @test (@test_deprecated setproperties(y; sample_rate=1.0)) == SamplesInfo(Tables.rowmerge(y; sample_rate=1.0))
     @test isnothing(@test_deprecated Onda.validate(y))
     df = DataFrame(signals)
     @test (@test_deprecated Onda.gather(:recording, df)) == Legolas.gather(:recording, df)
