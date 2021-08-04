@@ -73,6 +73,8 @@ else
                                    sample_type, sample_rate, custom...))
 end
 
+@deprecate Signal(info::SamplesInfo; kwargs...) Signal(Tables.rowmerge(info; kwargs...))
+
 function validate(::SamplesInfo)
     depwarn("`validate(::SamplesInfo)` is deprecated; avoid invoking this method in favor of calling `validate(::Samples)`", :validate)
     return nothing

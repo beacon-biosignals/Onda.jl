@@ -89,6 +89,8 @@ end
                        x.a, x.b, x.c)
     @test x == y
     x = Onda.extract_samples_info(x)
+    z = @test_deprecated (@compat Signal(x; y.recording, y.file_path, y.file_format, y.span, y.a, y.b, y.c))
+    @test y == z
     y = SamplesInfo(x.kind, x.channels, x.sample_unit, x.sample_resolution_in_unit, x.sample_offset_in_unit, x.sample_type, x.sample_rate)
     @test x == y
     @test isnothing(@test_deprecated Onda.validate(y))
