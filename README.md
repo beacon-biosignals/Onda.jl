@@ -18,7 +18,7 @@ Onda.jl is a Julia package for high-throughput manipulation of structured LPCM s
 
 This format is intentionally language-agnostic; any consumer/producer that supports Apache Arrow can read/write Onda-compliant Arrow tables. For the sake of convenience, the Onda specification resides here (in the Onda.jl repository) and leverages the [Legolas](https://github.com/beacon-biosignals/Legolas.jl) framework to both define and version the Arrow table schemas relevant to the format.
 
-## Terminology
+### Terminology
 
 This document uses the term...
 
@@ -30,9 +30,9 @@ This document uses the term...
 
 - ...**"annotation"** to refer to a piece of (meta)data associated with a specific time span within a specific recording.
 
-## Design Principles
+### Design Principles
 
-### Onda is useful...
+#### Onda is useful...
 
 - ...when segments of a signal can fit in memory simultaneously, but an entire signal cannot.
 - ...when each signal in each recording in your dataset can fit in memory, but not all signals in each recording can fit in memory simultaneously.
@@ -43,7 +43,7 @@ This document uses the term...
 - ...as a format for sharing datasets comprised of several gigabytes to several terabytes of signal data.
 - ...as a format for sharing datasets comprised of hundreds to hundreds of thousands of recordings.
 
-### Onda's design must...
+#### Onda's design must...
 
 - ...depend only upon technologies with standardized, implementation-agnostic specifications that are well-used across multiple application domains.
 - ...support recordings where each signal in the recording may have a unique channel layout, physical unit resolution, bit depth and sample rate.
@@ -55,7 +55,7 @@ This document uses the term...
 - ...enable extensibility without sacrificing interpretability. New signal encodings, annotations, sample data file formats, etc. should all be user-definable by design.
 - ...be simple enough that a decent programmer (with Google access) should be able to fully interpret (and write performant parsers for) an Onda dataset without ever reading Onda documentation.
 
-### Onda is not...
+#### Onda is not...
 
 - ...a sample data file format. Onda allows dataset authors to utilize whatever file format is most appropriate for a given signal's sample data, as long as the author provides a mechanism to deserialize sample data from that format to a standardized interleaved LPCM representation.
 - ...a transactional database. The majority of an Onda dataset's mandated metadata is stored in tabular manifests containing recording information, signal descriptions, annotations etc. This simple structure is tailored towards Onda's target regimes (see above), and is not intended to serve as a persistent backend for external services/applications.
