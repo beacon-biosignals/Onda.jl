@@ -24,6 +24,7 @@ Onda.read_byte_range
 ```@docs
 Annotation
 write_annotations
+validate_annotations
 merge_overlapping_annotations
 ```
 
@@ -33,6 +34,7 @@ merge_overlapping_annotations
 Signal
 SamplesInfo
 write_signals
+validate_signals
 channel(x, name)
 channel(x, i::Integer)
 channel_count(x)

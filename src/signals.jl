@@ -129,6 +129,53 @@ Invoke/return `Legolas.write(path_or_io, signals, Schema("onda.signal@1"); kwarg
 """
 write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Legolas.Schema("onda.signal@1"); kwargs...)
 
+"""
+    validate_signals(signals)
+
+Perform both table-level and row-level validation checks on the content of `signals`,
+a presumed `onda.signal` table. Returns `signals`.
+
+This function will throw an error in any of the following cases:
+
+- `Legolas.validate(signals, Legolas.Schema("onda.signal@1"))` throws an error
+- `Signal(row)` errors for any `row in Tables.rows(signals)`
+- `signals` contains rows with duplicate `file_path`s
+- `signals` contains rows that share a `recording` and `kind` but have overlapping `span`s
+"""
+function validate_signals(signals)
+    Legolas.validate(signals, Legolas.Schema("onda.signal@1"))
+    file_path_counts = Dict{Any,Int}()
+    spans_by_recording_and_kind = Dict{Tuple{UUID,String},Vector{TimeSpan}}()
+    for (i, row) in enumerate(Tables.rows(signals))
+        local signal
+        try
+            signal = Signal(row)
+        catch err
+            log("Encountered invalid row $i of given `onda.signal` table:")
+            rethrow(err)
+        end
+        file_path_counts[signal.file_path] = get(file_path_counts, signal.file_path, 0) + 1
+        push!(get!(() -> TimeSpan[], spans_by_recording_and_kind, (signal.recording, signal.kind)), signal.span)
+    end
+    filter!(((_, c),) -> c > 1, file_path_counts)
+    if !isempty(file_path_counts)
+        throw(ArgumentError("duplicate `file_path`s found in given `onda.signal` table: $file_path_counts"))
+    end
+    filter!(((_, s),) -> _any_overlaps(s), spans_by_recording_and_kind)
+    if !isempty(spans_by_recording_and_kind)
+        throw(ArgumentError("overlapping `span`s found for discontiguous signals in given `onda.signal` table: $spans_by_recording_and_kind"))
+    end
+    return signals
+end
+
+function _any_overlaps(spans::Vector{TimeSpan})
+    sorted = sort(spans; by=TimeSpans.start)
+    for i in 2:length(sorted)
+        overlaps(sorted[i - 1], sorted[i]) && return true
+    end
+    return false
+end
+
 #####
 ##### duck-typed utilities
 #####
