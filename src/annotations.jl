@@ -55,7 +55,7 @@ function validate_annotations(annotations)
         end
         id_counts[annotation.id] = get(id_counts, annotation.id, 0) + 1
     end
-    filter!(((_, c),) -> c > 1, id_counts)
+    filter!(>(1) ∘ last, id_counts)
     if !isempty(id_counts)
         throw(ArgumentError("duplicate `id`s found in given `onda.annotation` table: $id_counts"))
     end
