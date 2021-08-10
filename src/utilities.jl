@@ -9,6 +9,28 @@ function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
            all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
 end
 
+# TODO port a generic version of this + notion of primary key to Legolas.jl
+function _fully_validate_legolas_table(table, schema::Legolas.Schema, primary_key)
+    Legolas.validate(table, schema)
+    primary_counts = Dict{Any,Int}()
+    for (i, row) in enumerate(Tables.rows(table))
+        local validated_row
+        try
+            validated_row = Legolas.Row(schema, row)
+        catch err
+            log("Encountered invalid row $i when validating table's compliance with $schema:")
+            rethrow(err)
+        end
+        primary = Tables.getcolumn(validated_row, primary_key)
+        primary_counts[primary] = get(primary_counts, primary, 0) + 1
+    end
+    filter!(>(1) ∘ last, primary_counts)
+    if !isempty(primary_counts)
+        throw(ArgumentError("duplicate $primary_key values found in given $schema table: $primary_counts"))
+    end
+    return table
+end
+
 #####
 ##### arrrrr i'm a pirate
 #####

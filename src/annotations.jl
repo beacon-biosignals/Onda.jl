@@ -39,28 +39,10 @@ a presumed `onda.annotation` table. Returns `annotations`.
 This function will throw an error in any of the following cases:
 
 - `Legolas.validate(annotations, Legolas.Schema("onda.annotation@1"))` throws an error
-- `Annotation(row)` errors for any `row in Tables.rows(annotations)`
+- `Annotation(row)` errors for any `row` in `Tables.rows(annotations)`
 - `annotations` contains rows with duplicate `id`s
 """
-function validate_annotations(annotations)
-    Legolas.validate(annotations, Legolas.Schema("onda.annotation@1"))
-    id_counts = Dict{UUID,Int}()
-    for (i, row) in enumerate(Tables.rows(annotations))
-        local annotation
-        try
-            annotation = Annotation(row)
-        catch err
-            log("Encountered invalid row $i of given `onda.annotation` table:")
-            rethrow(err)
-        end
-        id_counts[annotation.id] = get(id_counts, annotation.id, 0) + 1
-    end
-    filter!(>(1) ∘ last, id_counts)
-    if !isempty(id_counts)
-        throw(ArgumentError("duplicate `id`s found in given `onda.annotation` table: $id_counts"))
-    end
-    return annotations
-end
+validate_annotations(annotations) = _fully_validate_legolas_table(annotations, Legolas.Schema("onda.annotation@1"), :id)
 
 #####
 ##### utilities
