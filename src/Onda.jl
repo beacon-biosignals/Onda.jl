@@ -10,10 +10,11 @@ using Legolas: @row
 include("utilities.jl")
 
 include("annotations.jl")
-export Annotation, write_annotations, merge_overlapping_annotations
+export Annotation, write_annotations, validate_annotations, merge_overlapping_annotations
 
 include("signals.jl")
-export Signal, SamplesInfo, write_signals, channel, channel_count, sample_count, sizeof_samples, sample_type
+export Signal, SamplesInfo, write_signals, validate_signals,
+       channel, channel_count, sample_count, sizeof_samples, sample_type
 
 include("serialization.jl")
 export AbstractLPCMFormat, AbstractLPCMStream, LPCMFormat, LPCMZstFormat,

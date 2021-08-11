@@ -83,3 +83,30 @@ end
     test_signal_row(uuid4(), "/file/path", LPCMZstFormat(LPCMFormat(3, UInt16)), TimeSpan(Nanosecond(1), Nanosecond(100)),
                     "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
 end
+
+@testset "`onda.signal` validation" begin
+    template = (recording=uuid4(), file_path="/file/path", file_format="lpcm", span=TimeSpan(0, 1),
+                kind="x", channels=["a", "b", "c"],
+                sample_unit="microvolt", sample_rate=256, sample_resolution_in_unit=0.4,
+                sample_offset_in_unit=0.4, sample_type="uint8")
+    @test Signal(template) isa Signal
+    bad_rows = [Tables.rowmerge(template; channels = ["a", "b", "c", "a"]),
+                Tables.rowmerge(template; channels = ["a", "B", "c"]),
+                Tables.rowmerge(template; channels = ["a", "   ", "c"]),
+                Tables.rowmerge(template; sample_type = "not a valid sample type"),
+                Tables.rowmerge(template; sample_type = Tuple),
+                Tables.rowmerge(template; kind = "NO"),
+                Tables.rowmerge(template; kind = "   "),
+                Tables.rowmerge(template; kind = ""),
+                Tables.rowmerge(template; sample_unit = ""),
+                Tables.rowmerge(template; sample_unit = "  hA HA")]
+    for bad_row in bad_rows
+        @test_throws ArgumentError Signal(bad_row)
+    end
+    good = [template, Tables.rowmerge(template; file_path="/a/b"), Tables.rowmerge(template; file_path="/c/d")]
+    @test validate_signals(good) === good
+    @test_throws ArgumentError validate_signals(bad_rows)
+    @test_throws ArgumentError validate_signals(vcat(good, bad_rows[1]))
+    @test_throws ArgumentError validate_signals([template, template, template])
+    @test_throws ArgumentError validate_signals((x=[1, 2, 3], y=["lol", "bad", "table"]))
+end

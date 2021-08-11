@@ -100,7 +100,7 @@ const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     file_format::AbstractString = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
                     span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span),
                     kind::AbstractString = _validate_signal_kind(kind),
-                    channels::AbstractVector{<:AbstractString} = (foreach(_validate_signal_channel, channels); channels),
+                    channels::AbstractVector{<:AbstractString} = _validate_signal_channels(channels),
                     sample_unit::AbstractString = _validate_signal_sample_unit(sample_unit))
 
 function _validate_signal_kind(x)
@@ -113,8 +113,14 @@ function _validate_signal_sample_unit(x)
     return x
 end
 
+function _validate_signal_channels(x)
+    allunique(x) || throw(ArgumentError("invalid signal channels (duplicate channel names are disallowed): $x"))
+    foreach(_validate_signal_channel, x)
+    return x
+end
+
 function _validate_signal_channel(x)
-    is_lower_snake_case_alphanumeric(x, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $c"))
+    is_lower_snake_case_alphanumeric(x, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $x"))
     return x
 end
 
@@ -128,6 +134,20 @@ extract_samples_info(signal) = @compat SamplesInfo(; signal.kind, signal.channel
 Invoke/return `Legolas.write(path_or_io, signals, Schema("onda.signal@1"); kwargs...)`.
 """
 write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Legolas.Schema("onda.signal@1"); kwargs...)
+
+"""
+    validate_signals(signals)
+
+Perform both table-level and row-level validation checks on the content of `signals`,
+a presumed `onda.signal` table. Returns `signals`.
+
+This function will throw an error in any of the following cases:
+
+- `Legolas.validate(signals, Legolas.Schema("onda.signal@1"))` throws an error
+- `Signal(row)` errors for any `row` in `Tables.rows(signals)`
+- `signals` contains rows with duplicate `file_path`s
+"""
+validate_signals(signals) = _fully_validate_legolas_table(signals, Legolas.Schema("onda.signal@1"), :file_path)
 
 #####
 ##### duck-typed utilities

@@ -28,6 +28,16 @@ end
     test_annotation_row(uuid4(), uuid4(), TimeSpan(Nanosecond(1), Nanosecond(100)); custom...)
 end
 
+@testset "`onda.annotation` validation" begin
+    template = (recording=uuid4(), id=uuid4(), span=TimeSpan(0, 1), custom=1234)
+    @test Annotation(template) isa Annotation
+    good = [template, Tables.rowmerge(template; id=uuid4()), Tables.rowmerge(template; id=uuid4())]
+    @test validate_annotations(good) === good
+    @test_throws ArgumentError validate_annotations(vcat(good, template))
+    @test_throws ArgumentError validate_annotations([template, template, template])
+    @test_throws ArgumentError validate_annotations((x=[1, 2, 3], y=["lol", "bad", "table"]))
+end
+
 @testset "`merge_overlapping_annotations`" begin
     recs = (uuid4(), uuid4(), uuid4())
     sources = [#= 1 =#  Annotation(recording=recs[1], id=uuid4(), span=TimeSpan(0, 100)),

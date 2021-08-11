@@ -30,6 +30,20 @@ Invoke/return `Legolas.write(path_or_io, annotations, Schema("onda.annotation@1"
 """
 write_annotations(path_or_io, annotations; kwargs...) = Legolas.write(path_or_io, annotations, Legolas.Schema("onda.annotation@1"); kwargs...)
 
+"""
+    validate_annotations(annotations)
+
+Perform both table-level and row-level validation checks on the content of `annotations`,
+a presumed `onda.annotation` table. Returns `annotations`.
+
+This function will throw an error in any of the following cases:
+
+- `Legolas.validate(annotations, Legolas.Schema("onda.annotation@1"))` throws an error
+- `Annotation(row)` errors for any `row` in `Tables.rows(annotations)`
+- `annotations` contains rows with duplicate `id`s
+"""
+validate_annotations(annotations) = _fully_validate_legolas_table(annotations, Legolas.Schema("onda.annotation@1"), :id)
+
 #####
 ##### utilities
 #####
