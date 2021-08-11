@@ -5,7 +5,7 @@ const ALPHANUMERIC_SNAKE_CASE_CHARACTERS = Char['_',
                                                 'a':'z'...]
 
 function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
-    return !startswith(x, '_') && !endswith(x, '_') &&
+    return !isempty(x) && !startswith(x, '_') && !endswith(x, '_') &&
            all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
 end
 
