@@ -96,7 +96,7 @@ end
                 Tables.rowmerge(template; sample_type = "not a valid sample type"),
                 Tables.rowmerge(template; sample_type = Tuple),
                 Tables.rowmerge(template; kind = "NO"),
-                Tables.rowmerge(template; kind = "   ")
+                Tables.rowmerge(template; kind = "   "),
                 Tables.rowmerge(template; kind = ""),
                 Tables.rowmerge(template; sample_unit = ""),
                 Tables.rowmerge(template; sample_unit = "  hA HA")]
@@ -108,5 +108,5 @@ end
     @test_throws ArgumentError validate_signals(bad_rows)
     @test_throws ArgumentError validate_signals(vcat(good, bad_rows[1]))
     @test_throws ArgumentError validate_signals([template, template, template])
-    @test_throws ArgumentError validate_signals((x=[1,2,3], y=["lol", "bad", "table"]))
+    @test_throws ArgumentError validate_signals((x=[1, 2, 3], y=["lol", "bad", "table"]))
 end

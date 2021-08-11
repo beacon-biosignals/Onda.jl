@@ -35,7 +35,7 @@ end
     @test validate_annotations(good) === good
     @test_throws ArgumentError validate_annotations(vcat(good, template))
     @test_throws ArgumentError validate_annotations([template, template, template])
-    @test_throws ArgumentError validate_annotations((x=[1,2,3], y=["lol", "bad", "table"]))
+    @test_throws ArgumentError validate_annotations((x=[1, 2, 3], y=["lol", "bad", "table"]))
 end
 
 @testset "`merge_overlapping_annotations`" begin
