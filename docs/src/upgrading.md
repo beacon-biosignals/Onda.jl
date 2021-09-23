@@ -2,7 +2,9 @@
 
 ## To v0.14 From v0.13
 
-There are no intended breaking changes from v0.13 to v0.14 that do not have a supported deprecation path. These deprecation paths will be maintained for at least one `0.x` release cycle. To upgrade your code, simply run your code/tests with Julia's `--depwarn=yes` flag enabled and make the updates recommended by whatever deprecation warnings arise.
+`SamplesInfo`'s `sample_type` field is now an `AbstractString` (see `sample_type` in https://github.com/beacon-biosignals/Onda.jl#columns) as opposed to a `DataType`. The [`sample_type`](@ref) function should now be used to retrieve this field as a `DataType`.
+
+Otherwise, there are no intended breaking changes from v0.13 to v0.14 that do not have a supported deprecation path. These deprecation paths will be maintained for at least one `0.x` release cycle. To upgrade your code, simply run your code/tests with Julia's `--depwarn=yes` flag enabled and make the updates recommended by whatever deprecation warnings arise.
 
 ## To v0.14 From v0.11 Or Older
 
