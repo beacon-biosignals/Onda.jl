@@ -82,17 +82,18 @@ const SamplesInfo = @row("onda.samples-info@1",
                         file_format::String = (file_format isa AbstractLPCMFormat ?
                                                Onda.file_format_string(file_format) :
                                                file_format),
-                        span::TimeSpan,
-                        kind::String,
-                        channels::Vector{String},
-                        sample_unit::String)
+                        span::TimeSpan)
 
 A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.signal@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
 representing an [`onda.signal` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondasignal1).
 
-This type primarily exists to aid in the validated row construction, and is not intended to be used
-as a type constraint in function or struct definitions. Instead, you should generally duck-type any
-"signal-like" arguments/fields so that other generic row types will compose with your code.
+Note that the `Signal` constructor will perform additional validation on underlying `onda.samples-info@1` fields to 
+ensure that these fields are compliant with the Onda specification; an `ArgumentError` will be thrown if any fields 
+are invalid.
+
+This type primarily exists to aid in the validated row construction, and is not intended to be used as a type constraint 
+in function or struct definitions. Instead, you should generally duck-type any "signal-like" arguments/fields so that 
+other generic row types will compose with your code.
 """
 const Signal = @row("onda.signal@1" > "onda.samples-info@1",
                     recording::Union{UInt128,UUID} = UUID(recording),
