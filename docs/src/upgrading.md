@@ -2,7 +2,13 @@
 
 ## To v0.14 From v0.13
 
-There are no intended breaking changes from v0.13 to v0.14 that do not have a supported deprecation path. These deprecation paths will be maintained for at least one `0.x` release cycle. To upgrade your code, simply run your code/tests with Julia's `--depwarn=yes` flag enabled and make the updates recommended by whatever deprecation warnings arise.
+Potentially breaking changes include:
+
+- `SamplesInfo`'s `sample_type` field is now an `AbstractString` (see `sample_type` in https://github.com/beacon-biosignals/Onda.jl#columns) as opposed to a `DataType`. The [`sample_type`](@ref) function should now be used to retrieve this field as a `DataType`.
+
+- Since `SampleInfo`/`Signal`/`Annotation` are now [`Legolas.Row` aliases](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.Row), any instance of these types may contain additional author-provided fields atop required fields. Thus, code that relies on these types containing a specific number of fields (or similarly, a specific field order) might break in generic usage.
+
+Otherwise, there are no intended breaking changes from v0.13 to v0.14 that do not have a supported deprecation path. These deprecation paths will be maintained for at least one `0.x` release cycle. To upgrade your code, simply run your code/tests with Julia's `--depwarn=yes` flag enabled and make the updates recommended by whatever deprecation warnings arise.
 
 ## To v0.14 From v0.11 Or Older
 
