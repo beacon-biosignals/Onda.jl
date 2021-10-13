@@ -58,6 +58,12 @@ end
             @test getfield(a, :_row) == getfield(Annotation(r), :_row)
         end
     end
+
+    # Check Onda v0.14 compatibility
+    empty!(Onda.Arrow.OBJ_METADATA) # clear the metadata
+    Onda.assign_to_table_metadata!(cols, ("legolas_schema_qualified" => "onda.annotation@1",))
+    Onda.write_arrow_table(annotations_file_path, cols) # write without adding more metadata
+    @test length(Tables.rows(cols)) == length(Tables.rows(read_annotations(annotations_file_path)))
 end
 
 @testset "`merge_overlapping_annotations`" begin

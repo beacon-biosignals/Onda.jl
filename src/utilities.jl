@@ -124,8 +124,16 @@ function table_has_metadata(predicate, table)
     return m isa Dict && predicate(m)
 end
 
-table_has_required_onda_metadata(table) = table_has_metadata(m -> is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", "0.0.0"))),
-                                                             table)
+function table_has_required_onda_metadata(table)
+    return table_has_metadata(table) do m
+        is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", "0.0.0"))) && return true
+        schema = get(m, "legolas_schema_qualified", "")
+        isempty(schema) && return false
+        # Onda v0.14 compatibility
+        return schema == "onda.signal@1>onda.samples-info@1" || schema == "onda.annotation@1" || schema == "onda.samples-info@1"
+    end
+end
+
 
 # It would be better if Arrow.jl supported a generic API for nonstandard path-like types so that
 # we can avoid potential intermediate copies here, but its documentation is explicit that it only
