@@ -94,4 +94,4 @@ end
     @test_throws ArgumentError setproperties(info; sample_unit="Ha Ha")
     @test_throws ArgumentError setproperties(info; kind="Ha, Ha")
     @test_throws ArgumentError setproperties(info; channel_names=["Ha Ha"])
-  end
+end

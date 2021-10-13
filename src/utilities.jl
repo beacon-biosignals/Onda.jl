@@ -124,7 +124,7 @@ function table_has_metadata(predicate, table)
     return m isa Dict && predicate(m)
 end
 
-table_has_required_onda_metadata(table) = table_has_metadata(m -> is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", v"0.0.0"))),
+table_has_required_onda_metadata(table) = table_has_metadata(m -> is_supported_onda_format_version(VersionNumber(get(m, "onda_format_version", "0.0.0"))),
                                                              table)
 
 # It would be better if Arrow.jl supported a generic API for nonstandard path-like types so that

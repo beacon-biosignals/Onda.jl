@@ -121,4 +121,8 @@ end
             @test getfield(s, :_row) == getfield(Signal(r), :_row)
         end
     end
+    signals_file_path = joinpath(root, "test.onda.signals.arrow")
+    Onda.write_arrow_table(signals_file_path, signals) # without metadata
+    @test_throws ArgumentError read_signals(signals_file_path)
+
 end
