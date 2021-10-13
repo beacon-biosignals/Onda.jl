@@ -125,4 +125,10 @@ end
     Onda.write_arrow_table(signals_file_path, signals) # without metadata
     @test_throws ArgumentError read_signals(signals_file_path)
 
+    # Check Onda v0.14 compatibility
+    empty!(Onda.Arrow.OBJ_METADATA) # clear the metadata
+    cols = Tables.columns(signals)
+    Onda.assign_to_table_metadata!(cols, ("legolas_schema_qualified" => "onda.signal@1>onda.samples-info@1",))
+    Onda.write_arrow_table(signals_file_path, cols) # write without adding more metadata
+    @test length(Tables.rows(cols)) == length(Tables.rows(read_signals(signals_file_path)))
 end
