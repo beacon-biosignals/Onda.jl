@@ -36,7 +36,7 @@ jobs:
         shell: julia --color=yes --project=. {0}
         run: |
           using Pkg
-          Pkg.add(; name="Legolas", version="${{ matrix.legolas-version }}")
+          Pkg.add(Pkg.PackageSpec(; name="Legolas", version="${{ matrix.legolas-version }}"))
       - uses: actions/cache@v2
         with:
           path: ~/.julia/artifacts
