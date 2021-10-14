@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         legolas-version:
-          - '0.2.2'
+          - '0.2'
           - '0.3'
         version:
           - '1.4'
