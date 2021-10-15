@@ -9,11 +9,14 @@ on:
   pull_request:
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - Legolas ${{ matrix.legolas-version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        legolas-version:
+          - '0.2'
+          - '0.3'
         version:
           - '1.4'
           - '1'
@@ -29,6 +32,11 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
+      - name: "Install Legolas version"
+        shell: julia --color=yes --project=. {0}
+        run: |
+          using Pkg
+          Pkg.add(Pkg.PackageSpec(; name="Legolas", version="${{ matrix.legolas-version }}"))
       - uses: actions/cache@v2
         with:
           path: ~/.julia/artifacts
