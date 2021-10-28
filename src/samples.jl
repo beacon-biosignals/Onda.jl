@@ -406,25 +406,29 @@ end
 #####
 
 """
-    load(signal[, span]; encoded::Bool=false)
-    load(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, info::SamplesInfo[, span]; encoded::Bool=false)
+    load(signal[, span_relative_to_loaded_samples]; encoded::Bool=false)
+    load(file_path, file_format::Union{AbstractString,AbstractLPCMFormat},
+         info::SamplesInfo[, span_relative_to_loaded_samples]; encoded::Bool=false)
 
 Return the `Samples` object described by `signal`/`file_path`/`file_format`/`info`.
 
-If `span` is present, return `load(...)[:, span]`, but attempt to avoid reading
-unreturned intermediate sample data. Note that the effectiveness of this optimized method
-versus the naive approach depends on the types of `file_path` (i.e. if there is a fast
-method defined for `Onda.read_byte_range(::typeof(file_path), ...)`) and `file_format`
-(i.e. does the corresponding format support random or chunked access).
+If `span_relative_to_loaded_samples` is present, return `load(...)[:, span_relative_to_loaded_samples]`,
+but attempt to avoid reading unreturned intermediate sample data. Note that the effectiveness of this
+optimized method versus the naive approach depends on the types of `file_path` (i.e. if there is a fast
+method defined for `Onda.read_byte_range(::typeof(file_path), ...)`) and `file_format` (i.e. does the
+corresponding format support random or chunked access).
 
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
-function load(signal, span...; encoded::Bool=false)
-    return @compat load(signal.file_path, signal.file_format, extract_samples_info(signal), span...; encoded)
+function load(signal, span_relative_to_loaded_samples...; encoded::Bool=false)
+    return @compat load(signal.file_path, signal.file_format, extract_samples_info(signal),
+                        span_relative_to_loaded_samples...; encoded)
 end
 
-function load(file_path, file_format::AbstractString, info::SamplesInfo, span...; encoded::Bool=false)
-    return @compat load(file_path, format(file_format, info), info, span...; encoded)
+function load(file_path, file_format::AbstractString, info::SamplesInfo,
+              span_relative_to_loaded_samples...; encoded::Bool=false)
+    return @compat load(file_path, format(file_format, info), info,
+                        span_relative_to_loaded_samples...; encoded)
 end
 
 function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; encoded::Bool=false)
@@ -432,11 +436,22 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; enc
     return encoded ? samples : decode(samples)
 end
 
-function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo, span; encoded::Bool=false)
-    sample_range = TimeSpans.index_from_time(info.sample_rate, span)
-    sample_offset, sample_count = first(sample_range) - 1, length(sample_range)
-    sample_data = read_lpcm(file_path, file_format, sample_offset, sample_count)
+function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo,
+              span_relative_to_loaded_samples; encoded::Bool=false)
+    sample_range = TimeSpans.index_from_time(info.sample_rate, span_relative_to_loaded_samples)
+    sample_offset_from_info, sample_count_from_info = first(sample_range) - 1, length(sample_range)
+    sample_data = read_lpcm(file_path, file_format, sample_offset_from_info, sample_count_from_info)
     samples = Samples(sample_data, info, true)
+    if sample_count(samples) < sample_count_from_info
+        throw(ArgumentError("""
+                            `duration(load(..., span_relative_to_loaded_samples))` is unexpectedly less than 
+                            `duration(span_relative_to_loaded_samples)`; this might indicate that `span` is 
+                            not properly within the bounds of the loaded `Samples` instance.
+
+                            Try `load(...)[:, span_relative_to_loaded_samples]` to load the full `Samples` instance
+                            before indexing, which might induce a more informative `BoundsError`.
+                            """))
+    end
     return encoded ? samples : decode(samples)
 end
 

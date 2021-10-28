@@ -16,14 +16,14 @@
                             start=Second(rand(0:30))) for i in 1:length(expected_sample_types)]
     for params in expected_parameters
         info = Onda.extract_samples_info(params)
-        data = rand(params.sample_type, 3, sample_count(info, Second(rand(1:15))))
+        data = rand(params.sample_type, 3, sample_count(info, Second(rand(2:15))))
         samples = Samples(data, info, true)
-        start = Second(rand(0:30))
         signal = store(params.file_path, params.file_format, samples, params.recording, params.start)
         push!(signals, signal)
     end
     for (expected, signal) in zip(expected_parameters, signals)
         expected_info = Onda.extract_samples_info(expected)
+        @test_throws ArgumentError load(signal, TimeSpans.translate(TimeSpan(0, duration(signal.span)), Second(1)))
         for encoded in (false, true)
             s = @compat load(signal; encoded)
             s1 = @compat load(expected.file_path, expected.file_format, expected_info; encoded)
