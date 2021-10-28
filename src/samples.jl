@@ -448,7 +448,7 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo,
                             indicate that `span` is not properly within the bounds of the loaded `Samples`
                             instance.
 
-                            Try `load(...)[:, span]` to load the full `Samples` instance before indexing, which
+                            Try `load(...)[:, span_relative_to_loaded_samples]` to load the full `Samples` instance before indexing, which
                             might induce a more informative `BoundsError`.
                             """))
     end
