@@ -444,12 +444,12 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo,
     samples = Samples(sample_data, info, true)
     if sample_count(samples) < sample_count_from_info
         throw(ArgumentError("""
-                            `duration(load(..., span_relative_to_loaded_samples))` is unexpectedly less than `duration(span_relative_to_loaded_samples)`; this might
-                            indicate that `span` is not properly within the bounds of the loaded `Samples`
-                            instance.
+                            `duration(load(..., span_relative_to_loaded_samples))` is unexpectedly less than 
+                            `duration(span_relative_to_loaded_samples)`; this might indicate that `span` is 
+                            not properly within the bounds of the loaded `Samples` instance.
 
-                            Try `load(...)[:, span_relative_to_loaded_samples]` to load the full `Samples` instance before indexing, which
-                            might induce a more informative `BoundsError`.
+                            Try `load(...)[:, span_relative_to_loaded_samples]` to load the full `Samples` instance
+                            before indexing, which might induce a more informative `BoundsError`.
                             """))
     end
     return encoded ? samples : decode(samples)
