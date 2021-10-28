@@ -444,7 +444,7 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo,
     samples = Samples(sample_data, info, true)
     if sample_count(samples) < sample_count_from_info
         throw(ArgumentError("""
-                            `duration(load(..., span))` is unexpectedly less than `duration(span)`; this might
+                            `duration(load(..., span_relative_to_loaded_samples))` is unexpectedly less than `duration(span_relative_to_loaded_samples)`; this might
                             indicate that `span` is not properly within the bounds of the loaded `Samples`
                             instance.
 
