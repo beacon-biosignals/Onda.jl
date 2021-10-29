@@ -90,6 +90,3 @@ function read_byte_range(path, byte_offset, byte_count)
 end
 
 read_byte_range(path, ::Missing, ::Missing) = read(path)
-
-write_full_path(path::AbstractString, bytes) = (mkpath(dirname(path)); write(path, bytes))
-write_full_path(path, bytes) = write(path, bytes)
