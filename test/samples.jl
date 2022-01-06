@@ -193,3 +193,33 @@ Base.read(p::BufferPath) = take!(p.io)
     loaded_samples = Onda.load(file_path, file_format, info; encoded=true)
     @test samples == loaded_samples
 end
+
+@testset "Samples views" begin
+
+    info = SamplesInfo(kind="eeg",
+                       channels=["a", "b", "c"],
+                       sample_unit="unit",
+                       sample_resolution_in_unit=1.0,
+                       sample_offset_in_unit=0.0,
+                       sample_type=Int16,
+                       sample_rate=100.0)
+    samples = Samples(rand(sample_type(info), 3, 100), info, true)
+
+    span = TimeSpan(Millisecond(100), Millisecond(400))
+
+    for chans in ["a", 1, r"[ac]", 1:2, [1,3]]
+        for times in [1, 10:40, span]
+            @testset "chans $chans, times $times" begin
+                @test view(samples, chans, times) == samples[chans, times]
+
+                v = @view samples[chans, times]
+                @test v.data isa SubArray
+                @test v == samples[chans, times]
+                
+                v = @views samples[chans, times]
+                @test v.data isa SubArray
+                @test v == samples[chans, times]
+            end
+        end
+    end
+end
