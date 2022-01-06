@@ -127,14 +127,14 @@ sample_count(samples::Samples) = size(samples.data, 2)
 ##### indexing
 #####
 
-for f in (:getindex, :view)
+for f in (:getindex, :view, :maybeview)
     @eval begin
         @inline function Base.$f(samples::Samples, rows, columns)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
             channels = rows isa Colon ? samples.info.channels : samples.info.channels[rows]
             info = @compat SamplesInfo(Tables.rowmerge(samples.info; channels))
-            return Samples($f(samples.data, rows, columns), info, samples.encoded; validate=false)
+            return Samples(Base.$f(samples.data, rows, columns), info, samples.encoded; validate=false)
         end
     end
 end
