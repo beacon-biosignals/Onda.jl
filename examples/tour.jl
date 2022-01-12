@@ -4,7 +4,7 @@
 # concrete manner, and so that we can ensure examples stay updated as the
 # package evolves.
 #
-# NOTE: You should read https://github.com/beacon-biosignals/README.md#the-onda-format-specification
+# NOTE: You should read https://github.com/beacon-biosignals/Onda.jl/#the-onda-format-specification
 # before and/or alongside the completion of this tour; it explains the
 # purpose/structure of the format.
 
