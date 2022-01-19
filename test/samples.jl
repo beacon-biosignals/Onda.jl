@@ -164,3 +164,62 @@ end
     @test_throws ArgumentError Samples(rand(4, 10), info, false)
     @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
 end
+
+# A custom path type akin to those from FilePathsBase.jl
+struct BufferPath
+    io::IOBuffer
+end
+Base.write(p::BufferPath, bytes) = write(p.io, bytes)
+Base.read(p::BufferPath) = take!(p.io)
+
+@testset "Custom path support for store/load" begin
+    file_path = BufferPath(IOBuffer())
+    file_format = "lpcm.zst"
+    recording_uuid = uuid4()
+    start = Second(0)
+
+    info = SamplesInfo(kind="eeg",
+                       channels=["a", "b"],
+                       sample_unit="unit",
+                       sample_resolution_in_unit=1.0,
+                       sample_offset_in_unit=0.0,
+                       sample_type=Int16,
+                       sample_rate=100.0)
+    samples = Samples(zeros(sample_type(info), 2, 3), info, true)
+
+    signals = Onda.store(file_path, file_format, samples, recording_uuid, start)
+    @test signals.file_path isa BufferPath
+
+    loaded_samples = Onda.load(file_path, file_format, info; encoded=true)
+    @test samples == loaded_samples
+end
+
+@testset "Samples views" begin
+
+    info = SamplesInfo(kind="eeg",
+                       channels=["a", "b", "c"],
+                       sample_unit="unit",
+                       sample_resolution_in_unit=1.0,
+                       sample_offset_in_unit=0.0,
+                       sample_type=Int16,
+                       sample_rate=100.0)
+    samples = Samples(rand(sample_type(info), 3, 100), info, true)
+
+    span = TimeSpan(Millisecond(100), Millisecond(400))
+
+    for chans in ["a", 1, r"[ac]", 1:2, [1,3]]
+        for times in [1, 10:40, span]
+            @testset "chans $chans, times $times" begin
+                @test view(samples, chans, times) == samples[chans, times]
+
+                v = @view samples[chans, times]
+                @test v.data isa SubArray
+                @test v == samples[chans, times]
+                
+                v = @views samples[chans, times]
+                @test v.data isa SubArray
+                @test v == samples[chans, times]
+            end
+        end
+    end
+end
