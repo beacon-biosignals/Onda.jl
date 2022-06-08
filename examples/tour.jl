@@ -106,7 +106,7 @@ annotations = DataFrame(Legolas.read(path_to_annotations))
 
 # Get all signals from a given recording:
 target = rand(signals.recording)
-view(signals, findall(==(target), signals.recording), :)
+subset(signals, :recording => ByRow(==(target)))
 
 # One of the consumer/producer-friendly properties of Onda is that signals
 # and annotations are both represented in flat tables, enabling you to easily
