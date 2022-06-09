@@ -130,35 +130,38 @@ combine(groupby(signals, :recording), nrow)
 combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
 
 # Grab all multichannel signals greater than 5 minutes long:
-filter(s -> length(s.channels) > 1 && duration(s.span) > Minute(5), signals)
+subset(signals, :channels => ByRow(>(1) ∘ length), :span => ByRow(>(Minute(5)) ∘ duration))
 
 # Load all sample data for a given recording:
 target = rand(signals.recording)
-transform(view(signals, findall(==(target), signals.recording), :),
-          AsTable(:) => ByRow(load) => :samples)
+df = subset(signals, :recording => ByRow(==(target)))
+df.sample .= load.(eachrow(df))
 
 # `mmap` sample data for a given LPCM signal:
-target = first(s for s in eachrow(signals) if s.file_format == "lpcm")
-Onda.mmap(target)
+i = findfirst(==("lpcm"), signals.file_format)
+Onda.mmap(signals[i,:])
 
 # Delete all sample data for a given recording (uncomment the
-# inline-commented section to actual delete filtered signals'
+# foreach line to actually delete filtered signals'
 # sample data!):
 target = rand(signals.recording)
-signals_copy = copy(signals) # we're gonna keep using `signals` afterwards, so let's work with a copy
-filter!(s -> s.recording != target #=|| (rm(s.file_path); false)=#, signals_copy)
+grps = groupby(signals, :recording)
+# foreach(rm, grps[(target,)].file_path)
+keep = DataFrame(grps[Not((target,))])
 
 # Merge overlapping annotations of the same `quality` in the same recording.
 # `merged` is an annotations table with a custom column of merged ids:
 merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, :quality)))
 m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
-view(annotations, findall(in(m.from), annotations.id), :)
+subset(annotations, :id => ByRow(in(m.from)), view = true)
 
 # Load all the annotated segments that fall within a given signal's timespan:
-within_signal(ann, sig) = ann.recording == sig.recording && TimeSpans.contains(sig.span, ann.span)
-sig = first(sig for sig in eachrow(signals) if any(within_signal(ann, sig) for ann in eachrow(annotations)))
-transform(filter(ann -> within_signal(ann, sig), annotations),
-          :span => ByRow(span -> load(sig, translate(span, -start(sig.span)))) => :samples)
+signals.signal .= 1:nrow(signals) # define an ID for each signal (i.e. row)
+df = innerjoin(annotations, signals, on = :recording, makeunique = true) # join signals and annotations on recording
+subset!(df, [:span_1, :span] => ByRow(TimeSpans.contains)) # keep only the instances where the annotation's span is contained by the signal's span
+grp = first(groupby(df, :signal)) # arbitrarily pick the first signal
+grp.samples .= load.(eachrow(grp), translate.(grp.span, -start.(grp.span)))
+
 
 # In the above, we called `load(sig, span)` for each `span`. This invocation attempts to load
 # *only* the sample data corresponding to `span`, which can be very efficient if the sample data
@@ -167,9 +170,8 @@ transform(filter(ann -> within_signal(ann, sig), annotations),
 # requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
 # the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
 # want to support an optimal batch loader):
-samples = load(sig)
-transform(filter(ann -> within_signal(ann, sig), annotations),
-          :span => ByRow(span -> view(samples, :, translate(span, -start(sig.span)))) => :samples)
+samples = load(grp[1,:])
+transform!(grp, :span => ByRow(s -> view(samples, :, translate(s, -start(s)))) => :samples)
 
 #####
 ##### working with `Samples`
