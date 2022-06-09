@@ -35,25 +35,23 @@ using Onda, Legolas, Arrow, TimeSpans, DataFrames, Dates, UUIDs, Test
 # Below, we generate a bunch of signals/annotations across 10 recordings, writing the corresponding
 # Arrow tables and sample data files to a temporary directory.
 
-saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
-                        i in 1:channel_count(info), j in 1:sample_count(info, duration)]
+function saws(info, duration)
+    return [(j + i) % 100 * info.sample_resolution_in_unit
+            for i in 1:channel_count(info), j in 1:sample_count(info, duration)]
+end
 
 root = mktempdir()
 
 signals = Signal[]
 signals_recordings = [uuid4() for _ in 1:2]
 for recording in signals_recordings
-    for (kind, file_format, channels) in (("eeg", "lpcm", ["fp1", "f3", "c3", "p3",
-                                                           "f7", "t3", "t5", "o1",
-                                                           "fz", "cz", "pz",
-                                                           "fp2", "f4", "c4", "p4",
-                                                           "f8", "t4", "t6", "o2"]),
-                                           ("ecg", "lpcm.zst", ["avl", "avr"]),
-                                           ("spo2", "lpcm", ["spo2"]))
+    for (kind, file_format, channels) in (("eeg", "lpcm",
+                                           ["fp1", "f3", "c3", "p3", "f7", "t3", "t5", "o1", "fz", "cz", "pz", "fp2", "f4",
+                                            "c4", "p4", "f8", "t4", "t6", "o2"]), ("ecg", "lpcm.zst", ["avl", "avr"]),
+                                          ("spo2", "lpcm", ["spo2"]))
         file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
         Onda.log("generating $file_path...")
-        info = SamplesInfo(; kind=kind, channels=channels,
-                           sample_unit="microvolt",
+        info = SamplesInfo(; kind=kind, channels=channels, sample_unit="microvolt",
                            sample_resolution_in_unit=rand((0.25, 1)),
                            sample_offset_in_unit=rand((-1, 0, 1)),
                            sample_type=rand((Float32, Int16, Int32)),
@@ -71,12 +69,14 @@ Onda.log("wrote out $path_to_signals")
 
 annotations = Annotation[]
 sources = (uuid4(), uuid4(), uuid4())
-annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
+annotations_recordings = vcat(signals_recordings[1:(end - 1)], uuid4()) # overlapping but not equal to signals_recordings
 for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:60))
-        annotation = Annotation(; recording=recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
-                                rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
+        annotation = Annotation(; recording=recording, id=uuid4(),
+                                span=TimeSpan(start, start + Second(rand(1:30))),
+                                rating=rand(1:100), quality=rand(("good", "bad")),
+                                source=rand(sources))
         push!(annotations, annotation)
     end
 end
@@ -106,7 +106,7 @@ annotations = DataFrame(Legolas.read(path_to_annotations))
 
 # Get all signals from a given recording:
 target = rand(signals.recording)
-subset(signals, :recording => ByRow(==(target)), view = true)
+subset(signals, :recording => ByRow(==(target)); view=true)
 
 # One of the consumer/producer-friendly properties of Onda is that signals
 # and annotations are both represented in flat tables, enabling you to easily
@@ -139,7 +139,7 @@ df.sample .= load.(eachrow(df))
 
 # `mmap` sample data for a given LPCM signal:
 i = findfirst(==("lpcm"), signals.file_format)
-Onda.mmap(signals[i,:])
+Onda.mmap(signals[i, :])
 
 # Delete all sample data for a given recording (uncomment the
 # foreach line to actually delete filtered signals'
@@ -151,17 +151,17 @@ keep = DataFrame(grps[Not((target,))])
 
 # Merge overlapping annotations of the same `quality` in the same recording.
 # `merged` is an annotations table with a custom column of merged ids:
-merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat, groupby(annotations, :quality)))
+merged = DataFrame(mapreduce(merge_overlapping_annotations, vcat,
+                             groupby(annotations, :quality)))
 m = rand(eachrow(merged)) # let's get the original annotation(s) from this merged annotation
-subset(annotations, :id => ByRow(in(m.from)), view = true)
+subset(annotations, :id => ByRow(in(m.from)); view=true)
 
 # Load all the annotated segments that fall within a given signal's timespan:
 signals.signal .= 1:nrow(signals) # define an ID for each signal (i.e. row)
-df = innerjoin(annotations, signals, on = :recording, makeunique = true) # join signals and annotations on recording
+df = innerjoin(annotations, signals; on=:recording, makeunique=true) # join signals and annotations on recording
 subset!(df, [:span_1, :span] => ByRow(TimeSpans.contains)) # keep only the instances where the annotation's span is contained by the signal's span
 grp = first(groupby(df, :signal)) # arbitrarily pick the first signal
 grp.samples .= load.(eachrow(grp), translate.(grp.span, -start.(grp.span)))
-
 
 # In the above, we called `load(sig, span)` for each `span`. This invocation attempts to load
 # *only* the sample data corresponding to `span`, which can be very efficient if the sample data
@@ -170,7 +170,7 @@ grp.samples .= load.(eachrow(grp), translate.(grp.span, -start.(grp.span)))
 # requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
 # the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
 # want to support an optimal batch loader):
-samples = load(grp[1,:])
+samples = load(grp[1, :])
 transform!(grp, :span => ByRow(s -> view(samples, :, translate(s, -start(s)))) => :samples)
 
 #####
@@ -186,9 +186,13 @@ eeg = load(eeg_signal)
 
 # # Here are some basic functions for examining `Samples` instances:
 @test eeg isa Samples && !eeg.encoded
-@test sample_count(eeg) == sample_count(eeg_signal, duration(eeg)) == index_from_time(eeg.info.sample_rate, duration(eeg)) - 1
+@test sample_count(eeg) ==
+      sample_count(eeg_signal, duration(eeg)) ==
+      index_from_time(eeg.info.sample_rate, duration(eeg)) - 1
 @test channel_count(eeg) == channel_count(eeg_signal) == length(eeg.info.channels)
-@test channel(eeg, "f3") == channel(eeg_signal, "f3") == findfirst(==("f3"), eeg.info.channels)
+@test channel(eeg, "f3") ==
+      channel(eeg_signal, "f3") ==
+      findfirst(==("f3"), eeg.info.channels)
 @test channel(eeg, 2) == channel(eeg_signal, 2) == eeg.info.channels[2]
 @test duration(eeg) == duration(eeg_signal.span)
 
@@ -207,7 +211,7 @@ rows = ["c3", 4, "f3"]
 
 # One can also index rows by regular expressions. For example, to match all the
 # channels which have an `f`:
-f_channels = ["fp1", "f3","f7", "fz", "fp2", "f4", "f8"]
+f_channels = ["fp1", "f3", "f7", "fz", "fp2", "f4", "f8"]
 @test eeg[r"f", span].data == view(eeg, channel.(Ref(eeg), f_channels), span_range).data
 
 # Onda overloads the necessary Arrow.jl machinery to enable individual sample data
