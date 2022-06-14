@@ -45,10 +45,13 @@ root = mktempdir()
 signals = Signal[]
 signals_recordings = [uuid4() for _ in 1:2]
 for recording in signals_recordings
-    for (kind, file_format, channels) in (("eeg", "lpcm",
-                                           ["fp1", "f3", "c3", "p3", "f7", "t3", "t5", "o1", "fz", "cz", "pz", "fp2", "f4",
-                                            "c4", "p4", "f8", "t4", "t6", "o2"]), ("ecg", "lpcm.zst", ["avl", "avr"]),
-                                          ("spo2", "lpcm", ["spo2"]))
+    for (kind, file_format, channels) in (("eeg", "lpcm", ["fp1", "f3", "c3", "p3",
+                                                           "f7", "t3", "t5", "o1",
+                                                           "fz", "cz", "pz",
+                                                           "fp2", "f4", "c4", "p4",
+                                                           "f8", "t4", "t6", "o2"]),
+                                           ("ecg", "lpcm.zst", ["avl", "avr"]),
+                                           ("spo2", "lpcm", ["spo2"]))
         file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
         Onda.log("generating $file_path...")
         info = SamplesInfo(; kind=kind, channels=channels, sample_unit="microvolt",
