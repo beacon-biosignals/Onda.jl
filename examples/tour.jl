@@ -165,11 +165,14 @@ m = rand(eachrow(merged)) # let's get the original annotation(s) from this merge
 subset(annotations, :id => ByRow(in(m.from)); view=true)
 
 # Load all the annotated segments that fall within a given signal's timespan:
-signals.signal = 1:nrow(signals) # define an ID for each signal (i.e. row)
-df = innerjoin(annotations, signals; on=:recording, makeunique=true) # join signals and annotations on recording
-subset!(df, [:span_1, :span] => ByRow(TimeSpans.contains)) # keep only the instances where the annotation's span is contained by the signal's span
-grp = first(groupby(df, :signal)) # arbitrarily pick the first signal
-grp.samples = load.(eachrow(grp), translate.(grp.span, -start.(grp.span)))
+annotated_signals = innerjoin(signals, select(annotations, :recording, :id,
+                                              :span => :annotated_span);
+                              on=:recording)
+subset!(annotated_signals, [:span, :annotated_span] => ByRow(TimeSpans.contains))
+annotated_signals = combine(groupby(annotated_signals, :recording), first)
+transform(annotated_signals, AsTable(:) => ByRow() do row
+              return load(row, translate(row.annotated_span, -start(row.span)))
+          end => :samples)
 
 # In the above, we called `load(sig, span)` for each `span`. This invocation attempts to load
 # *only* the sample data corresponding to `span`, which can be very efficient if the sample data
