@@ -133,7 +133,8 @@ combine(groupby(signals, :recording), nrow)
 combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
 
 # Grab all multichannel signals greater than 5 minutes long:
-subset(signals, :channels => ByRow(>(1) ∘ length), :span => ByRow(>(Minute(5)) ∘ duration))
+subset(signals, :channels => ByRow(cs -> length(cs) > 1),
+       :span => ByRow(span -> duration(span) > Minute(5))
 
 # Load all sample data for a given recording:
 target = rand(signals.recording)
