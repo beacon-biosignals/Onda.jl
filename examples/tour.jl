@@ -149,9 +149,13 @@ Onda.mmap(signals[i, :])
 # foreach line to actually delete filtered signals'
 # sample data!):
 target = rand(signals.recording)
-grps = groupby(signals, :recording)
-# foreach(rm, grps[(target,)].file_path)
-keep = DataFrame(grps[Not((target,))])
+subset!(signals_copy, [:recording, :file_path] => ByRow() do rec, path
+            if rec == target
+                #rm(path)  # Uncomment this line to actually delete the sample data
+                return false
+            end
+            return true
+        end)
 
 # Merge overlapping annotations of the same `quality` in the same recording.
 # `merged` is an annotations table with a custom column of merged ids:
