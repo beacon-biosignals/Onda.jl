@@ -182,8 +182,8 @@ transform(annotated_signals, AsTable(:) => ByRow() do row
 # requested set of `span`s heavily overlap, this approach may be less efficient than simply loading
 # the whole file upfront. Here we demonstrate the latter as an alternative (note: in the future, we
 # want to support an optimal batch loader):
-samples = load(grp[1, :])
-transform!(grp, :span => ByRow(s -> view(samples, :, translate(s, -start(s)))) => :samples)
+samples = load(first(annotated_signals))
+transform(annotated_signals, :span => ByRow(s -> view(samples, :, translate(s, -start(s)))) => :samples)
 
 #####
 ##### working with `Samples`
