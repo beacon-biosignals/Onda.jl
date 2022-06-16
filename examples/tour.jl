@@ -134,12 +134,12 @@ combine(s -> s[argmax(duration.(s.span)), :], groupby(signals, :recording))
 
 # Grab all multichannel signals greater than 5 minutes long:
 subset(signals, :channels => ByRow(cs -> length(cs) > 1),
-       :span => ByRow(span -> duration(span) > Minute(5))
+       :span => ByRow(span -> duration(span) > Minute(5)))
 
 # Load all sample data for a given recording:
 target = rand(signals.recording)
 df = subset(signals, :recording => ByRow(==(target)))
-df.sample = load.(eachrow(df))
+df.sample .= load.(eachrow(df))
 
 # `mmap` sample data for a given LPCM signal:
 i = findfirst(==("lpcm"), signals.file_format)
@@ -149,6 +149,7 @@ Onda.mmap(signals[i, :])
 # foreach line to actually delete filtered signals'
 # sample data!):
 target = rand(signals.recording)
+signals_copy = copy(signals)
 subset!(signals_copy, [:recording, :file_path] => ByRow() do rec, path
             if rec == target
                 #rm(path)  # Uncomment this line to actually delete the sample data
