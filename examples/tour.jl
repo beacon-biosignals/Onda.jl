@@ -139,7 +139,7 @@ subset(signals, :channels => ByRow(cs -> length(cs) > 1),
 # Load all sample data for a given recording:
 target = rand(signals.recording)
 df = subset(signals, :recording => ByRow(==(target)))
-df.sample .= load.(eachrow(df))
+df.sample = load.(eachrow(df)) # the `.=` syntax for DataFrames is only available in Julia versions >1.6 
 
 # `mmap` sample data for a given LPCM signal:
 i = findfirst(==("lpcm"), signals.file_format)
