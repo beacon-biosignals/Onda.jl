@@ -32,25 +32,6 @@ function _fully_validate_legolas_table(table, schema::Legolas.Schema, primary_ke
 end
 
 #####
-##### arrrrr i'm a pirate
-#####
-# The Onda Format defines `span` elements to correspond to the Arrow-equivalent of `(start=Nanosecond(...), stop=Nanosecond(...))`.
-# Here we define the generic `TimeSpans` interface on this type in order to ensure that this structure can be treated like a
-# `TimeSpan` anywhere. This way, callers don't need to do any fiddling if e.g. they're working with an Onda file written from
-# a source that wasn't using `TimeSpans` (e.g. if it was written out by a non-Julia process).
-
-const NamedTupleTimeSpan = NamedTuple{(:start, :stop),Tuple{Nanosecond,Nanosecond}}
-
-TimeSpans.istimespan(::NamedTupleTimeSpan) = true
-TimeSpans.start(x::NamedTupleTimeSpan) = x.start
-TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
-
-const TIME_SPAN_ARROW_NAME = Symbol("JuliaLang.TimeSpan")
-
-Arrow.ArrowTypes.arrowname(::Type{TimeSpan}) = TIME_SPAN_ARROW_NAME
-ArrowTypes.JuliaType(::Val{TIME_SPAN_ARROW_NAME}) = TimeSpan
-
-#####
 ##### zstd_compress/zstd_decompress
 #####
 
