@@ -75,7 +75,6 @@ end
     @test Tables.columnnames(merged) == (:recording, :id, :span, :from)
     sources_id = [row.id for row in sources]
     @test !any(in(id, sources_id) for id in merged.id)
-    global merged, expected, sources
     merged = @compat Set(Tables.rowtable((; merged.recording, merged.span, merged.from)))
     expected = Set([(recording=recs[1], span=TimeSpan(0, 176), from=[sources[1].id, sources[3].id, sources[7].id, sources[10].id, sources[4].id]),
                     (recording=recs[1], span=TimeSpan(200, 300), from=[sources[14].id]),
