@@ -99,4 +99,4 @@ function merge_overlapping_annotations(predicate, annotations)
     return merged
 end
 
-merge_overlapping_annotations(annotations) = merge_overlapping_annotations(TimeSpans.overlaps, annotations)
+merge_overlapping_annotations(annotations) = merge_overlapping_annotations(overlaps, annotations)
