@@ -9,6 +9,19 @@ function is_lower_snake_case_alphanumeric(x::AbstractString, also_allow=())
            all(i -> i in ALPHANUMERIC_SNAKE_CASE_CHARACTERS || i in also_allow, x)
 end
 
+function has_balanced_parens(s::AbstractString)
+    depth = 0
+    for c in s
+        if c === '('
+            depth += 1
+        elseif c === ')'
+            depth -= 1
+        end
+        depth < 0 && return false
+    end
+    return depth == 0
+end
+
 # TODO port a generic version of this + notion of primary key to Legolas.jl
 function _fully_validate_legolas_table(table, schema::Legolas.Schema, primary_key)
     Legolas.validate(table, schema)

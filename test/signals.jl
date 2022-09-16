@@ -117,7 +117,7 @@ end
         @test Onda._validate_signal_channel(c) == c
     end
 
-    invalid_channels = ["AAA", "AbC", "a*b", "a&b", "a^c"]
+    invalid_channels = ["AAA", "AbC", "a*b", "a&b", "a^c", "a-(b+c/2", ")"]
     for c in invalid_channels
         @test_throws ArgumentError Onda._validate_signal_channel(c) == c
     end
