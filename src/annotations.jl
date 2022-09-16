@@ -49,14 +49,18 @@ validate_annotations(annotations) = _fully_validate_legolas_table(annotations, L
 #####
 
 """
-    merge_overlapping_annotations(annotations)
+    merge_overlapping_annotations([predicate=TimeSpans.overlaps,] annotations)
 
 Given the `onda.annotation`-compliant table `annotations`, return
-a table corresponding to `annotations` except that overlapping entries have
-been merged.
+a table corresponding to `annotations` except that consecutive entries satisfying `predicate`
+have been merged using `TimeSpans.shortest_timespan_containing`. The predicate
+must be of the form `prediate(next_span::TimeSpan, prev_span::TimeSpan)::Bool`
+returning whether or not to merge the annotations corresponding to
+`next_span` and `prev_span`, where `next_span` is the next span in the same recording as `prev_span`.
 
 Specifically, two annotations `a` and `b` are determined to be "overlapping"
-if `a.recording == b.recording && TimeSpans.overlaps(a.span, b.span)`. Merged
+if `a.recording == b.recording && predicate(a.span, b.span)`, where the default
+value of `predicate` is `TimeSpans.overlaps`. Merged
 annotations' `span` fields are generated via calling `TimeSpans.shortest_timespan_containing`
 on the overlapping set of source annotations.
 
@@ -70,8 +74,10 @@ non-overlapping annotation).
 Note that this function internally works with `Tables.columns(annotations)`
 rather than `annotations` directly, so it may be slower and/or require more
 memory if `!Tables.columnaccess(annotations)`.
+
+See also `TimeSpans.merge_spans` for similar functionality on timespans (instead of annotations).
 """
-function merge_overlapping_annotations(annotations)
+function merge_overlapping_annotations(predicate, annotations)
     columns = Tables.columns(annotations)
     merged = Annotation[]
     for (rid, (locs,)) in Legolas.locations((columns.recording,))
@@ -82,7 +88,7 @@ function merge_overlapping_annotations(annotations)
         push!(merged, Annotation(recording=rid, id=uuid4(), span=init.span, from=[init.id]))
         for next in Iterators.drop(sorted, 1)
             prev = merged[end]
-            if next.recording == prev.recording && TimeSpans.overlaps(next.span, prev.span)
+            if next.recording == prev.recording && predicate(next.span, prev.span)
                 push!(prev.from, next.id)
                 merged[end] = Annotation(Tables.rowmerge(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span))))
             else
@@ -92,3 +98,5 @@ function merge_overlapping_annotations(annotations)
     end
     return merged
 end
+
+merge_overlapping_annotations(annotations) = merge_overlapping_annotations(overlaps, annotations)

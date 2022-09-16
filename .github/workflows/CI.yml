@@ -17,8 +17,9 @@ jobs:
         legolas-version:
           - '0.2'
           - '0.3'
+          - '0.4'
         version:
-          - '1.4'
+          - '1.6'
           - '1'
         os:
           - ubuntu-latest

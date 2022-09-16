@@ -67,4 +67,18 @@ end
                     (recording=recs[3], span=TimeSpan(100, 110), from=[sources[13].id]),
                     (recording=recs[3], span=TimeSpan(0, 100), from=[sources[8].id, sources[12].id, sources[11].id])])
     @test expected == merged
+
+    # now let's try where we merge consecutive spans even if there's a gap, if it's less than 15 ns
+    predicate(next, prev) = start(next) - stop(prev) < Nanosecond(15)
+    
+    merged = Tables.columns(merge_overlapping_annotations(predicate, sources))
+    @test Tables.columnnames(merged) == (:recording, :id, :span, :from)
+    sources_id = [row.id for row in sources]
+    @test !any(in(id, sources_id) for id in merged.id)
+    merged = @compat Set(Tables.rowtable((; merged.recording, merged.span, merged.from)))
+    expected = Set([(recording=recs[1], span=TimeSpan(0, 176), from=[sources[1].id, sources[3].id, sources[7].id, sources[10].id, sources[4].id]),
+                    (recording=recs[1], span=TimeSpan(200, 300), from=[sources[14].id]),
+                    (recording=recs[2], span=TimeSpan(2, 170), from=[sources[9].id, sources[6].id, sources[2].id, sources[5].id]),
+                    (recording=recs[3], span=TimeSpan(0, 110), from=[sources[8].id, sources[12].id, sources[11].id, sources[13].id])])
+    @test expected == merged
 end

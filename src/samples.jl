@@ -196,7 +196,7 @@ end
            sample_data, dither_storage=nothing)
 
 Return a copy of `sample_data` quantized according to `sample_type`, `sample_resolution_in_unit`,
-and `sample_offset_in_unit`. `sample_type` must be a concrete subtype of `Onda.VALID_SAMPLE_TYPE_UNION`.
+and `sample_offset_in_unit`. `sample_type` must be a concrete subtype of `Onda.LPCM_SAMPLE_TYPE_UNION`.
 Quantization of an individual sample `s` is performed via:
 
     round(S, (s - sample_offset_in_unit) / sample_resolution_in_unit)
