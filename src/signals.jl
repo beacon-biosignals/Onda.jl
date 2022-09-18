@@ -121,7 +121,8 @@ function _validate_signal_channels(x)
 end
 
 function _validate_signal_channel(x)
-    is_lower_snake_case_alphanumeric(x, ('-', '.')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $x"))
+    is_lower_snake_case_alphanumeric(x, ('-', '.', '+', '/', '(', ')')) || throw(ArgumentError("invalid channel name (must be lowercase/snakecase/alphanumeric): $x"))
+    has_balanced_parens(x) || throw(ArgumentError("invalid channel name (parentheses must be balanced): $x"))
     return x
 end
 

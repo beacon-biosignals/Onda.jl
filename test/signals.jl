@@ -110,3 +110,15 @@ end
     @test_throws ArgumentError validate_signals([template, template, template])
     @test_throws ArgumentError validate_signals((x=[1, 2, 3], y=["lol", "bad", "table"]))
 end
+
+@testset "channel name validation" begin
+    valid_channels = ["a", "b", "a_b", "a-b", "a-b.c", "a+b", "a-(b+c)/2", "(a+b)/2"]
+    for c in valid_channels
+        @test Onda._validate_signal_channel(c) == c
+    end
+
+    invalid_channels = ["AAA", "AbC", "a*b", "a&b", "a^c", "a-(b+c/2", ")"]
+    for c in invalid_channels
+        @test_throws ArgumentError Onda._validate_signal_channel(c) == c
+    end
+end
