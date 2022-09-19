@@ -76,17 +76,7 @@ Create a new `SamplesInfo` by performing a shallow `copy` of each of its fields,
 In particular, the result's `channels` will not alias with the original.
 """
 function Base.copy(s::SamplesInfo)
-    maybe_copy = (k, v) -> begin
-        if k === :channels
-            return copy(v)
-        elseif k in (:kind, :sample_unit, :sample_resolution_in_unit, :sample_offset_in_unit, :sample_type, :sample_rate)
-            return v
-        else
-            # We don't know ahead of time if we *can* `copy` the field, so we check first.
-            return Base.applicable(copy, v) ? copy(v) : v
-        end
-    end
-    return SamplesInfo(; (k => maybe_copy(k, getproperty(s, k)) for k in propertynames(s))...)
+    return SamplesInfo(map(v -> Base.applicable(copy, v) ? copy(v) : v, getfield(s, :fields)))
 end
 
 #####
