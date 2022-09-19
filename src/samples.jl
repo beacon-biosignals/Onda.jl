@@ -64,6 +64,14 @@ Returns `a.encoded == b.encoded && a.info == b.info && a.data == b.data`.
 Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info && a.data == b.data
 
 """
+    copy(a::Samples)
+
+Copies a `Samples` object by `copy`ing its fields. The resulting samples object's data and e.g. `samples.info.channels`
+will not alias with the original. See also [`Base.copy(::SamplesInfo)`](@ref).
+"""
+Base.copy(a::Samples) = Samples(copy(a.data), copy(a.info), a.encoded)
+
+"""
     validate(samples::Samples)
 
 Returns `nothing`, checking that the given `samples` are valid w.r.t. the

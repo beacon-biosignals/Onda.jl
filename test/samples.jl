@@ -194,6 +194,45 @@ Base.read(p::BufferPath) = take!(p.io)
     @test samples == loaded_samples
 end
 
+@testset "Base.copy" begin
+    info = SamplesInfo(kind="eeg",
+                       channels=["a", "b", "c"],
+                       sample_unit="unit",
+                       sample_resolution_in_unit=1.0,
+                       sample_offset_in_unit=0.0,
+                       sample_type=Int16,
+                       sample_rate=100.0,
+                       # Copyable
+                       array = ["hi"],
+                       # Not copyable
+                       string = "hi",
+                       # This is to test we are doing a shallow copy
+                       array_deep = [["hi"]])
+
+    copy_info = copy(info)
+    @test copy_info == info
+    @test copy_info.channels !== info.channels
+    @test copy_info.array !== info.array
+    @test copy_info.array_deep !== info.array_deep
+    # Check only shallow copy:
+    @test copy_info.array_deep[1] === info.array_deep[1]
+
+    # Strings are immutable and `===` based on contents
+    @test copy_info.string === info.string
+    
+    samples = Samples(rand(sample_type(info), 3, 100), info, true)
+    copy_samples = copy(samples)
+    @test copy_samples == samples
+    @test copy_samples.data !== samples.data
+    @test copy_samples.info == info
+    @test copy_samples.info.channels !== info.channels === samples.info.channels
+    @test copy_samples.info.array !== info.array === samples.info.array
+    @test copy_samples.info.string === info.string === samples.info.string
+
+    @test copy_samples.info.array_deep !== info.array_deep === samples.info.array_deep
+    @test copy_samples.info.array_deep[1] === info.array_deep[1] === samples.info.array_deep[1]
+end
+
 @testset "Samples views" begin
 
     info = SamplesInfo(kind="eeg",
