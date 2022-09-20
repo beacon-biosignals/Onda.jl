@@ -66,8 +66,9 @@ Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info 
 """
     copy(a::Samples)
 
-Copies a `Samples` object by `copy`ing its fields. The resulting samples object's data and e.g. `samples.info.channels`
-will not alias with the original. See also [`Base.copy(::SamplesInfo)`](@ref).
+Copy a `Samples` object by `copy`ing its fields. The resulting `Samples` object's data
+and any container-valued `SamplesInfo` fields, e.g. the vector of channel names, will
+not alias the originals. See also [`Base.copy(::SamplesInfo)`](@ref).
 """
 Base.copy(a::Samples) = Samples(copy(a.data), copy(a.info), a.encoded)
 

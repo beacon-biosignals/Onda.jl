@@ -203,11 +203,11 @@ end
                        sample_type=Int16,
                        sample_rate=100.0,
                        # Copyable
-                       array = ["hi"],
+                       array=["hi"],
                        # Not copyable
-                       string = "hi",
+                       string="hi",
                        # This is to test we are doing a shallow copy
-                       array_deep = [["hi"]])
+                       array_deep=[["hi"]])
 
     copy_info = copy(info)
     @test copy_info == info

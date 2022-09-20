@@ -72,11 +72,12 @@ const SamplesInfo = @row("onda.samples-info@1",
 """
     Base.copy(s::SamplesInfo)
 
-Create a new `SamplesInfo` by performing a shallow `copy` of each of its fields, if possible according to `Base.applicable`.
+Call `copy` on each field of the given `SamplesInfo` for which an applicable `copy` method
+exists and return the resulting `SamplesInfo`.
 In particular, the result's `channels` will not alias with the original.
 """
 function Base.copy(s::SamplesInfo)
-    return SamplesInfo(map(v -> Base.applicable(copy, v) ? copy(v) : v, getfield(s, :fields)))
+    return SamplesInfo(map(v -> applicable(copy, v) ? copy(v) : v, getfield(s, :fields)))
 end
 
 #####
