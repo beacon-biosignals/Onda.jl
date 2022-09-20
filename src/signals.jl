@@ -68,6 +68,18 @@ const SamplesInfo = @row("onda.samples-info@1",
                          sample_type::AbstractString = onda_sample_type_from_julia_type(sample_type),
                          sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
 
+
+"""
+    Base.copy(s::SamplesInfo)
+
+Call `copy` on each field of the given `SamplesInfo` for which an applicable `copy` method
+exists and return the resulting `SamplesInfo`.
+In particular, the result's `channels` will not alias with the original.
+"""
+function Base.copy(s::SamplesInfo)
+    return SamplesInfo(map(v -> applicable(copy, v) ? copy(v) : v, getfield(s, :fields)))
+end
+
 #####
 ##### `Signal`
 #####
