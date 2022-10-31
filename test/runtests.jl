@@ -1,6 +1,6 @@
 using Compat: @compat
 using Test, UUIDs, Dates, Onda, Legolas, Arrow, Tables, TimeSpans, DataFrames, Random
-using ConstructionBase
+using Tables: rowmerge
 
 function has_rows(a, b)
     for name in propertynames(b)
@@ -16,6 +16,6 @@ include("annotations.jl")
 include("signals.jl")
 include("serialization.jl")
 include("samples.jl")
-include("deprecations.jl")
+# include("deprecations.jl") TODO
 include(joinpath(dirname(@__DIR__), "examples", "flac.jl"))
 include(joinpath(dirname(@__DIR__), "examples", "tour.jl"))

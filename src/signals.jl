@@ -36,88 +36,17 @@ end
 
 onda_sample_type_from_julia_type(t::AbstractString) = onda_sample_type_from_julia_type(julia_type_from_onda_sample_type(t))
 
-convert_number_to_lpcm_sample_type(x::LPCM_SAMPLE_TYPE_UNION) = x
-convert_number_to_lpcm_sample_type(x) = Float64(x)
-
 #####
-##### `SamplesInfo`
+##### validation utilities
 #####
 
-"""
-    const SamplesInfo = @row("onda.samples-info@1",
-                             kind::String,
-                             channels::Vector{String},
-                             sample_unit::String,
-                             sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION,
-                             sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION,
-                             sample_type::String = Onda.onda_sample_type_from_julia_type(sample_type),
-                             sample_rate::LPCM_SAMPLE_TYPE_UNION)
-
-A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.samples-info@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
-representing the bundle of `onda.signal` fields that are intrinsic to a signal's sample data,
-leaving out extrinsic file or recording information. This is useful when the latter information
-is irrelevant or does not yet exist (e.g. if sample data is being constructed/manipulated in-memory
-without yet having been serialized).
-"""
-const SamplesInfo = @row("onda.samples-info@1",
-                         kind::AbstractString = convert(String, kind),
-                         channels::AbstractVector{<:AbstractString} = convert(Vector{String}, channels),
-                         sample_unit::AbstractString = convert(String, sample_unit),
-                         sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_resolution_in_unit),
-                         sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_offset_in_unit),
-                         sample_type::AbstractString = onda_sample_type_from_julia_type(sample_type),
-                         sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
-
-
-"""
-    Base.copy(s::SamplesInfo)
-
-Call `copy` on each field of the given `SamplesInfo` for which an applicable `copy` method
-exists and return the resulting `SamplesInfo`.
-In particular, the result's `channels` will not alias with the original.
-"""
-function Base.copy(s::SamplesInfo)
-    return SamplesInfo(map(v -> applicable(copy, v) ? copy(v) : v, getfield(s, :fields)))
+function _validate_signal_sensor_label(x)
+    is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal sensor label (must be lowercase/snakecase/alphanumeric): $x"))
+    return x
 end
 
-#####
-##### `Signal`
-#####
-
-# Note that the real field type restrictions here are more lax than the documented
-# ones for improved compatibility with data produced by older Onda.jl versions and/or
-# non-Julia producers.
-"""
-    const Signal = @row("onda.signal@1" > "onda.samples-info@1",
-                        recording::UUID,
-                        file_path::Any,
-                        file_format::String = (file_format isa AbstractLPCMFormat ?
-                                               Onda.file_format_string(file_format) :
-                                               file_format),
-                        span::TimeSpan)
-
-A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.signal@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
-representing an [`onda.signal` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondasignal1).
-
-Note that the `Signal` constructor will perform additional validation on underlying `onda.samples-info@1` fields to 
-ensure that these fields are compliant with the Onda specification; an `ArgumentError` will be thrown if any fields 
-are invalid.
-
-This type primarily exists to aid in the validated row construction, and is not intended to be used as a type constraint 
-in function or struct definitions. Instead, you should generally duck-type any "signal-like" arguments/fields so that 
-other generic row types will compose with your code.
-"""
-const Signal = @row("onda.signal@1" > "onda.samples-info@1",
-                    recording::Union{UInt128,UUID} = UUID(recording),
-                    file_path::Any,
-                    file_format::AbstractString = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
-                    span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span),
-                    kind::AbstractString = _validate_signal_kind(kind),
-                    channels::AbstractVector{<:AbstractString} = _validate_signal_channels(channels),
-                    sample_unit::AbstractString = _validate_signal_sample_unit(sample_unit))
-
-function _validate_signal_kind(x)
-    is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $x"))
+function _validate_signal_sensor_type(x)
+    is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal sensor type (must be lowercase/snakecase/alphanumeric): $x"))
     return x
 end
 
@@ -138,16 +67,50 @@ function _validate_signal_channel(x)
     return x
 end
 
-extract_samples_info(signal) = @compat SamplesInfo(; signal.kind, signal.channels, signal.sample_unit,
-                                                   signal.sample_resolution_in_unit, signal.sample_offset_in_unit,
-                                                   signal.sample_type, signal.sample_rate)
+#####
+##### `onda.samples-info`
+#####
+
+@schema "onda.samples-info" SamplesInfo
+
+@version SamplesInfoV2 begin
+    sensor_type::String
+    channels::Vector{String}
+    sample_unit::String
+    sample_resolution_in_unit::Float64
+    sample_offset_in_unit::Float64
+    sample_type::String = onda_sample_type_from_julia_type(sample_type)
+    sample_rate::Float64
+end
 
 """
-    write_signals(io_or_path, table; kwargs...)
-
-Invoke/return `Legolas.write(path_or_io, signals, Schema("onda.signal@1"); kwargs...)`.
+    TODO
 """
-write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Legolas.Schema("onda.signal@1"); kwargs...)
+SamplesInfoV2
+
+#####
+##### `onda.signal`
+#####
+
+@schema "onda.signal" Signal
+
+@version SignalV2 > SamplesInfoV2 begin
+    recording::UUID = UUID(recording)
+    file_path::(<:Any)
+    file_format::String = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format
+    span::TimeSpan = TimeSpan(span)
+    sensor_label::String = _validate_signal_sensor_label(sensor_label)
+    sensor_type::String = _validate_signal_sensor_type(sensor_type)
+    channels::Vector{String} = _validate_signal_channels(channels)
+    sample_unit::String = _validate_signal_sample_unit(sample_unit)
+end
+
+Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{TimeSpan}) = Union{NamedTupleTimeSpan,TimeSpan}
+
+"""
+    TODO
+"""
+SignalV2
 
 """
     validate_signals(signals)
@@ -157,11 +120,11 @@ a presumed `onda.signal` table. Returns `signals`.
 
 This function will throw an error in any of the following cases:
 
-- `Legolas.validate(signals, Legolas.Schema("onda.signal@1"))` throws an error
-- `Signal(row)` errors for any `row` in `Tables.rows(signals)`
+- `Legolas.validate(Tables.schema(signals), SignalV2SchemaVersion())` throws an error
+- `SignalV2(r)` errors for any `r` in `Tables.rows(signals)`
 - `signals` contains rows with duplicate `file_path`s
 """
-validate_signals(signals) = _fully_validate_legolas_table(signals, Legolas.Schema("onda.signal@1"), :file_path)
+validate_signals(signals) = _fully_validate_legolas_table(:validate_signals, signals, SignalV2, SignalV2SchemaVersion(), :file_path)
 
 #####
 ##### duck-typed utilities

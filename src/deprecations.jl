@@ -1,89 +1,49 @@
 #####
-##### upgrades/deprecations
+##### Onda v0.14 -> v0.15
 #####
+# TODO
+#=
+"""
+    write_annotations(io_or_path, table; kwargs...)
 
-# For some functions below, we use `Base.depwarn`.
-#
-# In these cases, we don't use `@deprecate` because the method we're "redirecting to" for the deprecation path
-# (e.g. `_deprecated_read_table`) is different than the method that we're suggesting downstream callers use
-# instead (`Legolas.read`).
+Invoke/return `Legolas.write(path_or_io, annotations, Annotation(1); kwargs...)`.
+"""
+write_annotations(path_or_io, annotations; kwargs...) = Legolas.write(path_or_io, annotations, Annotation(1); kwargs...)
 
-using Base: depwarn
+"""
+    write_signals(io_or_path, table; kwargs...)
 
-function _deprecated_read_table(io_or_path, schema=nothing)
-    table = Legolas.read_arrow(io_or_path)
-    schema isa Legolas.Schema && Legolas.validate(table, schema)
-    return table
+Invoke/return `Legolas.write(path_or_io, signals, Signal(2); kwargs...)`.
+"""
+write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Signal(2); kwargs...)
+
+function _validate_signal_kind(x)
+    is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $x"))
+    return x
 end
 
-function read_signals(io_or_path; validate_schema::Bool=true)
-    depwarn("`Onda.read_signals(io_or_path)` is deprecated, use `Legolas.read(io_or_path)` instead", :read_signals)
-    return _deprecated_read_table(io_or_path, validate_schema ? Legolas.Schema("onda.signal@1") : nothing)
-end
-export read_signals
+@schema("onda.samples-info@1",
+        kind::AbstractString = convert(String, kind),
+        channels::AbstractVector{<:AbstractString} = convert(Vector{String}, channels),
+        sample_unit::AbstractString = convert(String, sample_unit),
+        sample_resolution_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_resolution_in_unit),
+        sample_offset_in_unit::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_offset_in_unit),
+        sample_type::AbstractString = onda_sample_type_from_julia_type(sample_type),
+        sample_rate::LPCM_SAMPLE_TYPE_UNION = convert_number_to_lpcm_sample_type(sample_rate))
 
-function read_annotations(io_or_path; validate_schema::Bool=true)
-    depwarn("`Onda.read_annotations(io_or_path)` is deprecated, use `Legolas.read(io_or_path)` instead", :read_annotations)
-    return _deprecated_read_table(io_or_path, validate_schema ? Legolas.Schema("onda.annotation@1") : nothing)
-end
-export read_annotations
+@schema("onda.signal@1 > onda.samples-info@1",
+        recording::Union{UInt128,UUID} = UUID(recording),
+        file_path::Any,
+        file_format::AbstractString = file_format isa AbstractLPCMFormat ? file_format_string(file_format) : file_format,
+        span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span),
+        kind::AbstractString = _validate_signal_kind(kind),
+        channels::AbstractVector{<:AbstractString} = _validate_signal_channels(channels),
+        sample_unit::AbstractString = _validate_signal_sample_unit(sample_unit))
 
-@deprecate materialize Legolas.materialize false
-@deprecate gather Legolas.gather false
-
-# Note: no deprecation can be provided for when `validate_on_construction()` is re-defined
-@deprecate validate_on_construction VALIDATE_SAMPLES_DEFAULT[]
-
-@deprecate(validate_signal_schema(s),
-           isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.signal@1")),
-           false)
-
-@deprecate(validate_annotation_schema(s),
-           isnothing(s) ? nothing : Legolas.validate(s, Legolas.Schema("onda.annotation@1")),
-           false)
-
-if VERSION >= v"1.5"
-    @deprecate Annotation(recording, id, span; custom...) Annotation(; recording, id, span, custom...)
-    @deprecate(Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
-                      sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
-                      custom...),
-               Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
-                      sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-                      custom...))
-    @deprecate(SamplesInfo(kind, channels, sample_unit,
-                           sample_resolution_in_unit, sample_offset_in_unit,
-                           sample_type, sample_rate; custom...),
-               SamplesInfo(; kind, channels, sample_unit,
-                           sample_resolution_in_unit, sample_offset_in_unit,
-                           sample_type, sample_rate, custom...))
-else
-    @deprecate(Annotation(recording, id, span; custom...),
-               @compat Annotation(; recording, id, span, custom...))
-    @deprecate(Signal(recording, file_path, file_format, span, kind, channels, sample_unit,
-                      sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
-                      custom...),
-               @compat Signal(; recording, file_path, file_format, span, kind, channels, sample_unit,
-                              sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate,
-                              custom...))
-    @deprecate(SamplesInfo(kind, channels, sample_unit,
-                           sample_resolution_in_unit, sample_offset_in_unit,
-                           sample_type, sample_rate; custom...),
-               @compat SamplesInfo(; kind, channels, sample_unit,
-                                   sample_resolution_in_unit, sample_offset_in_unit,
-                                   sample_type, sample_rate, custom...))
+function upgrade_row(from::SignalV1SchemaVersion, to::SignalV2SchemaVersion, row)
+    # TODO
+    return row
 end
 
-@deprecate Signal(info::SamplesInfo; kwargs...) Signal(Tables.rowmerge(info; kwargs...))
-
-for T in (:SamplesInfo, :Signal, :Annotation)
-    S = string(T)
-    @eval function ConstructionBase.setproperties(x::$T, patch::NamedTuple)
-        depwarn("`setproperties(x::$($S), patch)` is deprecated in favor of $($S)(Tables.rowmerge(x, patch))", :setproperties)
-        return $T(Tables.rowmerge(x, patch))
-    end
-end
-
-function validate(::SamplesInfo)
-    depwarn("`validate(::SamplesInfo)` is deprecated; avoid invoking this method in favor of calling `validate(::Samples)`", :validate)
-    return nothing
-end
+@deprecate validate(s) validate_samples(s.data, s.info, s.encoded) false
+=#

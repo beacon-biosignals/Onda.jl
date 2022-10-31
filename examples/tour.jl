@@ -7,16 +7,18 @@
 # NOTE: You should read https://github.com/beacon-biosignals/Onda.jl/#the-onda-format-specification
 # before and/or alongside the completion of this tour; it explains the
 # purpose/structure of the format.
+#
+# NOTE: Onda.jl makes heavy use of Legolas.jl (https://github.com/beacon-biosignals/Legolas.jl).
+# It is highly recommended to familiarize yourself with that package before embarking
+# on this tour.
 
 using Onda, Legolas, Arrow, TimeSpans, DataFrames, Dates, UUIDs, Test
+using Legolas: @schema, @version
 
-#####
-##### generate some mock data
-#####
-# Let's kick off the tour by generating some mock data to play with in subsequent sections!
+# We'll be kicking off this tour by generating some mock data to play with in subsequent sections!
 #
-# Onda is primarily concerned with manipulating 3 interrelated entities. Paraphrasing from the
-# Onda specification, these entities are:
+# Before we dig in, keep in mind that Onda is primarily concerned with manipulating 3 interrelated entities.
+# Paraphrasing from the Onda specification, these entities are:
 #
 # - "signals": A signal is the digitized output of a process, comprised of metadata (e.g. LPCM encoding,
 #   channel information, sample data path/format information, etc.) and associated multi-channel sample
@@ -30,35 +32,40 @@ using Onda, Legolas, Arrow, TimeSpans, DataFrames, Dates, UUIDs, Test
 #
 # Signals and annotations are serialized as Arrow tables, while each sample data file is serialized to
 # the file format specified by its corresponding signal's metadata. A "recording" is simply the collection
-# of signals and annotations that share a common `recording` field.
-#
-# Below, we generate a bunch of signals/annotations across 10 recordings, writing the corresponding
-# Arrow tables and sample data files to a temporary directory.
-
-saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
-                        i in 1:channel_count(info), j in 1:sample_count(info, duration)]
+# of signals and annotations that share a common `recording` field, so we don't need to generate an actual
+# table to represent recordings (though it can sometimes be useful to do so in practice!).
 
 root = mktempdir()
 
-signals = Signal[]
+#####
+##### generate some mock signals
+#####
+# First, we generate a bunch of Onda signals across 10 recordings, writing the corresponding Arrow tables and
+# sample data files to a temporary directory. Onda signals are represented via the Legolas-generated record
+# type `SignalV2`, but are often initially constructed via `Onda`'s `store` method as seen below.
+
+saw_waves(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
+                             i in 1:channel_count(info), j in 1:sample_count(info, duration)]
+
+signals = SignalV2[]
 signals_recordings = [uuid4() for _ in 1:2]
 for recording in signals_recordings
-    for (kind, file_format, channels) in (("eeg", "lpcm", ["fp1", "f3", "c3", "p3",
-                                                           "f7", "t3", "t5", "o1",
-                                                           "fz", "cz", "pz",
-                                                           "fp2", "f4", "c4", "p4",
-                                                           "f8", "t4", "t6", "o2"]),
-                                           ("ecg", "lpcm.zst", ["avl", "avr"]),
-                                           ("spo2", "lpcm", ["spo2"]))
-        file_path = joinpath(root, string(recording, "_", kind, ".", file_format))
+    for (sensor_type, file_format, channels) in (("eeg", "lpcm", ["fp1", "f3", "c3", "p3",
+                                                                  "f7", "t3", "t5", "o1",
+                                                                  "fz", "cz", "pz",
+                                                                  "fp2", "f4", "c4", "p4",
+                                                                  "f8", "t4", "t6", "o2"]),
+                                                 ("ecg", "lpcm.zst", ["avl", "avr"]),
+                                                 ("spo2", "lpcm", ["spo2"]))
+        file_path = joinpath(root, string(recording, "_", sensor_type, ".", file_format))
         Onda.log("generating $file_path...")
-        info = SamplesInfo(; kind=kind, channels=channels,
-                           sample_unit="microvolt",
-                           sample_resolution_in_unit=rand((0.25, 1)),
-                           sample_offset_in_unit=rand((-1, 0, 1)),
-                           sample_type=rand((Float32, Int16, Int32)),
-                           sample_rate=rand((128, 256, 143.5)))
-        data = saws(info, Minute(rand(1:10)))
+        info = SamplesInfoV2(; sensor_type=sensor_type, channels=channels,
+                             sample_unit="microvolt",
+                             sample_resolution_in_unit=rand((0.25, 1)),
+                             sample_offset_in_unit=rand((-1, 0, 1)),
+                             sample_type=rand((Float32, Int16, Int32)),
+                             sample_rate=rand((128, 256, 143.5)))
+        data = saw_waves(info, Minute(rand(1:10)))
         samples = Samples(data, info, false)
         start = Second(rand(0:30))
         signal = store(file_path, file_format, samples, recording, start)
@@ -66,22 +73,45 @@ for recording in signals_recordings
     end
 end
 path_to_signals = joinpath(root, "test.onda.signal.arrow")
-Onda.write_signals(path_to_signals, signals)
+Legolas.write(path_to_signals, signals, SignalV2SchemaVersion())
 Onda.log("wrote out $path_to_signals")
 
-annotations = Annotation[]
+#####
+##### generate some mock annotations
+#####
+# Next, let's generate some Onda annotations. Onda annotations are represented via the Legolas-generated
+# record type `AnnotationV1`, but this record type only contains a few fields:
+#
+#   - `recording::UUID` (specifies the annotation's recording)
+#   - `id::UUID` (the identifier of the annotation)
+#   - `span::TimeSpan` (the relevant time span within the recording)
+#
+# These fields specify the particular region being annotated, but don't actually convey why the annotation
+# exists in the first place. Thus, in practice, Onda annotation authors usually declare Legolas extensions
+# that define additional fields on top of `AnnotationV1` that carry an annotation's associated metadata. For
+# example:
+
+@schema "example.my-annotation" MyAnnotation
+
+@version MyAnnotationV1 > AnnotationV1 begin
+    rating::Int
+    quality::String
+    source::UUID
+end
+
+annotations = MyAnnotationV1[]
 sources = (uuid4(), uuid4(), uuid4())
 annotations_recordings = vcat(signals_recordings[1:end-1], uuid4()) # overlapping but not equal to signals_recordings
 for recording in annotations_recordings
     for i in 1:rand(3:10)
         start = Second(rand(0:60))
-        annotation = Annotation(; recording=recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
-                                rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
+        annotation = MyAnnotationV1(; recording=recording, id=uuid4(), span=TimeSpan(start, start + Second(rand(1:30))),
+                                    rating=rand(1:100), quality=rand(("good", "bad")), source=rand(sources))
         push!(annotations, annotation)
     end
 end
 path_to_annotations = joinpath(root, "test.onda.annotation.arrow")
-Onda.write_annotations(path_to_annotations, annotations)
+Legolas.write(path_to_annotations, annotations, MyAnnotationV1SchemaVersion())
 Onda.log("wrote out $path_to_annotations")
 
 #####
@@ -112,10 +142,10 @@ view(signals, findall(==(target), signals.recording), :)
 # and annotations are both represented in flat tables, enabling you to easily
 # impose whatever indexing structure is most convenient for your use case.
 #
-# For example, if you wish to primarily access signals by recording and kind,
+# For example, if you wish to primarily access signals by `:recording` and `:sensor_type`,
 # you can easily create a structure with that index via `groupby`:
 target = rand(signals.recording)
-grouped = groupby(signals, Cols(:recording, :kind))
+grouped = groupby(signals, Cols(:recording, :sensor_type))
 grouped[(target, "eeg")]
 
 # Group/index signals + annotations by recording together:
@@ -175,11 +205,11 @@ transform(filter(ann -> within_signal(ann, sig), annotations),
 ##### working with `Samples`
 #####
 # A `Samples` struct wraps a matrix of interleaved LPCM-encoded (or decoded) sample data,
-# along with a `SamplesInfo` instance that allows this matrix to be encoded/decoded.
+# along with a `SamplesInfoV2` instance that allows this matrix to be encoded/decoded.
 # In this matrix, the rows correspond to channels and the columns correspond to timesteps.
 
 # Let's grab a `Samples` instance for one of our mock EEG signals:
-eeg_signal = signals[findfirst(==("eeg"), signals.kind), :]
+eeg_signal = signals[findfirst(==("eeg"), signals.sensor_type), :]
 eeg = load(eeg_signal)
 
 # # Here are some basic functions for examining `Samples` instances:
@@ -209,7 +239,7 @@ f_channels = ["fp1", "f3","f7", "fz", "fp2", "f4", "f8"]
 @test eeg[r"f", span].data == view(eeg, channel.(Ref(eeg), f_channels), span_range).data
 
 # Onda overloads the necessary Arrow.jl machinery to enable individual sample data
-# segments (specifically, `Samples` and `SamplesInfo` values) to be (de)serialized
+# segments (specifically, `Samples` and `SamplesInfoV2` values) to be (de)serialized
 # to/from Arrow for storage or IPC purposes; see below for an example. Note that if
 # you wanted to use Arrow as a storage format for whole sample data files w/ Onda,
 # it'd make more sense to create an `AbstractLPCMFormat` subtype for your Arrow <-> LPCM

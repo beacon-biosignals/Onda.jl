@@ -1,5 +1,15 @@
 # Upgrading From Older Versions Of Onda
 
+## To v0.15 From v0.14
+
+First, ensure your codebase is fully upgraded to Onda v0.14, including resolving all deprecation warnings. Functionality that was "soft-deprecated" in Onda v0.14 (i.e. code would still work, but warnings would be raised) is "hard-deprecated" as of Onda v0.15.
+
+From there, breaking changes include:
+
+- Bumping to Legolas v0.5 from Legolas v0.4. Users of Onda v0.15 must therefore upgrade their usage of Legolas to v0.5. The most significant (and breaking) implication of this change is that `Annotation` and `Signal` are now type aliases for corresponding `Legolas.Schema` types, *not* `Legolas.Row` types. This particular breaking change, which actually  enables more tractable deprecation pathways in the future, is by its very nature difficult to softly deprecate and requires users to manually replace invocations like `Annotation(; fields...)` with `Legolas.row(Annotation(1); fields...)`.
+
+- The addition of `onda.samples-info@2` and `onda.signal@2`, which replace `onda.samples-info@1` and `onda.signal@1` respectively. Onda still declares/provides these first-generation schemas, so that corresponding `Legolas.read` invocations may still work as expected, but all other Onda v0.15 API structures/functions utilize (and/or expect) the second-generation schemas. Onda provides [`Onda.upgrade_row`](@ref) to conveniently upgrade first-generation data to the new generation.
+
 ## To v0.14 From v0.13
 
 Potentially breaking changes include:

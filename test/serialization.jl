@@ -1,7 +1,7 @@
 @testset "LPCM (De)serialization API ($file_format)" for file_format in ("lpcm", "lpcm.zst")
-    info = SamplesInfo(kind="kind", channels=["a", "b", "c"], sample_unit="unit",
-                       sample_resolution_in_unit=0.25, sample_offset_in_unit=-0.5,
-                       sample_type=Int16, sample_rate=50.5)
+    info = SamplesInfoV2(sensor_type="sensor_type", channels=["a", "b", "c"], sample_unit="unit",
+                         sample_resolution_in_unit=0.25, sample_offset_in_unit=-0.5,
+                         sample_type=Int16, sample_rate=50.5)
     samples = encode(Samples(rand(MersenneTwister(1), 3, Int(50.5 * 10)), info, false))
     fmt = format(file_format, info)
     @test_throws ArgumentError format(file_format * ".lol", info)

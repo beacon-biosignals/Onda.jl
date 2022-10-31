@@ -1,34 +1,21 @@
 #####
-##### Annotation
+##### `onda.annotation`
 #####
 
-# Note that the real field type restrictions here are more lax than the documented
-# ones for improved compatibility with data produced by older Onda.jl versions and/or
-# non-Julia producers.
-"""
-    const Annotation = Legolas.@row("onda.annotation@1",
-                                    recording::UUID,
-                                    id::UUID,
-                                    span::TimeSpan)
+@schema "onda.annotation" Annotation
 
-A type alias for [`Legolas.Row{typeof(Legolas.Schema("onda.annotation@1"))}`](https://beacon-biosignals.github.io/Legolas.jl/stable/#Legolas.@row)
-representing an [`onda.annotation` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondaannotation1).
+@version AnnotationV1 begin
+    recording::UUID = UUID(recording)
+    id::UUID = UUID(id)
+    span::TimeSpan = TimeSpan(span)
+end
 
-This type primarily exists to aid in the validated row construction, and is not intended to be used
-as a type constraint in function or struct definitions. Instead, you should generally duck-type any
-"annotation-like" arguments/fields so that other generic row types will compose with your code.
-"""
-const Annotation = @row("onda.annotation@1",
-                        recording::Union{UInt128,UUID} = UUID(recording),
-                        id::Union{UInt128,UUID} = UUID(id),
-                        span::Union{NamedTupleTimeSpan,TimeSpan} = TimeSpan(span))
+Legolas.accepted_field_type(::AnnotationV1SchemaVersion, ::Type{TimeSpan}) = Union{NamedTupleTimeSpan,TimeSpan}
 
 """
-    write_annotations(io_or_path, table; kwargs...)
-
-Invoke/return `Legolas.write(path_or_io, annotations, Schema("onda.annotation@1"); kwargs...)`.
+    TODO
 """
-write_annotations(path_or_io, annotations; kwargs...) = Legolas.write(path_or_io, annotations, Legolas.Schema("onda.annotation@1"); kwargs...)
+AnnotationV1
 
 """
     validate_annotations(annotations)
@@ -38,15 +25,21 @@ a presumed `onda.annotation` table. Returns `annotations`.
 
 This function will throw an error in any of the following cases:
 
-- `Legolas.validate(annotations, Legolas.Schema("onda.annotation@1"))` throws an error
-- `Annotation(row)` errors for any `row` in `Tables.rows(annotations)`
+- `Legolas.validate(Tables.schema(annotations), AnnotationV1SchemaVersion())` throws an error
+- `AnnotationV1(r)` errors for any `r` in `Tables.rows(annotations)`
 - `annotations` contains rows with duplicate `id`s
 """
-validate_annotations(annotations) = _fully_validate_legolas_table(annotations, Legolas.Schema("onda.annotation@1"), :id)
+validate_annotations(annotations) = _fully_validate_legolas_table(:validate_annotations, annotations, AnnotationV1, AnnotationV1SchemaVersion(), :id)
 
 #####
-##### utilities
+##### `merge_overlapping_annotations`
 #####
+
+@schema "onda.merged-annotation" MergedAnnotation
+
+@version MergedAnnotationV1 > AnnotationV1 begin
+    from::Vector{UUID}
+end
 
 """
     merge_overlapping_annotations([predicate=TimeSpans.overlaps,] annotations)
@@ -79,20 +72,20 @@ See also `TimeSpans.merge_spans` for similar functionality on timespans (instead
 """
 function merge_overlapping_annotations(predicate, annotations)
     columns = Tables.columns(annotations)
-    merged = Annotation[]
+    merged = MergedAnnotationV1[]
     for (rid, (locs,)) in Legolas.locations((columns.recording,))
         subset = (recording=view(columns.recording, locs), id=view(columns.id, locs), span=view(columns.span, locs))
         p = sortperm(subset.span; by=TimeSpans.start)
         sorted = Tables.rows((recording=view(subset.recording, p), id=view(subset.id, p), span=view(subset.span, p)))
         init = first(sorted)
-        push!(merged, Annotation(recording=rid, id=uuid4(), span=init.span, from=[init.id]))
+        push!(merged, MergedAnnotationV1(; recording=rid, id=uuid4(), span=init.span, from=[init.id]))
         for next in Iterators.drop(sorted, 1)
             prev = merged[end]
             if next.recording == prev.recording && predicate(next.span, prev.span)
                 push!(prev.from, next.id)
-                merged[end] = Annotation(Tables.rowmerge(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span))))
+                merged[end] = MergedAnnotationV1(rowmerge(prev; span=TimeSpans.shortest_timespan_containing((prev.span, next.span))))
             else
-                push!(merged, Annotation(; recording=next.recording, id=uuid4(), span=next.span, from=[next.id]))
+                push!(merged, MergedAnnotationV1(; recording=next.recording, id=uuid4(), span=next.span, from=[next.id]))
             end
         end
     end

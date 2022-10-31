@@ -2,19 +2,18 @@ module Onda
 
 using Compat: @compat
 using UUIDs, Dates, Random, Mmap
-using Compat, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
-using ConstructionBase # here for deprecations only
-using Legolas
-using Legolas: @row, write_full_path
+using Compat, Legolas, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
+using Legolas: @schema, @version, write_full_path
+using Tables: rowmerge
 
 include("utilities.jl")
 
 include("annotations.jl")
-export Annotation, write_annotations, validate_annotations, merge_overlapping_annotations
+export AnnotationV1, AnnotationV1SchemaVersion, validate_annotations, merge_overlapping_annotations
 
 include("signals.jl")
-export Signal, SamplesInfo, write_signals, validate_signals,
-       channel, channel_count, sample_count, sizeof_samples, sample_type
+export SamplesInfoV2, SamplesInfoV2SchemaVersion, SignalV2, SignalV2SchemaVersion,
+       validate_signals, channel, channel_count, sample_count, sizeof_samples, sample_type
 
 include("serialization.jl")
 export AbstractLPCMFormat, AbstractLPCMStream, LPCMFormat, LPCMZstFormat,

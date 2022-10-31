@@ -23,23 +23,28 @@ function has_balanced_parens(s::AbstractString)
 end
 
 # TODO port a generic version of this + notion of primary key to Legolas.jl
-function _fully_validate_legolas_table(table, schema::Legolas.Schema, primary_key)
-    Legolas.validate(table, schema)
+function _fully_validate_legolas_table(method_name, table, ::Type{R}, sv::Legolas.SchemaVersion, primary_key) where {R<:Legolas.AbstractRecord}
+    sch = Tables.schema(table)
+    if sch isa Tables.Schema
+        Legolas.validate(sch, sv)
+    else
+        @warn "Was not able to determine `Tables.Schema` of table provided to `$method_name`; skipping `SchemaVersion` validation"
+    end
     primary_counts = Dict{Any,Int}()
-    for (i, row) in enumerate(Tables.rows(table))
-        local validated_row
+    for (i, r) in enumerate(Tables.rows(table))
+        local validated_r
         try
-            validated_row = Legolas.Row(schema, row)
+            validated_r = R(r)
         catch err
-            log("Encountered invalid row $i when validating table's compliance with $schema:")
+            log("Encountered invalid row $i of table provided to `$method_name`:")
             rethrow(err)
         end
-        primary = Tables.getcolumn(validated_row, primary_key)
+        primary = Tables.getcolumn(validated_r, primary_key)
         primary_counts[primary] = get(primary_counts, primary, 0) + 1
     end
     filter!(>(1) ∘ last, primary_counts)
     if !isempty(primary_counts)
-        throw(ArgumentError("duplicate $primary_key values found in given $schema table: $primary_counts"))
+        throw(ArgumentError("duplicate $primary_key values table provided to `$method_name`: $primary_counts"))
     end
     return table
 end
