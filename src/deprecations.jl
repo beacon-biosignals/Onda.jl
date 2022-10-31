@@ -1,21 +1,15 @@
 #####
 ##### Onda v0.14 -> v0.15
 #####
-# TODO
+
+@deprecate write_annotations(path_or_io, table; kwargs...) Legolas.write(path_or_io, table, AnnotationV1SchemaVersion(); kwargs...)
+
+@deprecate write_signals(path_or_io, table; kwargs...) Legolas.write(path_or_io, table, SignalV2SchemaVersion(); kwargs...)
+
+@deprecate validate(s) validate_samples(s.data, s.info, s.encoded) false
+
 #=
-"""
-    write_annotations(io_or_path, table; kwargs...)
-
-Invoke/return `Legolas.write(path_or_io, annotations, Annotation(1); kwargs...)`.
-"""
-write_annotations(path_or_io, annotations; kwargs...) = Legolas.write(path_or_io, annotations, Annotation(1); kwargs...)
-
-"""
-    write_signals(io_or_path, table; kwargs...)
-
-Invoke/return `Legolas.write(path_or_io, signals, Signal(2); kwargs...)`.
-"""
-write_signals(path_or_io, signals; kwargs...) = Legolas.write(path_or_io, signals, Signal(2); kwargs...)
+TODO: represent old schema versions and provide upgrade methods
 
 function _validate_signal_kind(x)
     is_lower_snake_case_alphanumeric(x) || throw(ArgumentError("invalid signal kind (must be lowercase/snakecase/alphanumeric): $x"))
@@ -44,6 +38,4 @@ function upgrade_row(from::SignalV1SchemaVersion, to::SignalV2SchemaVersion, row
     # TODO
     return row
 end
-
-@deprecate validate(s) validate_samples(s.data, s.info, s.encoded) false
 =#
