@@ -69,6 +69,7 @@ for recording in signals_recordings
         samples = Samples(data, info, false)
         start = Second(rand(0:30))
         signal = store(file_path, file_format, samples, recording, start)
+        signal::SignalV2 # we are returned a SignalV2 object from `store`
         push!(signals, signal)
     end
 end
