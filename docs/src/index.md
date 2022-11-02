@@ -87,6 +87,7 @@ Onda.file_format_string
 
 ```@docs
 VALIDATE_SAMPLES_DEFAULT
+Onda.upgrade
 ```
 
 ## Developer Installation

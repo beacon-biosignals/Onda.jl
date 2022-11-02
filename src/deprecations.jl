@@ -77,6 +77,17 @@ end
 Legolas.accepted_field_type(::SignalV1SchemaVersion, ::Type{String}) = AbstractString
 Legolas.accepted_field_type(::SignalV1SchemaVersion, ::Type{Vector{String}}) = AbstractVector{<:AbstractString}
 
+"""
+    Onda.upgrade(from::SignalV1, ::SignalV2SchemaVersion)
+
+Return a `SignalV2` instance that represents `from` in the `SignalV2SchemaVersion` format.
+
+The fields of the output will match `from`'s fields, except:
+
+- The `kind` field will be removed.
+- The `sensor_label=from.kind` field will be added.
+- The `sensor_type=from.kind` field will be added.
+"""
 function upgrade(from::SignalV1, ::SignalV2SchemaVersion)
     return SignalV2(; from.recording, from.file_path, from.file_format,
                     from.span, sensor_label=from.kind, sensor_type=from.kind,
