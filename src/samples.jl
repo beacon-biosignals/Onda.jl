@@ -41,6 +41,10 @@ indices, but also accept channel names or a regex to match channel names for row
 and `TimeSpan` values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
 
+Note also that "slices" copied from `s::Samples` via `getindex(s, ...)` may alias `s.info` in
+order to avoid excessive overhead. This means one should generally avoid directly mutating `s.info`,
+especially `s.info.channels`.
+
 See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
 struct Samples{D<:AbstractMatrix}
