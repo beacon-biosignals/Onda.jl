@@ -66,7 +66,7 @@ Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info 
 
 Return `Samples(copy(s.data), deepcopy(s.info), s.encoded)`
 """
-Base.copy(s::Samples) = Samples(copy(s.data), deepcopy(s.info), s.encoded)
+Base.copy(s::Samples) = Samples(copy(s.data), copy(s.info), s.encoded)
 
 """
     validate_samples(data::AbstractMatrix, info, encoded)

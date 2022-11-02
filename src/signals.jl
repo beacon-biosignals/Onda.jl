@@ -106,6 +106,12 @@ See https://github.com/beacon-biosignals/Legolas.jl for details regarding Legola
 """
 SamplesInfoV2
 
+# xref https://github.com/beacon-biosignals/Legolas.jl/issues/61
+Base.copy(info::SamplesInfoV2) = SamplesInfoV2(; info.sensor_type, copy(info.channels),
+                                               info.sample_unit, info.sample_resolution_in_unit,
+                                               info.sample_offset_in_unit, info.sample_type,
+                                               info.sample_rate)
+
 #####
 ##### `onda.signal`
 #####
