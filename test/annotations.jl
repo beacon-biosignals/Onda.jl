@@ -2,6 +2,9 @@
     @test Legolas.declared(AnnotationV1SchemaVersion())
     @test Legolas.required_fields(AnnotationV1SchemaVersion()) == (recording=UUID, id=UUID, span=TimeSpan)
     @test Legolas.accepted_field_type(AnnotationV1SchemaVersion(), TimeSpan) == Union{Onda.NamedTupleTimeSpan,TimeSpan}
+
+    @test Legolas.declared(MergedAnnotationV1SchemaVersion())
+    @test Legolas.required_fields(MergedAnnotationV1SchemaVersion()) == (recording=UUID, id=UUID, span=TimeSpan, from=Vector{UUID})
 end
 
 @testset "`validate_annotations`" begin
@@ -30,7 +33,9 @@ end
                #= 12 =# AnnotationV1(recording=recs[3], id=uuid4(), span=TimeSpan(23, 80)),
                #= 13 =# AnnotationV1(recording=recs[3], id=uuid4(), span=TimeSpan(100, 110)),
                #= 14 =# AnnotationV1(recording=recs[1], id=uuid4(), span=TimeSpan(200, 300))]
-    merged = Tables.columns(merge_overlapping_annotations(sources))
+    merged = merge_overlapping_annotations(sources)
+    @test merged isa Vector{MergedAnnotationV1}
+    merged = Tables.columns(merged)
     @test Tables.columnnames(merged) == (:recording, :id, :span, :from)
     sources_id = [row.id for row in sources]
     @test !any(in(id, sources_id) for id in merged.id)

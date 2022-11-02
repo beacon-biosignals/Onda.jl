@@ -9,7 +9,8 @@ using Tables: rowmerge
 include("utilities.jl")
 
 include("annotations.jl")
-export AnnotationV1, AnnotationV1SchemaVersion, validate_annotations, merge_overlapping_annotations
+export AnnotationV1, AnnotationV1SchemaVersion, MergedAnnotationV1, MergedAnnotationV1SchemaVersion,
+       validate_annotations, merge_overlapping_annotations
 
 include("signals.jl")
 export SamplesInfoV2, SamplesInfoV2SchemaVersion, SignalV2, SignalV2SchemaVersion,

@@ -50,33 +50,36 @@ validate_annotations(annotations) = _fully_validate_legolas_table(:validate_anno
 end
 
 """
+    @version MergedAnnotationV1 > AnnotationV1 begin
+        from::Vector{UUID}
+    end
+
+A Legolas-generated record type representing an annotation derived from "merging" one or more existing annotations.
+
+This record type extends `AnnotationV1` with a single additional required field, `from::Vector{UUID}`, whose entries
+are the `id`s of the annotation's source annotation(s).
+
+See https://github.com/beacon-biosignals/Legolas.jl for details regarding Legolas record types.
+"""
+MergedAnnotationV1
+
+"""
     merge_overlapping_annotations([predicate=TimeSpans.overlaps,] annotations)
 
-Given the `onda.annotation`-compliant table `annotations`, return
-a table corresponding to `annotations` except that consecutive entries satisfying `predicate`
-have been merged using `TimeSpans.shortest_timespan_containing`. The predicate
-must be of the form `prediate(next_span::TimeSpan, prev_span::TimeSpan)::Bool`
-returning whether or not to merge the annotations corresponding to
-`next_span` and `prev_span`, where `next_span` is the next span in the same recording as `prev_span`.
+Given the `onda.annotation@1`-compliant table `annotations`, return a `Vector{MergedAnnotationV1}` where "overlapping"
+consecutive entries of `annotations` have been merged using `TimeSpans.shortest_timespan_containing`.
 
-Specifically, two annotations `a` and `b` are determined to be "overlapping"
-if `a.recording == b.recording && predicate(a.span, b.span)`, where the default
-value of `predicate` is `TimeSpans.overlaps`. Merged
-annotations' `span` fields are generated via calling `TimeSpans.shortest_timespan_containing`
-on the overlapping set of source annotations.
+Two consecutive annotations `a` and `b` are determined to be "overlapping" if `a.recording == b.recording && predicate(a.span, b.span)`.
+Merged annotations' `span` fields are generated via calling `TimeSpans.shortest_timespan_containing` on the overlapping set of source
+annotations.
 
-The returned annotations table only has a single custom column named `from`
-whose entries are `Vector{UUID}`s populated with the `id`s of the generated
-annotations' source(s). Note that every annotation in the returned table
-has a freshly generated `id` field and a non-empty `from` field, even if
-the `from` only has a single element (i.e. corresponds to a single
-non-overlapping annotation).
+Note that every annotation in the returned table has a freshly generated `id` field and a non-empty `from` field. An output annotation
+whose `from` field only a contains a single element corresponds to an individual non-overlapping annotation in the provided `annotations`.
 
-Note that this function internally works with `Tables.columns(annotations)`
-rather than `annotations` directly, so it may be slower and/or require more
-memory if `!Tables.columnaccess(annotations)`.
+Note that this function internally works with `Tables.columns(annotations)` rather than `annotations` directly, so it may be slower and/or
+require more memory if `!Tables.columnaccess(annotations)`.
 
-See also `TimeSpans.merge_spans` for similar functionality on timespans (instead of annotations).
+See also `TimeSpans.merge_spans` for similar functionality on generic time spans (instead of annotations).
 """
 function merge_overlapping_annotations(predicate, annotations)
     columns = Tables.columns(annotations)

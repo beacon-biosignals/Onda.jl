@@ -24,6 +24,7 @@ Onda.read_byte_range
 ```@docs
 AnnotationV1
 write_annotations
+MergedAnnotationV1
 merge_overlapping_annotations
 ```
 
