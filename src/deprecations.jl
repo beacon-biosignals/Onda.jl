@@ -19,7 +19,7 @@ function Annotation(args...; kwargs...)
 
           If you're upgrading invocations of `Onda.Annotation` that may accept non-required fields, you might try the following:
 
-              Tables.rowmerge(fields, AnnotationV1(fields))::NameTuple
+              Tables.rowmerge(fields, AnnotationV1(fields))::NamedTuple
           """)
 end
 
