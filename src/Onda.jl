@@ -24,5 +24,6 @@ include("samples.jl")
 export Samples, encode, encode!, decode, decode!, load, store
 
 include("deprecations.jl")
+export Annotation, Signal
 
 end # module

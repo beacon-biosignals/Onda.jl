@@ -83,6 +83,9 @@ end
     sample_rate::Float64
 end
 
+Legolas.accepted_field_type(::SamplesInfoV2SchemaVersion, ::Type{String}) = AbstractString
+Legolas.accepted_field_type(::SamplesInfoV2SchemaVersion, ::Type{Vector{String}}) = AbstractVector{<:AbstractString}
+
 """
     TODO
 """
@@ -106,6 +109,8 @@ SamplesInfoV2
 end
 
 Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{TimeSpan}) = Union{NamedTupleTimeSpan,TimeSpan}
+Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{String}) = AbstractString
+Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{Vector{String}}) = AbstractVector{<:AbstractString}
 
 """
     TODO

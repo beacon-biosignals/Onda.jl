@@ -16,6 +16,6 @@ include("annotations.jl")
 include("signals.jl")
 include("serialization.jl")
 include("samples.jl")
-# include("deprecations.jl") TODO
+include("deprecations.jl")
 include(joinpath(dirname(@__DIR__), "examples", "flac.jl"))
 include(joinpath(dirname(@__DIR__), "examples", "tour.jl"))
