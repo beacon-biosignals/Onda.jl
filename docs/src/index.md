@@ -22,19 +22,18 @@ Onda.read_byte_range
 ## `onda.annotation`
 
 ```@docs
-Annotation
+AnnotationV1
 write_annotations
-validate_annotations
+MergedAnnotationV1
 merge_overlapping_annotations
 ```
 
 ## `onda.signal`
 
 ```@docs
-Signal
-SamplesInfo
+SignalV2
+SamplesInfoV2
 write_signals
-validate_signals
 channel(x, name)
 channel(x, i::Integer)
 channel_count(x)
@@ -88,6 +87,7 @@ Onda.file_format_string
 
 ```@docs
 VALIDATE_SAMPLES_DEFAULT
+Onda.upgrade
 ```
 
 ## Developer Installation

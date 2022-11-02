@@ -1,5 +1,19 @@
 # Upgrading From Older Versions Of Onda
 
+## To v0.15 From v0.14
+
+First, ensure your codebase is fully upgraded to Onda v0.14, including resolving all deprecation warnings.
+
+From there, breaking changes include:
+
+- Functionality that was "soft-deprecated" in Onda v0.14 (i.e. code would still work, but warnings would be raised) is now "hard-deprecated" as of Onda v0.15.
+
+- Onda is now built atop Legolas v0.5, instead of Legolas v0.4. Users of Onda v0.15 must therefore upgrade their usage of Legolas to Legolas v0.5 (see [here for details](https://github.com/beacon-biosignals/Legolas.jl/pull/54)). One of the most significant implications of this breaking change is that `Annotation` and `Signal` (formerly, aliases of the old `Legolas.Row` type) have been replaced with `AnnotationV1` and `SignalV2` (subtypes of the new `Legolas.AbstractRecord` type). The latter types have slightly different semantics than the former, especially in that the new types do not propagate non-required fields in the same manner as the old types. Even though a comprehensive deprecation path isn't provided, invocations of `Annotation(...)`/`Signal(...)` will now throw a descriptive error with suggestions on how to upgrade.
+
+- `onda.samples-info@2` and `onda.signal@2` have been introduced, which replace `onda.samples-info@1` and `onda.signal@1` respectively. Onda still declares/provides these first-generation schema versions, so that corresponding `Legolas.read` invocations may still work as expected, but all other Onda v0.15 API structures/functions utilize (and/or expect) the second-generation schema versions. Onda v0.15 provides [`Onda.upgrade`](@ref) to conveniently upgrade first-generation data to the new generation.
+
+- The functions `Onda.write_signals`, `Onda.write_annotations`, and `Onda.validate` have been soft-deprecated, and will thus continue to work - but will raise deprecation warnings - until the next breaking version update.
+
 ## To v0.14 From v0.13
 
 Potentially breaking changes include:

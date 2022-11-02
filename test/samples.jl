@@ -1,12 +1,13 @@
 @testset "`Samples` API" begin
     root = mktempdir()
-    signals = Signal[]
+    signals = SignalV2[]
     possible_recordings = (uuid4(), uuid4(), uuid4())
     expected_sample_types = (UInt8, UInt16, UInt32, UInt64, Int8, Int16, Int32, Int64, Float32, Float64)
     expected_parameters = [(recording=rand(possible_recordings),
                             file_path=joinpath(root, "x_$(i)_file"),
                             file_format=rand(("lpcm", "lpcm.zst")),
-                            kind="x_$i",
+                            sensor_type="x_$i",
+                            sensor_label="x_$(i)_label",
                             channels=["a_$i", "b_$i", "c_$i"],
                             sample_unit="unit_$i",
                             sample_resolution_in_unit=rand((0.25, 1)),
@@ -15,14 +16,14 @@
                             sample_rate=rand((128, 50.5)),
                             start=Second(rand(0:30))) for i in 1:length(expected_sample_types)]
     for params in expected_parameters
-        info = Onda.extract_samples_info(params)
+        info = SamplesInfoV2(params)
         data = rand(params.sample_type, 3, sample_count(info, Second(rand(2:15))))
         samples = Samples(data, info, true)
-        signal = store(params.file_path, params.file_format, samples, params.recording, params.start)
+        signal = store(params.file_path, params.file_format, samples, params.recording, params.start, params.sensor_label)
         push!(signals, signal)
     end
     for (expected, signal) in zip(expected_parameters, signals)
-        expected_info = Onda.extract_samples_info(expected)
+        expected_info = SamplesInfoV2(expected)
         @test_throws ArgumentError load(signal, TimeSpans.translate(TimeSpan(0, duration(signal.span)), Second(1)))
         for encoded in (false, true)
             s = @compat load(signal; encoded)
@@ -85,6 +86,9 @@
                 encode!(tmp, d, missing)
                 @test isapprox(tmp, s.data, rtol = 1)
                 @test isapprox(encode(d, missing).data, s.data, rtol = 1)
+                df32 = decode(s, Float32).data
+                @test df32 == decode(Float32(s.info.sample_resolution_in_unit), Float32(s.info.sample_offset_in_unit), s.data)
+                @test eltype(df32) == Float32
             end
             chs = s.info.channels
             i = 27
@@ -104,7 +108,7 @@
                 @test s[reg, TimeSpan(t, t2)].data == s.data[ch_inds, i:j]
                 @test s[reg, i:j].data == s.data[ch_inds, i:j]
             end
-            @test size(s[:, TimeSpan(0, Second(1))].data, 2) == floor(s.info.sample_rate)
+            @test size(s[:, TimeSpan(0, Second(1))].data, 2) == ceil(s.info.sample_rate)
             for i in 1:length(chs)
                 @test channel(s, chs[i]) == i
                 @test channel(s, i) == chs[i]
@@ -117,19 +121,19 @@
 end
 
 @testset "`Samples` pretty printing" begin
-    info = SamplesInfo(kind="eeg",
-                       channels=["a", "b", "c-d"],
-                       sample_unit="unit",
-                       sample_resolution_in_unit=0.25,
-                       sample_offset_in_unit=-0.5,
-                       sample_type=Int16,
-                       sample_rate=50.2)
+    info = SamplesInfoV2(sensor_type="eeg",
+                         channels=["a", "b", "c-d"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=0.25,
+                         sample_offset_in_unit=-0.5,
+                         sample_type=Int16,
+                         sample_rate=50.2)
     samples = Samples(rand(Random.MersenneTwister(0), sample_type(info), 3, 5), info, true)
     M = VERSION >= v"1.6" ? "Matrix{Int16}" : "Array{Int16,2}"
     @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 $M)"
     @test sprint(show, samples) == """
                                    Samples (00:00:00.099601594):
-                                     info.kind: "eeg"
+                                     info.sensor_type: "eeg"
                                      info.channels: ["a", "b", "c-d"]
                                      info.sample_unit: "unit"
                                      info.sample_resolution_in_unit: 0.25
@@ -145,21 +149,21 @@ end
 end
 
 @testset "Onda.VALIDATE_SAMPLES_DEFAULT" begin
-    info = SamplesInfo(kind="kind",
-                       channels=["a", "b", "c"],
-                       sample_unit="microvolt",
-                       sample_resolution_in_unit=1.0,
-                       sample_offset_in_unit=0.0,
-                       sample_type=Int16,
-                       sample_rate=100.0)
+    info = SamplesInfoV2(sensor_type="sensor_type",
+                         channels=["a", "b", "c"],
+                         sample_unit="microvolt",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Int16,
+                         sample_rate=100.0)
     @test Onda.VALIDATE_SAMPLES_DEFAULT[]
     @test_throws ArgumentError Samples(rand(4, 10), info, false)
     @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
     Onda.VALIDATE_SAMPLES_DEFAULT[] = false
     @test Samples(rand(4, 10), info, false) isa Samples
     @test Samples(rand(Int32, 3, 10), info, true) isa Samples
-    @test_throws ArgumentError Onda.validate(Samples(rand(4, 10), info, false))
-    @test_throws ArgumentError Onda.validate(Samples(rand(Int32, 3, 10), info, true))
+    @test_throws ArgumentError Onda.validate_samples(rand(4, 10), info, false)
+    @test_throws ArgumentError Onda.validate_samples(rand(Int32, 3, 10), info, true)
     Onda.VALIDATE_SAMPLES_DEFAULT[] = true
     @test_throws ArgumentError Samples(rand(4, 10), info, false)
     @test_throws ArgumentError Samples(rand(Int32, 3, 10), info, true)
@@ -178,13 +182,13 @@ Base.read(p::BufferPath) = take!(p.io)
     recording_uuid = uuid4()
     start = Second(0)
 
-    info = SamplesInfo(kind="eeg",
-                       channels=["a", "b"],
-                       sample_unit="unit",
-                       sample_resolution_in_unit=1.0,
-                       sample_offset_in_unit=0.0,
-                       sample_type=Int16,
-                       sample_rate=100.0)
+    info = SamplesInfoV2(sensor_type="eeg",
+                         channels=["a", "b"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Int16,
+                         sample_rate=100.0)
     samples = Samples(zeros(sample_type(info), 2, 3), info, true)
 
     signals = Onda.store(file_path, file_format, samples, recording_uuid, start)
@@ -195,53 +199,30 @@ Base.read(p::BufferPath) = take!(p.io)
 end
 
 @testset "Base.copy" begin
-    info = SamplesInfo(kind="eeg",
-                       channels=["a", "b", "c"],
-                       sample_unit="unit",
-                       sample_resolution_in_unit=1.0,
-                       sample_offset_in_unit=0.0,
-                       sample_type=Int16,
-                       sample_rate=100.0,
-                       # Copyable
-                       array=["hi"],
-                       # Not copyable
-                       string="hi",
-                       # This is to test we are doing a shallow copy
-                       array_deep=[["hi"]])
-
-    copy_info = copy(info)
-    @test copy_info == info
-    @test copy_info.channels !== info.channels
-    @test copy_info.array !== info.array
-    @test copy_info.array_deep !== info.array_deep
-    # Check only shallow copy:
-    @test copy_info.array_deep[1] === info.array_deep[1]
-
-    # Strings are immutable and `===` based on contents
-    @test copy_info.string === info.string
-    
+    info = SamplesInfoV2(sensor_type="eeg",
+                         channels=["a", "b", "c"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Int16,
+                         sample_rate=100.0)
     samples = Samples(rand(sample_type(info), 3, 100), info, true)
     copy_samples = copy(samples)
     @test copy_samples == samples
     @test copy_samples.data !== samples.data
     @test copy_samples.info == info
     @test copy_samples.info.channels !== info.channels === samples.info.channels
-    @test copy_samples.info.array !== info.array === samples.info.array
-    @test copy_samples.info.string === info.string === samples.info.string
-
-    @test copy_samples.info.array_deep !== info.array_deep === samples.info.array_deep
-    @test copy_samples.info.array_deep[1] === info.array_deep[1] === samples.info.array_deep[1]
 end
 
 @testset "Samples views" begin
 
-    info = SamplesInfo(kind="eeg",
-                       channels=["a", "b", "c"],
-                       sample_unit="unit",
-                       sample_resolution_in_unit=1.0,
-                       sample_offset_in_unit=0.0,
-                       sample_type=Int16,
-                       sample_rate=100.0)
+    info = SamplesInfoV2(sensor_type="eeg",
+                         channels=["a", "b", "c"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Int16,
+                         sample_rate=100.0)
     samples = Samples(rand(sample_type(info), 3, 100), info, true)
 
     span = TimeSpan(Millisecond(100), Millisecond(400))
@@ -254,7 +235,7 @@ end
                 v = @view samples[chans, times]
                 @test v.data isa SubArray
                 @test v == samples[chans, times]
-                
+
                 v = @views samples[chans, times]
                 @test v.data isa SubArray
                 @test v == samples[chans, times]

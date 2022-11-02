@@ -34,8 +34,7 @@ struct FLACFormat{S} <: Onda.AbstractLPCMFormat
     end
 end
 
-FLACFormat(info::SamplesInfo; kwargs...) = FLACFormat(LPCMFormat(info); sample_rate=info.sample_rate,
-                                                      kwargs...)
+FLACFormat(info; kwargs...) = FLACFormat(LPCMFormat(info); sample_rate=info.sample_rate, kwargs...)
 
 Onda.register_lpcm_format!(file_format -> file_format == "flac" ? FLACFormat : nothing)
 
@@ -104,12 +103,12 @@ saws(info, duration) = [(j + i) % 100 * info.sample_resolution_in_unit for
 
 if VERSION >= v"1.1.0"
     @testset "FLAC example" begin
-        info = SamplesInfo(; kind="test", channels=["a", "b", "c"],
-                           sample_unit="unit",
-                           sample_resolution_in_unit=0.25,
-                           sample_offset_in_unit=-0.5,
-                           sample_type=Int16,
-                           sample_rate=50)
+        info = SamplesInfoV2(; sensor_type="test", channels=["a", "b", "c"],
+                             sample_unit="unit",
+                             sample_resolution_in_unit=0.25,
+                             sample_offset_in_unit=-0.5,
+                             sample_type=Int16,
+                             sample_rate=50)
         data = saws(info, Minute(3))
         samples = encode(Samples(data, info, false))
         fmt = FLACFormat(info)

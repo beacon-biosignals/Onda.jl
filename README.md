@@ -24,7 +24,7 @@ This document uses the term...
 
 - ...**"LPCM"** to refer to [linear pulse code modulation](https://en.wikipedia.org/wiki/Pulse-code_modulation), a form of signal encoding where multivariate waveforms are digitized as a series of samples uniformly spaced over time and quantized to a uniformly spaced grid.
 
-- ...**"signal"** to refer to the digitized output of a process. A signal is comprised of metadata (e.g. LPCM encoding, channel information, sample data path/format information, etc.) and associated multi-channel sample data.
+- ...**"signal"** to refer to the digitized output of a process. We refer to the "devices" (physical, or virtual) that sample processes to generate signals as *sensors*. A signal is comprised of metadata (e.g. LPCM encoding, sensor information, channel information, sample data path/format information, etc.) and associated multi-channel sample data.
 
 - ...**"recording"** to refer a collection of one or more signals recorded simultaneously over some time period.
 
@@ -72,7 +72,7 @@ These schemas are largely orthogonal to one another - here's nothing inherent to
 
 The following sections provide [the version integer](https://beacon-biosignals.github.io/Legolas.jl/stable/schema/), per-column documentation, and examples for each of the above Legolas schemas. In accordance with the Legolas framework, a table is considered to comply with a given schema as long as the specified required columns for that schema are present in any order. While per-column documentation refers to the [logical types defined by the Arrow specification](https://github.com/apache/arrow/blob/master/format/Schema.fbs), Onda reader/writer implementations may additionally employ Arrow extension types that directly alias a column's specified logical type in order to support application-level features (first-class UUID support, custom `file_path` type support, etc.).
 
-#### `onda.signal@1`
+#### `onda.signal@2`
 
 ##### Columns
 
@@ -84,14 +84,15 @@ The following sections provide [the version integer](https://beacon-biosignals.g
 - `span` (`Struct`): The signal's time span within the recording. This structure has two fields:
     - `start` (`Duration` w/ `NANOSECOND` unit): The start offset in nanoseconds from the beginning of the recording. The minimum possible value is `0`.
     - `stop` (`Duration` w/ `NANOSECOND` unit): The stop offset in nanoseconds (exclusive) from the beginning of the recording. This value must be greater than `start`.
-- `kind` (`Utf8`): A string identifying the kind of signal that the row represents. Valid `kind` values are alphanumeric, nonempty, lowercase, `snake_case`, and contain no whitespace, punctuation, or leading/trailing underscores.
+- `sensor_type` (`Utf8`): A string identifying the "type" of the multichannel sensor that generated the signal. The notion of sensor type is somewhat application-specific; it may refer to a kind of device, a particular data modality, etc. Valid `sensor_type` values are alphanumeric, nonempty, lowercase, `snake_case`, and contain no whitespace, punctuation, or leading/trailing underscores.
+- `sensor_label` (`Utf8`): A string that, within the context a given recording, uniquely identifies the multichannel sensor that generated the signal. This field is often equivalent to `sensor_type` in applications where each sensor in a given recording is of a different type, but is especially useful in contexts where a single recording contains multiple signals with the same `sensor_type`. Valid values of `sensor_label` follow the same format as valid `sensor_type` values.
 - `channels` (`List` of `Utf8`): A list of strings where the `i`th element is the name of the signal's `i`th channel. A valid channel name...
     - ...is alphanumeric, nonempty, lowercase, `snake_case`, and contain no whitespace, punctuation, or leading/trailing underscores. Additional allowed characters include: `-`, `+`, `(`, `)`, `/`, `.`. If parentheses are used, they must be balanced, i.e. a matching closing parenthesis must be included for every open parenthesis.
-    -  To allow arbitrary cross-signal referencing, a channel name may reference channel names from other signals contained in the recording. Any such reference should take the form `signal_name.channel_name`. For example, an `eog` signal might have a channel named `left-eeg.m1` (the left eye electrode referenced to the mastoid electrode from a 10-20 EEG signal).
+    -  To allow arbitrary cross-signal referencing, a channel name may reference channel names from other signals contained in the recording. Any such reference should take the form `sensor_label.channel_name`. For example, an `eog` signal might have a channel named `left-eeg.m1` (the left eye electrode referenced to the mastoid electrode from a 10-20 EEG signal).
     - ...is unique amongst the other channel names in the signal. In other words, duplicate channel names within the same signal are disallowed.
 - `sample_unit` (`Utf8`): The name of the signal's canonical unit as a string. This string should conform to the same format as `kind` (alphanumeric, nonempty, lowercase, `snake_case`, and contain no whitespace, punctuation, or leading/trailing underscores), should be singular and not contain abbreviations (e.g. `"uV"` is bad, `"microvolt"` is good; `"l/m"` is bad, `"liter_per_minute"` is good).
-- `sample_resolution_in_unit` (`Int` or `FloatingPoint`): The signal's resolution in its canonical unit. This value, along with the signal's `sample_type` and `sample_offset_in_unit` fields, determines the signal's LPCM quantization scheme.
-- `sample_offset_in_unit`  (`Int` or `FloatingPoint`): The signal's zero-offset in its canonical unit (thus allowing LPCM encodings that are centered around non-zero values).
+- `sample_resolution_in_unit` (`FloatingPoint{DOUBLE}`): The signal's resolution in its canonical unit. This value, along with the signal's `sample_type` and `sample_offset_in_unit` fields, determines the signal's LPCM quantization scheme.
+- `sample_offset_in_unit`  (`FloatingPoint{DOUBLE}`): The signal's zero-offset in its canonical unit (thus allowing LPCM encodings that are centered around non-zero values).
 - `sample_type` (`Utf8`): The primitive scalar type used to encode each sample in the signal. Valid values are:
     - `"int8"`: signed little-endian 1-byte integer
     - `"int16"`: signed little-endian 2-byte integer
@@ -103,19 +104,21 @@ The following sections provide [the version integer](https://beacon-biosignals.g
     - `"uint64"`: unsigned little-endian 8-byte integer
     - `"float32"`: 32-bit floating point number
     - `"float64"`: 64-bit floating point number
-- `sample_rate` (`Int` or `FloatingPoint`): The signal's sample rate.
+- `sample_rate` (`FloatingPoint{DOUBLE}`): The signal's sample rate in samples per second.
 
-Note that this schema allows for the existence of multiple `onda.signal` instances with the same `kind` and `recording`. In this instance, these `onda.signal` instances should be interpreted as digitized outputs of the same underlying process at their respective `span`s, thus enabling the representation/storage of discontiguous/overlapping sample data. Beyond this definition, further specification for the resolution of sample data discontinuities and/or overlaps for specific `kind`s/`recording`s/etc. is left to downstream, use-case-specific extensions of the `onda.signal` schema. For example, there may exist an `onda.signal` with `kind="eeg"` and `span=(start=Nanosecond(0), stop=Nanosecond(1e9))`, and another with the same `recording`/`kind` but with `span=(start=Nanosecond(2e9), stop=Nanosecond(3e9))`; downstream consumers may interpret this as a single EEG signal that is sampled for 1 second starting at the beginning of the recording, followed by a 1 second gap, followed by another second of sampling.
+Note that the `onda.signal@2` specification allows for the simultaneous existence of multiple `onda.signal@2` instances with the same `sensor_label` and `recording`, even though `sensor_label` is defined to act as a unique (within the context of the recording) identifier of the signal's sensor. This is because a recording may contain multiple *discontiguous* signals generated from the same underlying sensor at different time points, as specified by each signal's `span`. Thus, signals that share a common sensor within the same recording in this manner should have non-overlapping `span`s, but note that this property might not be holistically enforceable by Onda reader/writer implementations in all cases. Beyond this definition, further specification for the intepretation of discontinuous sample data for specific `sensor_type`s/`recording`s/etc. is left to downstream, use-case-specific extensions of `onda.signal@2`.
 
-When feasible in practice, it is recommended that data producers manually concatenate discontiguous sample data into a single `onda.signal` and use `NaN` values to represent unsampled regions, rather than represent discontiguous segments via separate `onda.signal`s, as the former approach is often more convenient than the latter for downstream consumers.
+For example, there may exist an `onda.signal@2` with `sensor_label="eeg"` and `span=(start=Nanosecond(0), stop=Nanosecond(1e9))`, and another with the same `recording`/`sensor_label` but with `span=(start=Nanosecond(2e9), stop=Nanosecond(3e9))`. Downstream consumers may interpret this as two EEG signals from the same sensor, sampled at different time points: the sensor generated the first 1-second signal at the beginning of the recording, followed by a 1 second gap, followed by another second of sampling.
+
+When feasible in practice, it is recommended that data producers manually concatenate discontiguous sample data into a single signal and use `NaN` values to represent unsampled regions, rather than represent discontiguous segments via separate signals, as the former approach is often more convenient than the latter for downstream consumers.
 
 ##### Examples
 
 | `recording`                          | `file_path`                                        | `file_format`                                            | `span`                       | `kind`     | `channels`                              | `sample_unit` | `sample_resolution_in_unit` | `sample_offset_in_unit` | `sample_type` | `sample_rate` | `my_custom_value`             |
 |--------------------------------------|----------------------------------------------------|----------------------------------------------------------|------------------------------|------------|-----------------------------------------|---------------|-----------------------------|-------------------------|---------------|---------------|-------------------------------|
-| `0xb14d2c6d8d844e46824f5c5d857215b4` | `"./relative/path/to/samples.lpcm"`                | `"lpcm"`                                                 | `(start=10e9, stop=10900e9)` | `"eeg"`    | `["fp1", "f3", "f7", "fz", "f4", "f8"]` | `"microvolt"` | `0.25`                      | `3.6`                   | `"int16"`     | `256`         | `"this is a value"`           |
+| `0xb14d2c6d8d844e46824f5c5d857215b4` | `"./relative/path/to/samples.lpcm"`                | `"lpcm"`                                                 | `(start=10e9, stop=10900e9)` | `"eeg"`    | `["fp1", "f3", "f7", "fz", "f4", "f8"]` | `"microvolt"` | `0.25`                      | `3.6`                   | `"int16"`     | `256.0`       | `"this is a value"`           |
 | `0xb14d2c6d8d844e46824f5c5d857215b4` | `"s3://bucket/prefix/obj.lpcm.zst"`                | `"lpcm.zst"`                                             | `(start=0, stop=10800e9)`    | `"ecg"`    | `["avl", "avr"]`                        | `"microvolt"` | `0.5`                       | `1.0`                   | `"int16"`     | `128.3`       | `"this is a different value"` |
-| `0x625fa5eadfb24252b58d1eb350fa7df6` | `"s3://other-bucket/prefix/obj_with_no_extension"` | `"flac"`                                                 | `(start=100e9, stop=500e9)`  | `"audio"`  | `["left", "right"]`                     | `"scalar"`    | `1.0`                       | `0.0`                   | `"float32"`   | `44100`       | `"this is another value"`     |
+| `0x625fa5eadfb24252b58d1eb350fa7df6` | `"s3://other-bucket/prefix/obj_with_no_extension"` | `"flac"`                                                 | `(start=100e9, stop=500e9)`  | `"audio"`  | `["left", "right"]`                     | `"scalar"`    | `1.0`                       | `0.0`                   | `"float32"`   | `44100.0`     | `"this is another value"`     |
 | `0xa5c01f0e50fe4acba065fcf474e263f5` | `"./another-relative/path/to/samples"`             | `"custom_price_format:{\"parseable_json_parameter\":3}"` | `(start=0, stop=3600e9)`     | `"price"`  | `["price"]`                             | `"dollar"`    | `0.01`                      | `0.0`                   | `"uint32"`    | `50.75`       | `"wow what a great value"`    |
 
 ##### Sample Data Files
@@ -157,6 +160,10 @@ where the division is followed/preceded by whatever quantization strategy is cho
 ```
 decoded_value = (encoded_value * sample_resolution_in_unit) + sample_offset_in_unit
 ```
+
+##### Previous Versions
+
+- [`onda.signal@1`](https://github.com/beacon-biosignals/Onda.jl/tree/v0.14.10#ondasignal1)
 
 #### `onda.annotation@1`
 

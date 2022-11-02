@@ -13,7 +13,8 @@ function for their subtype.
 
 `create_constructor` should be a unary function that accepts a single `file_format::AbstractString`
 argument, and return either a matching `AbstractLPCMFormat` constructor or `nothing`. Any returned
-`AbstractLPCMFormat` constructor `f` should be of the form `f(info::SamplesInfo; kwargs...)::AbstractLPCMFormat`.
+`AbstractLPCMFormat` constructor `f` should be of the form `f(info; kwargs...)::AbstractLPCMFormat`
+where `info` is a [`SamplesInfoV2`](@ref)-compliant value.
 
 Note that if `Onda.register_lpcm_format!` is called in a downstream package, it must be called
 within the `__init__` function of the package's top-level module to ensure that the function
@@ -23,15 +24,16 @@ see https://docs.julialang.org/en/v1/manual/modules/#Module-initialization-and-p
 register_lpcm_format!(create_constructor) = push!(LPCM_FORMAT_REGISTRY, create_constructor)
 
 """
-    format(file_format::AbstractString, info::SamplesInfo; kwargs...)
+    format(file_format::AbstractString, info; kwargs...)
 
 Return `f(info; kwargs...)` where `f` constructs the `AbstractLPCMFormat` instance that
-corresponds to `file_format`. `f` is determined by matching `file_format` to a suitable
-format constuctor registered via [`register_lpcm_format!`](@ref).
+corresponds to `file_format` and info is a [`SamplesInfoV2`](@ref)-compliant value. `f` is
+determined by matching `file_format` to a suitable format constuctor registered via
+[`register_lpcm_format!`](@ref).
 
 See also: [`deserialize_lpcm`](@ref), [`serialize_lpcm`](@ref)
 """
-function format(file_format::AbstractString, info::SamplesInfo; kwargs...)
+function format(file_format::AbstractString, info; kwargs...)
     for create_constructor in LPCM_FORMAT_REGISTRY
         f = create_constructor(file_format)
         f === nothing && continue
@@ -206,7 +208,7 @@ write_lpcm(path, format::AbstractLPCMFormat, data) = write_full_path(path, seria
 
 """
     LPCMFormat(channel_count::Int, sample_type::Type)
-    LPCMFormat(info::SamplesInfo)
+    LPCMFormat(info::SamplesInfoV2)
 
 Return a `LPCMFormat<:AbstractLPCMFormat` instance corresponding to Onda's default
 interleaved LPCM format assumed for sample data files with the "lpcm"
@@ -223,7 +225,7 @@ struct LPCMFormat{S<:LPCM_SAMPLE_TYPE_UNION} <: AbstractLPCMFormat
     sample_type::Type{S}
 end
 
-LPCMFormat(info::SamplesInfo) = LPCMFormat(length(info.channels), sample_type(info))
+LPCMFormat(info) = LPCMFormat(length(info.channels), sample_type(info))
 
 register_lpcm_format!(file_format -> file_format == "lpcm" ? LPCMFormat : nothing)
 
@@ -303,7 +305,7 @@ end
 
 """
     LPCMZstFormat(lpcm::LPCMFormat; level=3)
-    LPCMZstFormat(info::SamplesInfo; level=3)
+    LPCMZstFormat(info; level=3)
 
 Return a `LPCMZstFormat<:AbstractLPCMFormat` instance that corresponds to Onda's
 default interleaved LPCM format compressed by `zstd`. This format is assumed
@@ -320,7 +322,7 @@ struct LPCMZstFormat{S} <: AbstractLPCMFormat
     LPCMZstFormat(lpcm::LPCMFormat{S}; level=3) where {S} = new{S}(lpcm, level)
 end
 
-LPCMZstFormat(info::SamplesInfo; kwargs...) = LPCMZstFormat(LPCMFormat(info); kwargs...)
+LPCMZstFormat(info; kwargs...) = LPCMZstFormat(LPCMFormat(info); kwargs...)
 
 register_lpcm_format!(file_format -> file_format == "lpcm.zst" ? LPCMZstFormat : nothing)
 

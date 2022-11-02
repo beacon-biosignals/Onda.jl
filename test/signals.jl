@@ -23,87 +23,64 @@
     @test_throws ArgumentError Onda.onda_sample_type_from_julia_type(String)
 end
 
-function test_signal_field_types(signal::Signal)
-    @test signal.recording isa UUID
-    @test signal.file_format isa String
-    @test signal.span isa TimeSpan
-    @test signal.kind isa String
-    @test signal.channels isa Vector{String}
-    @test signal.sample_unit isa String
-    @test signal.sample_resolution_in_unit isa Onda.LPCM_SAMPLE_TYPE_UNION
-    @test signal.sample_offset_in_unit isa Onda.LPCM_SAMPLE_TYPE_UNION
-    @test signal.sample_type isa String
-    @test Onda.julia_type_from_onda_sample_type(signal.sample_type) isa DataType
-    @test signal.sample_rate isa Onda.LPCM_SAMPLE_TYPE_UNION
-    return signal
-end
-
-function test_signal_row(recording, file_path, file_format, span, kind, channels, sample_unit,
-                         sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate;
-                         custom...)
-    row = @compat (; recording, file_path, file_format, span, kind, channels, sample_unit,
-                   sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
-    row_with_custom = (; row..., custom...)
-
-    # intended normalization of input fields for constructor
-    recording::UUID = recording isa UUID ? recording : UUID(recording)
-    file_format::String = file_format isa AbstractLPCMFormat ? Onda.file_format_string(file_format) : file_format
-    span::TimeSpan = TimeSpan(span)
-    kind::String = kind
-    channels::Vector{String} = channels
-    sample_unit::String = sample_unit
-    sample_type::String = sample_type isa DataType ? Onda.onda_sample_type_from_julia_type(sample_type) : sample_type
-    norm_row = @compat (; recording, file_path, file_format, span, kind, channels, sample_unit,
-                        sample_resolution_in_unit, sample_offset_in_unit, sample_type, sample_rate)
-    norm_row_with_custom = (; norm_row..., custom...)
-
-    @test Arrow.Table(Legolas.tobuffer([@compat Tables.rowmerge(row; file_format, sample_type)], Legolas.Schema("onda.signal@1"); validate=true)) isa Arrow.Table
-    @test Arrow.Table(Legolas.tobuffer([@compat Tables.rowmerge(row_with_custom; file_format, sample_type)], Legolas.Schema("onda.signal@1"); validate=true)) isa Arrow.Table
-
-    @test has_rows(test_signal_field_types(Signal(row)), norm_row)
-    @test has_rows(test_signal_field_types(Signal(row_with_custom)), norm_row_with_custom)
-    @test has_rows(test_signal_field_types(Signal(Signal(row))), norm_row)
-    @test has_rows(test_signal_field_types(Signal(Signal(row_with_custom))), norm_row_with_custom)
-    @test has_rows(test_signal_field_types(Signal(Tables.Row(row))), norm_row)
-    @test has_rows(test_signal_field_types(Signal(Tables.Row(row_with_custom))), norm_row_with_custom)
-    @test has_rows(test_signal_field_types(Signal(; row...)), norm_row)
-    @test has_rows(test_signal_field_types(Signal(; row..., custom...)), norm_row_with_custom)
-end
-
-@testset "`Signal` construction/access" begin
-    custom = (a="test", b=1, c=[2.0, 3.0])
-    test_signal_row(UInt128(uuid4()), "/file/path", "lpcm", (start=Nanosecond(1), stop=Nanosecond(100)),
-                    "kind", view([SubString("abc", 1:2), "a", "c"], :), "microvolt", 1, 0, "uint16",
-                    256; custom...)
-    test_signal_row(uuid4(), "/file/path", "lpcm", TimeSpan(Nanosecond(1), Nanosecond(100)),
-                    "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
-    test_signal_row(UInt128(uuid4()), "/file/path", LPCMFormat(3, UInt16), (start=Nanosecond(1), stop=Nanosecond(100)),
-                    "kind", view([SubString("abc", 1:2), "a", "c"], :), "microvolt", 1, 0, "uint16",
-                    256; custom...)
-    test_signal_row(uuid4(), "/file/path", LPCMZstFormat(LPCMFormat(3, UInt16)), TimeSpan(Nanosecond(1), Nanosecond(100)),
-                    "kind", ["ab", "a", "c"], "microvolt", 1.5, 0.4, UInt16, 256.3; custom...)
-end
-
-@testset "`onda.signal` validation" begin
-    template = (recording=uuid4(), file_path="/file/path", file_format="lpcm", span=TimeSpan(0, 1),
-                kind="x", channels=["a", "b", "c"],
-                sample_unit="microvolt", sample_rate=256, sample_resolution_in_unit=0.4,
-                sample_offset_in_unit=0.4, sample_type="uint8")
-    @test Signal(template) isa Signal
-    bad_rows = [Tables.rowmerge(template; channels = ["a", "b", "c", "a"]),
-                Tables.rowmerge(template; channels = ["a", "B", "c"]),
-                Tables.rowmerge(template; channels = ["a", "   ", "c"]),
-                Tables.rowmerge(template; sample_type = "not a valid sample type"),
-                Tables.rowmerge(template; sample_type = Tuple),
-                Tables.rowmerge(template; kind = "NO"),
-                Tables.rowmerge(template; kind = "   "),
-                Tables.rowmerge(template; kind = ""),
-                Tables.rowmerge(template; sample_unit = ""),
-                Tables.rowmerge(template; sample_unit = "  hA HA")]
-    for bad_row in bad_rows
-        @test_throws ArgumentError Signal(bad_row)
+@testset "`onda.samples-info` Legolas configuration" begin
+    @test Legolas.declared(SamplesInfoV2SchemaVersion())
+    @test Legolas.required_fields(SamplesInfoV2SchemaVersion()) == (sensor_type=String,
+                                                                    channels=Vector{String},
+                                                                    sample_unit=String,
+                                                                    sample_resolution_in_unit=Float64,
+                                                                    sample_offset_in_unit=Float64,
+                                                                    sample_type=String,
+                                                                    sample_rate=Float64)
+    template = (; sensor_type="x", channels=["a"], sample_unit="unit", sample_resolution_in_unit=1, sample_offset_in_unit=0, sample_rate=128)
+    for st in ("int8", "int16", "int32", "int64", "uint8", "uint16", "uint32", "uint64", "float32", "float64")
+        @test SamplesInfoV2(rowmerge(template; sample_type=st)).sample_type == st
     end
-    good = [template, Tables.rowmerge(template; file_path="/a/b"), Tables.rowmerge(template; file_path="/c/d")]
+    @test_throws ArgumentError SamplesInfoV2(rowmerge(template; sample_type="no"))
+    @test_throws ArgumentError SamplesInfoV2(rowmerge(template; sample_type="Int8"))
+    @test_throws ArgumentError SamplesInfoV2(rowmerge(template; sample_type="int24"))
+    @test_throws ArgumentError SamplesInfoV2(rowmerge(template; sample_type="float16"))
+    @test_throws ArgumentError SamplesInfoV2(rowmerge(template; sample_type=" int8"))
+end
+
+@testset "`onda.signal` Legolas configuration" begin
+    @test Legolas.declared(SignalV2SchemaVersion())
+    @test Legolas.parent(SignalV2SchemaVersion()) == SamplesInfoV2SchemaVersion()
+    @test Legolas.required_fields(SignalV2SchemaVersion()) == (sensor_type=String,
+                                                               channels=Vector{String},
+                                                               sample_unit=String,
+                                                               sample_resolution_in_unit=Float64,
+                                                               sample_offset_in_unit=Float64,
+                                                               sample_type=String,
+                                                               sample_rate=Float64,
+                                                               recording=UUID,
+                                                               file_path=Any,
+                                                               file_format=String,
+                                                               span=TimeSpan,
+                                                               sensor_label=String)
+    @test Legolas.accepted_field_type(SignalV2SchemaVersion(), TimeSpan) == Union{Onda.NamedTupleTimeSpan,TimeSpan}
+end
+
+@testset "`validate_signals`" begin
+    template = (recording=uuid4(), file_path="/file/path", file_format="lpcm", span=TimeSpan(0, 1),
+                sensor_type="y", sensor_label="x", channels=["a", "b", "c"],
+                sample_unit="microvolt", sample_rate=256.0, sample_resolution_in_unit=0.4,
+                sample_offset_in_unit=0.4, sample_type="uint8")
+    @test SignalV2(template) isa SignalV2
+    bad_rows = typeof(template)[rowmerge(template; channels = ["a", "b", "c", "a"]),
+                                rowmerge(template; channels = ["a", "B", "c"]),
+                                rowmerge(template; channels = ["a", "   ", "c"]),
+                                rowmerge(template; sample_type = "not a valid sample type"),
+                                rowmerge(template; sample_type = "Tuple"),
+                                rowmerge(template; sensor_type = "NO"),
+                                rowmerge(template; sensor_type = "   "),
+                                rowmerge(template; sensor_label = ""),
+                                rowmerge(template; sample_unit = ""),
+                                rowmerge(template; sample_unit = "  hA HA")]
+    for bad_row in bad_rows
+        @test_throws ArgumentError SignalV2(bad_row)
+    end
+    good = typeof(template)[template, rowmerge(template; file_path="/a/b"), rowmerge(template; file_path="/c/d")]
     @test validate_signals(good) === good
     @test_throws ArgumentError validate_signals(bad_rows)
     @test_throws ArgumentError validate_signals(vcat(good, bad_rows[1]))

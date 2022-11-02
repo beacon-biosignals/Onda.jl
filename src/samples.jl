@@ -13,13 +13,12 @@ with the Onda specification.
 Users may interactively set this reference to `false` in order to disable this extra layer
 validation, which can be useful when working with malformed Onda datasets.
 
-See also: [`Onda.validate`](@ref)
+See also: [`Onda.validate_samples`](@ref)
 """
 const VALIDATE_SAMPLES_DEFAULT = Ref{Bool}(true)
 
-
 """
-    Samples(data::AbstractMatrix, info::SamplesInfo, encoded::Bool;
+    Samples(data::AbstractMatrix, info::SamplesInfoV2, encoded::Bool;
             validate::Bool=Onda.VALIDATE_SAMPLES_DEFAULT[])
 
 Return a `Samples` instance with the following fields:
@@ -28,13 +27,13 @@ Return a `Samples` instance with the following fields:
   corresponds to the `i`th channel in `info.channels`, while the `j`th
   column corresponds to the `j`th multichannel sample.
 
-- `info::SamplesInfo`: The `SamplesInfo` object that describes the `Samples` instance.
+- `info::SamplesInfoV2`: The [`SamplesInfoV2`](@ref)-compliant value that describes the `Samples` instance.
 
 - `encoded::Bool`: If `true`, the values in `data` are LPCM-encoded as prescribed
   by the `Samples` instance's `info`. If `false`, the values in `data` have
   been decoded into the `info`'s canonical units.
 
-If `validate` is `true`, [`Onda.validate`](@ref) is called on the constructed `Samples`
+If `validate` is `true`, [`Onda.validate_samples`](@ref) is called on the constructed `Samples`
 instance before it is returned.
 
 Note that `getindex` and `view` are defined on `Samples` to accept normal integer
@@ -42,17 +41,20 @@ indices, but also accept channel names or a regex to match channel names for row
 and `TimeSpan` values for column indices; see `Onda/examples/tour.jl` for a comprehensive
 set of indexing examples.
 
+Note also that "slices" copied from `s::Samples` via `getindex(s, ...)` may alias `s.info` in
+order to avoid excessive overhead. This means one should generally avoid directly mutating `s.info`,
+especially `s.info.channels`.
+
 See also: [`load`](@ref), [`store`](@ref), [`encode`](@ref), [`encode!`](@ref), [`decode`](@ref), [`decode!`](@ref)
 """
-struct Samples{D<:AbstractMatrix,S<:SamplesInfo}
+struct Samples{D<:AbstractMatrix}
     data::D
-    info::S
+    info::SamplesInfoV2
     encoded::Bool
-    function Samples(data, info::SamplesInfo, encoded::Bool;
+    function Samples(data, info::SamplesInfoV2, encoded::Bool;
                      validate::Bool=VALIDATE_SAMPLES_DEFAULT[])
-        samples = new{typeof(data),typeof(info)}(data, info, encoded)
-        validate && Onda.validate(samples)
-        return samples
+        validate && validate_samples(data, info, encoded)
+        return new{typeof(data)}(data, info, encoded)
     end
 end
 
@@ -64,36 +66,35 @@ Returns `a.encoded == b.encoded && a.info == b.info && a.data == b.data`.
 Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info && a.data == b.data
 
 """
-    copy(a::Samples)
+    copy(s::Samples)
 
-Copy a `Samples` object by `copy`ing its fields. The resulting `Samples` object's data
-and any container-valued `SamplesInfo` fields, e.g. the vector of channel names, will
-not alias the originals. See also [`Base.copy(::SamplesInfo)`](@ref).
+Return `Samples(copy(s.data), deepcopy(s.info), s.encoded)`
 """
-Base.copy(a::Samples) = Samples(copy(a.data), copy(a.info), a.encoded)
+Base.copy(s::Samples) = Samples(copy(s.data), copy(s.info), s.encoded)
 
 """
-    validate(samples::Samples)
+    validate_samples(data::AbstractMatrix, info, encoded)
 
-Returns `nothing`, checking that the given `samples` are valid w.r.t. the
-underlying `samples.info` and the Onda specification's canonical LPCM
-representation. If a violation is found, an `ArgumentError` is thrown.
+Returns `nothing`, checking that the given `data` is valid w.r.t. the
+underlying [`SamplesInfoV2`](@ref)-compliant `info` and the Onda specification's
+canonical LPCM representation. If a violation is found, an `ArgumentError` is
+thrown.
 
 Properties that are validated by this function include:
 
-- encoded element type matches `sample_type(samples.info)`
-- the number of rows of `samples.data` matches the number of channels in `samples.info`
+- the number of rows of `data` must match the number of channels in `info`
+- if `encoded` is `true`, `eltype(data)` must match `sample_type(info)`
 """
-function validate(samples::Samples)
-    n_channels = channel_count(samples.info)
-    n_rows = size(samples.data, 1)
+function validate_samples(data, info, encoded)
+    n_channels = channel_count(info)
+    n_rows = size(data, 1)
     if n_channels != n_rows
         throw(ArgumentError("number of channels in info ($n_channels) " *
                             "does not match number of rows in data matrix " *
                             "($n_rows)"))
     end
-    if samples.encoded && !(eltype(samples.data) === sample_type(samples.info))
-        throw(ArgumentError("encoded `samples.data` matrix eltype does not match `sample_type(samples.info)`"))
+    if encoded && !(eltype(data) === sample_type(info))
+        throw(ArgumentError("encoded `data` matrix eltype does not match `sample_type(info)`"))
     end
     return nothing
 end
@@ -141,8 +142,7 @@ for f in (:getindex, :view, :maybeview)
         @inline function Base.$f(samples::Samples, rows, columns)
             rows = row_arguments(samples, rows)
             columns = column_arguments(samples, columns)
-            channels = rows isa Colon ? samples.info.channels : samples.info.channels[rows]
-            info = @compat SamplesInfo(Tables.rowmerge(samples.info; channels))
+            info = rows isa Colon ? samples.info : SamplesInfoV2(rowmerge(samples.info; channels=samples.info.channels[rows]))
             return Samples(Base.$f(samples.data, rows, columns), info, samples.encoded; validate=false)
         end
     end
@@ -358,7 +358,7 @@ then this function is the identity and will return `sample_data` directly withou
 """
 function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
     if sample_data isa AbstractArray
-        sample_resolution_in_unit == 1 && sample_offset_in_unit == 0 && return sample_data
+        isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit) && return sample_data
     end
     return sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit
 end
@@ -375,18 +375,20 @@ function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_uni
 end
 
 """
-    decode(samples::Samples)
+    decode(samples::Samples, ::Type{T}=Float64)
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
 
-    decode(samples.info.sample_resolution_in_unit, samples.info.sample_offset_in_unit, samples.data)
+    decode(convert(T, samples.info.sample_resolution_in_unit),
+           convert(T, samples.info.sample_offset_in_unit),
+           samples.data)
 
 If `samples.encoded` is `false`, this function is the identity.
 """
-function decode(samples::Samples)
+function decode(samples::Samples, ::Type{T}=Float64) where {T}
     samples.encoded || return samples
-    return Samples(decode(samples.info.sample_resolution_in_unit,
-                          samples.info.sample_offset_in_unit,
+    return Samples(decode(convert(T, samples.info.sample_resolution_in_unit),
+                          convert(T, samples.info.sample_offset_in_unit),
                           samples.data),
                    samples.info, false; validate=false)
 end
@@ -417,7 +419,7 @@ end
 """
     load(signal[, span_relative_to_loaded_samples]; encoded::Bool=false)
     load(file_path, file_format::Union{AbstractString,AbstractLPCMFormat},
-         info::SamplesInfo[, span_relative_to_loaded_samples]; encoded::Bool=false)
+         info[, span_relative_to_loaded_samples]; encoded::Bool=false)
 
 Return the `Samples` object described by `signal`/`file_path`/`file_format`/`info`.
 
@@ -430,22 +432,22 @@ corresponding format support random or chunked access).
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
 function load(signal, span_relative_to_loaded_samples...; encoded::Bool=false)
-    return @compat load(signal.file_path, signal.file_format, extract_samples_info(signal),
+    return @compat load(signal.file_path, signal.file_format, SamplesInfoV2(signal),
                         span_relative_to_loaded_samples...; encoded)
 end
 
-function load(file_path, file_format::AbstractString, info::SamplesInfo,
+function load(file_path, file_format::AbstractString, info,
               span_relative_to_loaded_samples...; encoded::Bool=false)
     return @compat load(file_path, format(file_format, info), info,
                         span_relative_to_loaded_samples...; encoded)
 end
 
-function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo; encoded::Bool=false)
+function load(file_path, file_format::AbstractLPCMFormat, info; encoded::Bool=false)
     samples = Samples(read_lpcm(file_path, file_format), info, true)
     return encoded ? samples : decode(samples)
 end
 
-function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo,
+function load(file_path, file_format::AbstractLPCMFormat, info,
               span_relative_to_loaded_samples; encoded::Bool=false)
     sample_range = TimeSpans.index_from_time(info.sample_rate, span_relative_to_loaded_samples)
     sample_offset_from_info, sample_count_from_info = first(sample_range) - 1, length(sample_range)
@@ -453,8 +455,8 @@ function load(file_path, file_format::AbstractLPCMFormat, info::SamplesInfo,
     samples = Samples(sample_data, info, true)
     if sample_count(samples) < sample_count_from_info
         throw(ArgumentError("""
-                            `duration(load(..., span_relative_to_loaded_samples))` is unexpectedly less than 
-                            `duration(span_relative_to_loaded_samples)`; this might indicate that `span` is 
+                            `duration(load(..., span_relative_to_loaded_samples))` is unexpectedly less than
+                            `duration(span_relative_to_loaded_samples)`; this might indicate that `span` is
                             not properly within the bounds of the loaded `Samples` instance.
 
                             Try `load(...)[:, span_relative_to_loaded_samples]` to load the full `Samples` instance
@@ -467,15 +469,15 @@ end
 """
     Onda.mmap(signal)
 
-Return `Onda.mmap(signal.file_path, Onda.extract_samples_info(signal))`, throwing an `ArgumentError` if `signal.file_format != "lpcm"`.
+Return `Onda.mmap(signal.file_path, SamplesInfoV2(signal))`, throwing an `ArgumentError` if `signal.file_format != "lpcm"`.
 """
 function mmap(signal)
     signal.file_format == "lpcm" || throw(ArgumentError("unsupported file_format for mmap: $(signal.file_format)"))
-    return mmap(signal.file_path, extract_samples_info(signal))
+    return mmap(signal.file_path, SamplesInfoV2(signal))
 end
 
 """
-    Onda.mmap(mmappable, info::SamplesInfo)
+    Onda.mmap(mmappable, info)
 
 Return `Samples(data, info, true)` where `data` is created via `Mmap.mmap(mmappable, ...)`.
 
@@ -483,7 +485,7 @@ Return `Samples(data, info, true)` where `data` is created via `Mmap.mmap(mmappa
 interleaved LPCM representation in accordance with `sample_type(info)` and `channel_count(info)`. No
 explicit checks are performed to ensure that this is true.
 """
-function mmap(mmappable, info::SamplesInfo)
+function mmap(mmappable, info)
     data = reshape(Mmap.mmap(mmappable, Vector{sample_type(info)}), (channel_count(info), :))
     return Samples(data, info, true)
 end
@@ -499,17 +501,19 @@ function store(file_path, file_format, samples::Samples)
 end
 
 """
-    store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat}, samples::Samples,
-          recording::UUID, start::Period; custom...)
+    store(file_path, file_format::Union{AbstractString,AbstractLPCMFormat},
+          samples::Samples, recording::UUID, start::Period,
+          sensor_label::AbstractString = samples.info.sensor_type)
 
 Serialize the given `samples` to `file_format` and write the output to `file_path`, returning
-a `Signal` instance constructed from the provided arguments (any provided `custom` keyword
-arguments are forwarded to an invocation of the `Signal` constructor).
+a `SignalV2` instance constructed from the provided arguments.
 """
-function store(file_path, file_format, samples::Samples, recording, start; custom...)
+function store(file_path, file_format, samples::Samples, recording, start,
+               sensor_label=samples.info.sensor_type)
     store(file_path, file_format, samples)
     span = TimeSpan(start, Nanosecond(start) + TimeSpans.duration(samples))
-    return @compat Signal(Tables.rowmerge(samples.info; recording, file_path, file_format, span, custom...))
+    row = rowmerge(samples.info; recording, sensor_label, file_path, file_format, span)
+    return SignalV2(row)
 end
 
 #####
@@ -523,7 +527,7 @@ function Base.show(io::IO, samples::Samples)
         duration_in_seconds = size(samples.data, 2) / samples.info.sample_rate
         duration_in_nanoseconds = round(Int, duration_in_seconds * 1_000_000_000)
         println(io, "Samples (", TimeSpans.format_duration(duration_in_nanoseconds), "):")
-        println(io, "  info.kind: ", repr(samples.info.kind))
+        println(io, "  info.sensor_type: ", repr(samples.info.sensor_type))
         println(io, "  info.channels: ", string('[', join(map(repr, samples.info.channels), ", "), ']'))
         println(io, "  info.sample_unit: ", repr(samples.info.sample_unit))
         println(io, "  info.sample_resolution_in_unit: ", samples.info.sample_resolution_in_unit)
@@ -540,13 +544,13 @@ end
 ##### Arrow conversion
 #####
 
-const SamplesArrowType{T,S} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},S,Bool}}
+const SamplesArrowType{T} = NamedTuple{(:data, :info, :encoded),Tuple{Vector{T},Arrow.ArrowTypes.ArrowType(SamplesInfoV2),Bool}}
 
 const SAMPLES_ARROW_NAME = Symbol("JuliaLang.Samples")
 
 Arrow.ArrowTypes.arrowname(::Type{<:Samples}) = SAMPLES_ARROW_NAME
 
-Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D,S}}) where {D,S} = SamplesArrowType{eltype(D),Arrow.ArrowTypes.ArrowType(S)}
+Arrow.ArrowTypes.ArrowType(::Type{<:Samples{D}}) where {D} = SamplesArrowType{eltype(D)}
 
 function Arrow.ArrowTypes.toarrow(samples::Samples)
     return (data=vec(samples.data),
@@ -555,11 +559,11 @@ function Arrow.ArrowTypes.toarrow(samples::Samples)
 end
 
 function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{<:SamplesArrowType{T}}) where {T}
-    return Samples{Matrix{T},<:SamplesInfo}
+    return Samples{Matrix{T}}
 end
 
 function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
-    info = Arrow.ArrowTypes.fromarrow(SamplesInfo, arrow_info...)
+    info = Arrow.ArrowTypes.fromarrow(SamplesInfoV2, arrow_info...)
     data = reshape(arrow_data, (channel_count(info), :))
     return Samples(data, info, arrow_encoded)
 end

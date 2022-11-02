@@ -1,6 +1,6 @@
 using Compat: @compat
 using Test, UUIDs, Dates, Onda, Legolas, Arrow, Tables, TimeSpans, DataFrames, Random
-using ConstructionBase
+using Tables: rowmerge
 
 function has_rows(a, b)
     for name in propertynames(b)
