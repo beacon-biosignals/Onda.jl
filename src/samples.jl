@@ -157,7 +157,11 @@ _indices_fallback(f, samples::Samples, x) = map(x -> f(samples, x), x)
 row_arguments(samples::Samples, x) = _rangify(_row_arguments(samples, x))
 
 _row_arguments(samples::Samples, x) = _indices_fallback(_row_arguments, samples, x)
-_row_arguments(samples::Samples, name::AbstractString) = channel(samples, name)
+function _row_arguments(samples::Samples, name::AbstractString)
+    idx = channel(samples, name)
+    idx === nothing && throw(ArgumentError("channel \"$(name)\" not found"))
+    return idx
+end
 _row_arguments(samples::Samples, name::Regex) = findall(c -> match(name, c) !== nothing, samples.info.channels)
 
 column_arguments(samples::Samples, x) = _rangify(_column_arguments(samples, x))
