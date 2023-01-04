@@ -117,13 +117,13 @@
 end
 
 @testset "`Samples` indexing errors" begin
-    info = SamplesInfoV2(sensor_type="eeg",
-                         channels=["a", "b", "c-d"],
-                         sample_unit="unit",
-                         sample_resolution_in_unit=0.25,
-                         sample_offset_in_unit=-0.5,
-                         sample_type=Int16,
-                         sample_rate=50.2)
+    info = SamplesInfo(kind="eeg",
+                       channels=["a", "b", "c-d"],
+                       sample_unit="unit",
+                       sample_resolution_in_unit=0.25,
+                       sample_offset_in_unit=-0.5,
+                       sample_type=Int16,
+                       sample_rate=50.2)
 
     samples = Samples(rand(Random.MersenneTwister(0), sample_type(info), 3, 5), info, true)
 
