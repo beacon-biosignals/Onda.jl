@@ -228,6 +228,24 @@ end
     @test copy_samples.info.channels !== info.channels === samples.info.channels
 end
 
+@testset "Base.isequal" begin
+    info = SamplesInfoV2(sensor_type="eeg",
+                         channels=["a", "b", "c"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Float32,
+                         sample_rate=100.0)
+    samples = Samples(ones(sample_type(info), 3, 100), info, true)
+    samples2 = deepcopy(samples)
+    @test samples == samples2
+    @test isequal(samples, samples2)
+
+    samples.data[1,1] = samples2.data[1,1] = NaN
+    @test samples != samples2
+    @test isequal(samples, samples2)
+end
+
 @testset "Samples views" begin
 
     info = SamplesInfoV2(sensor_type="eeg",
