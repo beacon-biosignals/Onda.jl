@@ -68,7 +68,7 @@ Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info 
 """
     isequal(a::Samples, b::Samples)
 
-Returns `isequal(a.encoded, b.encoded) && isequal(a.info, b.info) && isequal(a.data, b.data)`.
+Checks if each field of `a` and `b` are `isequal` to each other; specifically, this function returns `isequal(a.encoded, b.encoded) && isequal(a.info, b.info) && isequal(a.data, b.data)`.
 """
 function Base.isequal(a::Samples, b::Samples)
     return isequal(a.encoded, b.encoded) && isequal(a.info, b.info) && isequal(a.data, b.data)
