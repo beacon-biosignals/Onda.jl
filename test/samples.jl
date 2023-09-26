@@ -243,7 +243,7 @@ end
 
     samples.data[1,1] = samples2.data[1,1] = NaN
     @test samples != samples2
-    @test_broken isequal(samples, samples2) # can't yet handle nan
+    @test isequal(samples, samples2)
 end
 
 @testset "Samples views" begin

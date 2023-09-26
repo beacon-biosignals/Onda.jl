@@ -66,6 +66,15 @@ Returns `a.encoded == b.encoded && a.info == b.info && a.data == b.data`.
 Base.:(==)(a::Samples, b::Samples) = a.encoded == b.encoded && a.info == b.info && a.data == b.data
 
 """
+    isequal(a::Samples, b::Samples)
+
+Returns `isequal(a.encoded, b.encoded) && isequal(a.info, b.info) && isequal(a.data, b.data)`.
+"""
+function Base.isequal(a::Samples, b::Samples)
+    return isequal(a.encoded, b.encoded) && isequal(a.info, b.info) && isequal(a.data, b.data)
+end
+
+"""
     copy(s::Samples)
 
 Return `Samples(copy(s.data), deepcopy(s.info), s.encoded)`
