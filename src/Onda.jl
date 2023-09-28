@@ -10,7 +10,8 @@ include("utilities.jl")
 
 include("annotations.jl")
 export AnnotationV1, AnnotationV1SchemaVersion, MergedAnnotationV1, MergedAnnotationV1SchemaVersion,
-       validate_annotations, merge_overlapping_annotations
+       validate_annotations, merge_overlapping_annotations,
+       ContextlessAnnotationV1, add_context
 
 include("signals.jl")
 export SamplesInfoV2, SamplesInfoV2SchemaVersion, SignalV2, SignalV2SchemaVersion,

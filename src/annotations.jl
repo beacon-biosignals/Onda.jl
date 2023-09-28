@@ -104,3 +104,40 @@ function merge_overlapping_annotations(predicate, annotations)
 end
 
 merge_overlapping_annotations(annotations) = merge_overlapping_annotations(overlaps, annotations)
+
+@schema "onda.contextless-annotation" ContextlessAnnotation
+
+"""
+    @version ContextlessAnnotationV1 begin
+        id::UUID
+        span::TimeSpan
+    end
+
+Represents an event that occurs at some span `span` in a situation in which the broader context of the recording
+and what the `span` is relative to is not available.
+
+This can be useful when annotations are being generated from [`Samples`](@ref) objects, without the context of the [`SignalV2`](@ref)
+that these samples came from.
+
+These can be upgraded to full `AnnotationV1`'s via [`add_context`](@ref).
+"""
+ContextlessAnnotationV1
+
+@version ContextlessAnnotationV1 begin
+    id::UUID
+    span::TimeSpan
+end
+
+"""
+    add_context(contextless; recording, start) -> AnnotationV1
+
+Given a contextless annotation (see also [`ContextlessAnnotationV1`](@ref)), adds the context of the `recording`
+associated to this annotation, and the `start` time relative to the recording.
+
+For example, if you load a signal `signal` (and hence know the recording and start of the signal relative to the recording),
+to obtain a `Samples` object, and then generate contextless annotations from that samples object alone (e.g. via another library),
+you can "upgrade" these to full annotations by `add_context(contextless; signal.recording, start=start(signal.span))`.
+
+This function simply translates the `span` field of `contextless` by `start` and adds the recording field.
+"""
+add_context(contextless; recording, start) = AnnotationV1(; contextless.id, recording, span=translate(contextless.span, start))
