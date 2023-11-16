@@ -1,8 +1,7 @@
 name = "Onda"
 uuid = "e853f5be-6863-11e9-128d-476edb89bfb5"
 authors = ["Beacon Biosignals, Inc."]
-version = "0.15.2"
-
+version = "0.15.3"
 
 [deps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
@@ -17,22 +16,32 @@ TimeSpans = "bb34ddd2-327f-4c4a-bfb0-c98fc494ece1"
 TranscodingStreams = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
+[weakdeps]
+AWSS3 = "1c724243-ef5b-51ab-93f4-b0a88ac62a95"
+
+[extensions]
+OndaAWSS3Ext = "AWSS3"
+
 [compat]
 Arrow = "1.6.2, 2"
+AWSS3 = "0.9, 0.10, 0.11"
 CodecZstd = "0.6, 0.7"
 Compat = "3.32, 4"
 DataFrames = "1.2"
 FLAC_jll = "1.3.3"
 Legolas = "0.5"
+Minio = "0.2"
 Tables = "1.4"
 TimeSpans = "0.3.4"
 TranscodingStreams = "0.9"
 julia = "1.6"
 
 [extras]
+AWSS3 = "1c724243-ef5b-51ab-93f4-b0a88ac62a95"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 FLAC_jll = "1d38b3a6-207b-531b-80e8-c83f48dafa73"
+Minio = "4281f0d9-7ae0-406e-9172-b7277c1efa20"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["FLAC_jll", "DataFrames", "Test"]
+test = ["AWSS3", "FLAC_jll", "DataFrames", "Minio", "Test"]
