@@ -49,12 +49,14 @@ end
         loaded_span = Onda.load(signal, span; encoded=true)
         @test loaded_samples[:, span] == loaded_span
 
-        bad_span = TimeSpan(stop(signal.span) + Nanosecond(Second(1)),
-            stop(signal.span) + Nanosecond(Second(2)))
-        # this throws a BoundsError without our extension (since Onda falls back to
-        # loading EVERYTHING and then indexing.  with our utils, it passes the
-        # byte range to AWS which says it's invalid
-        @test_throws AWSException Onda.load(signal, bad_span)
+        if VERSION >= v"1.9" # This test requires the package extension to work correctly
+            bad_span = TimeSpan(stop(signal.span) + Nanosecond(Second(1)),
+                stop(signal.span) + Nanosecond(Second(2)))
+            # this throws a BoundsError without our extension (since Onda falls back to
+            # loading EVERYTHING and then indexing.  with our utils, it passes the
+            # byte range to AWS which says it's invalid
+            @test_throws AWSException Onda.load(signal, bad_span)
+        end
 
     end
 end
