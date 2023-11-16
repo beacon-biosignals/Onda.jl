@@ -1,6 +1,7 @@
 using Compat: @compat
 using Test, UUIDs, Dates, Onda, Legolas, Arrow, Tables, TimeSpans, DataFrames, Random
 using Tables: rowmerge
+using AWSS3, Minio # for testing AWSS3 package extension
 
 function has_rows(a, b)
     for name in propertynames(b)
@@ -17,5 +18,6 @@ include("signals.jl")
 include("serialization.jl")
 include("samples.jl")
 include("deprecations.jl")
+include("awss3.jl")
 include(joinpath(dirname(@__DIR__), "examples", "flac.jl"))
 include(joinpath(dirname(@__DIR__), "examples", "tour.jl"))
