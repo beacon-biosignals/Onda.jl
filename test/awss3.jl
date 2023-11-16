@@ -30,12 +30,12 @@ end
             start = Second(0)
 
             info = SamplesInfoV2(sensor_type="eeg",
-                channels=["a", "b"],
-                sample_unit="unit",
-                sample_resolution_in_unit=1.0,
-                sample_offset_in_unit=0.0,
-                sample_type=Int16,
-                sample_rate=100.0)
+                                 channels=["a", "b"],
+                                 sample_unit="unit",
+                                 sample_resolution_in_unit=1.0,
+                                 sample_offset_in_unit=0.0,
+                                 sample_type=Int16,
+                                 sample_rate=100.0)
             samples = Samples(rand(sample_type(info), 2, 300), info, true)
 
             signal = Onda.store(file_path, file_format, samples, recording_uuid, start)
@@ -51,7 +51,7 @@ end
 
             if VERSION >= v"1.9" # This test requires the package extension to work correctly
                 bad_span = TimeSpan(stop(signal.span) + Nanosecond(Second(1)),
-                    stop(signal.span) + Nanosecond(Second(2)))
+                                    stop(signal.span) + Nanosecond(Second(2)))
                 # this throws a BoundsError without our extension (since Onda falls back to
                 # loading EVERYTHING and then indexing.  with our utils, it passes the
                 # byte range to AWS which says it's invalid.
