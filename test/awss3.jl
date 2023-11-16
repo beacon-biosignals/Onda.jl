@@ -31,7 +31,7 @@ end
             sample_offset_in_unit=0.0,
             sample_type=Int16,
             sample_rate=100.0)
-        samples = Samples(zeros(sample_type(info), 2, 300), info, true)
+        samples = Samples(rand(sample_type(info), 2, 300), info, true)
 
         signal = Onda.store(file_path, file_format, samples, recording_uuid, start)
         @test signal.file_path isa S3Path
