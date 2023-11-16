@@ -15,11 +15,16 @@ function minio_server(body, dirs=[mktempdir()]; address="localhost:9005")
     end
 end
 
+# Test we are loading the `OndaAWSS3Ext` extension in the tests here
+if VERSION >= v"1.9"
+    @test Base.get_extension(Onda, :OndaAWSS3Ext) isa Module
+end
+
 @testset "AWSS3 usage" begin
     minio_server() do config
         s3_create_bucket(config, "test-bucket")
 
-        file_format = "lpcm.zst"
+        file_format = "lpcm"
         file_path = S3Path("s3://test-bucket/prefix/samples.$(file_format)"; config)
         recording_uuid = uuid4()
         start = Second(0)
@@ -43,5 +48,13 @@ end
         span = TimeSpan(0, Second(1))
         loaded_span = Onda.load(signal, span; encoded=true)
         @test loaded_samples[:, span] == loaded_span
+
+        bad_span = TimeSpan(stop(signal.span) + Nanosecond(Second(1)),
+            stop(signal.span) + Nanosecond(Second(2)))
+        # this throws a BoundsError without our extension (since Onda falls back to
+        # loading EVERYTHING and then indexing.  with our utils, it passes the
+        # byte range to AWS which says it's invalid
+        @test_throws AWSException Onda.load(signal, bad_span)
+
     end
 end
