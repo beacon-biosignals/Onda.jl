@@ -42,7 +42,7 @@ jobs:
           restore-keys: ${{ runner.os }}-test-artifacts
       - name: "install Arrow 2.6"
         if: ${{ matrix.version }} == '2.6'
-        shell: julia --color=yes '{0}'
+        shell: julia --color=yes --project {0}
         run: |
           using Pkg
           Pkg.activate(".")
