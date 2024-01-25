@@ -576,7 +576,13 @@ function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{<:SamplesA
 end
 
 function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
-    info = Arrow.ArrowTypes.fromarrow(SamplesInfoV2, arrow_info...)
+    info = Arrow.ArrowTypes.fromarrow(SamplesInfoV2, arrow_info)
     data = reshape(arrow_data, (channel_count(info), :))
     return Samples(data, info, arrow_encoded)
 end
+
+# XXX in Arrow 2.7, the extra indirection with `fromarrowstruct` leads to the named tuple
+# being splatted as positional arguments and not keyword args unless we add this method.
+# The splatting leads to a method error because SamplesInfoV2 doesn't have a positional
+# contructor, just a constructor from a row or from kwargs
+Arrow.ArrowTypes.fromarrow(::Type{SamplesInfoV2}, x::NamedTuple) = SamplesInfoV2(x)
