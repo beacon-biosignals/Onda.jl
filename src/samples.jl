@@ -74,6 +74,12 @@ function Base.isequal(a::Samples, b::Samples)
     return isequal(a.encoded, b.encoded) && isequal(a.info, b.info) && isequal(a.data, b.data)
 end
 
+# Define in a compatible way as `isequal` so that two samples being `isequal` to each other
+# ensures they have the same hash.
+function Base.hash(a::Samples, h::UInt)
+    return hash(Samples, hash(a.encoded, hash(a.info, hash(a.data, h))))
+end
+
 """
     copy(s::Samples)
 
