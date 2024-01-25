@@ -40,13 +40,12 @@ jobs:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-test-artifacts-${{ hashFiles('**/Project.toml') }}
           restore-keys: ${{ runner.os }}-test-artifacts
-      - name: "install Arrow 2.6"
-        if: ${{ matrix.version }} == '2.6'
+      - name: "install specific Arrow version"
+        if: ${{ matrix.arrow != 'current' }}
         shell: julia --color=yes --project {0}
         run: |
           using Pkg
-          Pkg.activate(".")
-          Pkg.add(PackageSpec(; name="Arrow", uuid="69666777-d1a9-59fb-9406-91d4454c9d45", version="2.6"))
+          Pkg.add(PackageSpec(; name="Arrow", uuid="69666777-d1a9-59fb-9406-91d4454c9d45", version="${{ matrix.arrow }}"))
           Pkg.pin("Arrow")
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
