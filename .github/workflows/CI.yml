@@ -1,4 +1,7 @@
 name: CI
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
 on:
   push:
     branches:
@@ -39,7 +42,7 @@ jobs:
           restore-keys: ${{ runner.os }}-test-artifacts
       - name: "install Arrow 2.6"
         if: ${{ matrix.version }} == '2.6'
-        shell: julia --project
+        shell: julia --project '{0}'
         run: |
           using Pkg
           Pkg.add(PackageSpec(; name="Arrow", uuid="69666777-d1a9-59fb-9406-91d4454c9d45", version="2.6"))
