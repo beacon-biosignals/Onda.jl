@@ -23,7 +23,6 @@ Onda.read_byte_range
 
 ```@docs
 AnnotationV1
-write_annotations
 MergedAnnotationV1
 merge_overlapping_annotations
 ```
@@ -33,7 +32,6 @@ merge_overlapping_annotations
 ```@docs
 SignalV2
 SamplesInfoV2
-write_signals
 channel(x, name)
 channel(x, i::Integer)
 channel_count(x)
