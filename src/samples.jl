@@ -365,7 +365,7 @@ end
 """
     decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
 
-Return `sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit`.
+Return `fma.(sample_resolution_in_unit, sample_data, sample_offset_in_unit)`.
 
 If:
 
@@ -379,7 +379,7 @@ function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
     if sample_data isa AbstractArray
         isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit) && return sample_data
     end
-    return sample_resolution_in_unit .* sample_data .+ sample_offset_in_unit
+    return fma.(sample_resolution_in_unit, sample_data, sample_offset_in_unit)
 end
 
 """
@@ -389,7 +389,7 @@ Similar to `decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data
 write decoded values to `result_storage` rather than allocating new storage.
 """
 function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_unit, sample_data)
-    f = x -> sample_resolution_in_unit * x + sample_offset_in_unit
+    f = x -> fma(sample_resolution_in_unit, x, sample_offset_in_unit)
     return broadcast!(f, result_storage, sample_data)
 end
 
