@@ -1,4 +1,7 @@
 name: CI
+concurrency:
+    group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+    cancel-in-progress: true
 on:
   push:
     branches:
@@ -9,7 +12,7 @@ on:
   pull_request:
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - Arrow - ${{matrix.arrow}}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -21,6 +24,9 @@ jobs:
           - ubuntu-latest
         arch:
           - x64
+        arrow:
+            - '2.6'
+            - 'current'
     steps:
       - uses: actions/checkout@v2
         with:
@@ -34,10 +40,17 @@ jobs:
           path: ~/.julia/artifacts
           key: ${{ runner.os }}-test-artifacts-${{ hashFiles('**/Project.toml') }}
           restore-keys: ${{ runner.os }}-test-artifacts
+      - name: "install specific Arrow version"
+        if: ${{ matrix.arrow != 'current' }}
+        shell: julia --color=yes --project {0}
+        run: |
+          using Pkg
+          Pkg.add(PackageSpec(; name="Arrow", uuid="69666777-d1a9-59fb-9406-91d4454c9d45", version="${{ matrix.arrow }}"))
+          Pkg.pin("Arrow")
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v2
+      - uses: codecov/codecov-action@v3
         with:
           file: lcov.info
   docs:
