@@ -576,7 +576,15 @@ function Arrow.ArrowTypes.JuliaType(::Val{SAMPLES_ARROW_NAME}, ::Type{<:SamplesA
 end
 
 function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, arrow_encoded)
-    info = Arrow.ArrowTypes.fromarrow(SamplesInfoV2, arrow_info...)
+    info = Arrow.ArrowTypes.fromarrow(SamplesInfoV2, arrow_info)
     data = reshape(arrow_data, (channel_count(info), :))
     return Samples(data, info, arrow_encoded)
 end
+
+# Legolas v0.5.17 removed the `fromarrow` methods for Legolas rows, preferring the new `fromarrowstruct`
+# introduced in Arrow v2.7. We don't want to assume Arrow v2.7 is loaded here, so we will add a method
+# so that `fromarrow` continues to work for `SamplesInfoV2`. Additionally, this method is agnostic
+# to serialization order of fields (which is the benefit `fromarrowstruct` is designed to bring), so
+# we retain correctness. Lastly, as this method's signature is different from the one Legolas pre-v0.5.17
+# generates, we avoid method overwriting errors/warnings.
+Arrow.ArrowTypes.fromarrow(::Type{SamplesInfoV2}, x::NamedTuple) = SamplesInfoV2(x)
