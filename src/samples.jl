@@ -581,8 +581,10 @@ function Arrow.ArrowTypes.fromarrow(::Type{<:Samples}, arrow_data, arrow_info, a
     return Samples(data, info, arrow_encoded)
 end
 
-# XXX in Arrow 2.7, the extra indirection with `fromarrowstruct` leads to the named tuple
-# being splatted as positional arguments and not keyword args unless we add this method.
-# The splatting leads to a method error because SamplesInfoV2 doesn't have a positional
-# contructor, just a constructor from a row or from kwargs
+# Legolas v0.5.17 removed the `fromarrow` methods for Legolas rows, preferring the new `fromarrowstruct`
+# introduced in Arrow v2.7. We don't want to assume Arrow v2.7 is loaded here, so we will add a method
+# so that `fromarrow` continues to work for `SamplesInfoV2`. Additionally, this method is agnostic
+# to serialization order of fields (which is the benefit `fromarrowstruct` is designed to bring), so
+# we retain correctness. Lastly, as this method's signature is different from the one Legolas pre-v0.5.17
+# generates, we avoid method overwriting errors/warnings.
 Arrow.ArrowTypes.fromarrow(::Type{SamplesInfoV2}, x::NamedTuple) = SamplesInfoV2(x)
