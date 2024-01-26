@@ -228,7 +228,7 @@ end
     @test copy_samples.info.channels !== info.channels === samples.info.channels
 end
 
-@testset "Base.isequal" begin
+@testset "Base.isequal and Base.hash" begin
     info = SamplesInfoV2(sensor_type="eeg",
                          channels=["a", "b", "c"],
                          sample_unit="unit",
@@ -244,6 +244,7 @@ end
     samples.data[1,1] = samples2.data[1,1] = NaN
     @test samples != samples2
     @test isequal(samples, samples2)
+    @test hash(samples) == hash(samples2)
 end
 
 @testset "Samples views" begin
