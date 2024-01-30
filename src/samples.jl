@@ -376,9 +376,11 @@ If:
 then this function is the identity and will return `sample_data` directly without copying.
 """
 function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
+    @info "Secondary for decoding?"
     if sample_data isa AbstractArray
         isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit) && return sample_data
     end
+    @info "Don't think we're an array?"
     return fma.(sample_resolution_in_unit, sample_data, sample_offset_in_unit)
 end
 
@@ -406,6 +408,7 @@ If `samples.encoded` is `false`, this function is the identity.
 """
 function decode(samples::Samples, ::Type{T}=Float64) where {T}
     samples.encoded || return samples
+    @info "entry for decode?"
     return Samples(decode(convert(T, samples.info.sample_resolution_in_unit),
                           convert(T, samples.info.sample_offset_in_unit),
                           samples.data),
@@ -466,6 +469,7 @@ end
 function load(file_path, file_format::AbstractLPCMFormat, info; encoded::Bool=false)
     @info "HITT LOAD2"
     samples = Samples(read_lpcm(file_path, file_format), info, true)
+    @info "POST read_lpcm"
     return encoded ? samples : decode(samples)
 end
 
