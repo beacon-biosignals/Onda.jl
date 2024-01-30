@@ -451,23 +451,27 @@ corresponding format support random or chunked access).
 If `encoded` is `true`, do not decode the `Samples` object before returning it.
 """
 function load(signal, span_relative_to_loaded_samples...; encoded::Bool=false)
+    @info "HITT LAOD0"
     return @compat load(signal.file_path, signal.file_format, SamplesInfoV2(signal),
                         span_relative_to_loaded_samples...; encoded)
 end
 
 function load(file_path, file_format::AbstractString, info,
               span_relative_to_loaded_samples...; encoded::Bool=false)
+    @info "HITT LAOD1"
     return @compat load(file_path, format(file_format, info), info,
                         span_relative_to_loaded_samples...; encoded)
 end
 
 function load(file_path, file_format::AbstractLPCMFormat, info; encoded::Bool=false)
+    @info "HITT LOAD2"
     samples = Samples(read_lpcm(file_path, file_format), info, true)
     return encoded ? samples : decode(samples)
 end
 
 function load(file_path, file_format::AbstractLPCMFormat, info,
               span_relative_to_loaded_samples; encoded::Bool=false)
+    @info "HITT LAOD3"
     sample_range = TimeSpans.index_from_time(info.sample_rate, span_relative_to_loaded_samples)
     sample_offset_from_info, sample_count_from_info = first(sample_range) - 1, length(sample_range)
     sample_data = read_lpcm(file_path, file_format, sample_offset_from_info, sample_count_from_info)
