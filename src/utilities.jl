@@ -65,9 +65,6 @@ TimeSpans.stop(x::NamedTupleTimeSpan) = x.stop
 
 const TIME_SPAN_ARROW_NAME = Symbol("JuliaLang.TimeSpan")
 
-Arrow.ArrowTypes.arrowname(::Type{TimeSpan}) = TIME_SPAN_ARROW_NAME
-ArrowTypes.JuliaType(::Val{TIME_SPAN_ARROW_NAME}) = TimeSpan
-
 #####
 ##### zstd_compress/zstd_decompress
 #####
