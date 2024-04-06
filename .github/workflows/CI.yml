@@ -35,11 +35,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: actions/cache@v2
-        with:
-          path: ~/.julia/artifacts
-          key: ${{ runner.os }}-test-artifacts-${{ hashFiles('**/Project.toml') }}
-          restore-keys: ${{ runner.os }}-test-artifacts
+      - uses: julia-actions/cache@v1
       - name: "install specific Arrow version"
         if: ${{ matrix.arrow != 'current' }}
         shell: julia --color=yes --project {0}
