@@ -105,3 +105,33 @@ function read_byte_range(path, byte_offset, byte_count)
 end
 
 read_byte_range(path, ::Missing, ::Missing) = read(path)
+
+#####
+##### Cached Loading of Samples
+#####
+
+struct CachedSamplePath{P}
+    cache::Ref{Union{Nothing, Vector{UInt8}}}
+    path::P
+end
+cache_samples(path) = CachedSamplePath(Ref{Union{Nothing,Vector{UInt8}}}(nothing), path)
+function cache_samples(cpath::CachedSamplePath)
+    return CachedSamplePath(Ref{Union{Nothing,Vector{UInt8}}}(nothing), cpath.path)
+end
+remove_sample_cache(cpath::CachedSamplePath) = cpath.path
+
+function Base.read(cpath::CachedSamplePath)
+    if isnothing(cpath.cache[])
+        cpath.cache[] = read(cpath.path)
+        @info "Signal loaded: $(cpath.path)" n_bytes=sizeof(cpath.cache[])
+    end
+    return cpath.cache[]::Vector{UInt8}
+end
+
+function read_byte_range(path::CachedSamplePath, byte_offset, byte_count)
+    bytes = read(path)
+    return view(bytes, byte_offset:(byte_offset + byte_count))
+end
+function Onda.read_byte_range(path::CachedSamplePath, ::Missing, ::Missing)
+    return read(path::CachedSamplePath)
+end
