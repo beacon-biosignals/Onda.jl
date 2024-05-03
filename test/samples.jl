@@ -160,6 +160,22 @@ end
     @test decoded.data == samples.data
 end
 
+@testset "`encode_sample`" begin
+    @testset "return specified type" begin
+        @test Onda.encode_sample(Float32, 1, 0, 5) === Float32(5)
+    end
+
+    @testset "clamping" begin
+        @test Onda.encode_sample(Int8, 1, 0, -200) == Int8(-128)
+        @test Onda.encode_sample(Int8, 1, 0, 200) == Int8(127)
+    end
+
+    @testset "rounding" begin
+        @test Onda.encode_sample(Float64, 3, 0, 200) === Float64(200 / 3)
+        @test Onda.encode_sample(Int8, 3, 0, 200) === Int8(67)
+    end
+end
+
 @testset "`Samples` indexing errors" begin
     info = SamplesInfoV2(sensor_type="eeg",
                          channels=["a", "b", "c-d"],
