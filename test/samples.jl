@@ -145,9 +145,14 @@ end
         @test eltype(decoded.data) === Int16
         @test decoded.data === samples.data
 
-        decoded = decode(samples, Float32)
+        decoded = decode(samples, Int16)
         @test eltype(decoded.data) === Int16
         @test decoded.data === samples.data
+
+        decoded = decode(samples, Float32)
+        @test eltype(decoded.data) === Float32
+        @test decoded.data !== samples.data
+        @test decoded.data == samples.data
 
         expected_data = samples.data .+ 1
         encoded = Samples(samples.data, samples.info, true)
@@ -155,12 +160,18 @@ end
         @test eltype(decoded.data) === Float64
         @test decoded.data !== samples.data
         @test decoded.data == expected_data
+        decoded′ = decode(decoded, Float32)
+        @test eltype(decoded′.data) === Float32
+        @test decoded′.data !== decoded.data
 
         encoded = Samples(samples.data, samples.info, true)
         decoded = decode(encoded, Float32)
         @test eltype(decoded.data) === Float32
         @test decoded.data !== samples.data
         @test decoded.data == expected_data
+        decoded′ = decode(decoded, Float64)
+        @test eltype(decoded′.data) === Float64
+        @test decoded′.data !== decoded.data
     end
 
     # Emulate downstream dependency which uses "categorical signals" which must be decoded
@@ -175,14 +186,6 @@ end
                              sample_type=Int16,
                              sample_rate=200)
         samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, false)
-
-        decoded = decode(samples)
-        @test eltype(decoded.data) === Int16
-        @test decoded.data === samples.data
-
-        decoded = decode(samples, Float32)
-        @test eltype(decoded.data) === Int16
-        @test decoded.data === samples.data
 
         encoded = Samples(samples.data, samples.info, true)
         decoded = decode(encoded)

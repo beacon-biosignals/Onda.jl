@@ -399,14 +399,22 @@ end
     decode(samples::Samples, ::Type{T})
 
 Decode `samples`, if they are encoded, and return sample data with the specified element
-type `T`. If `samples` have already been decoded then this function is the identity.
+type `T`.
+
+If `samples` has already been decoded and the sample data matches specified element type
+then this function is the identity.
 """
 function decode(samples::Samples, ::Type{T}) where {T}
-    samples.encoded || return samples
-    return Samples(decode(convert(T, samples.info.sample_resolution_in_unit),
-                          convert(T, samples.info.sample_offset_in_unit),
-                          samples.data),
-                   samples.info, false; validate=false)
+    !samples.encoded && eltype(samples.data) <: T && return samples
+
+    decoded_data = if samples.encoded
+        decode(convert(T, samples.info.sample_resolution_in_unit),
+               convert(T, samples.info.sample_offset_in_unit),
+               samples.data)
+    else
+        collect(T, samples.data)
+    end
+    return Samples(decoded_data, samples.info, false; validate=false)
 end
 
 """
@@ -416,10 +424,10 @@ Decode `samples`, if they are encoded. Typically returns sample data of the elem
 `Float64`. In the special case where the sample resolution is one and the sample offset is
 zero the sample data will be returned as-is and retain its original element type.
 
-If `samples` have already been decoded then this function is the identity.
+If `samples` has already been decoded then this function is the identity.
 """
 function decode(samples::Samples)
-    samples.encoded || return samples
+    !samples.encoded && return samples
 
     sample_resolution_in_unit = samples.info.sample_resolution_in_unit
     sample_offset_in_unit = samples.info.sample_offset_in_unit
