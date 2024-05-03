@@ -396,7 +396,7 @@ function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_uni
 end
 
 """
-    decode(samples::Samples, ::Type{T}=sample_type(samples.info))
+    decode(samples::Samples, ::Type{T}=decoded_sample_type(samples.info))
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
 
@@ -406,7 +406,7 @@ If `samples.encoded` is `true`, return a `Samples` instance that wraps
 
 If `samples.encoded` is `false`, this function is the identity.
 """
-function decode(samples::Samples, ::Type{T}=sample_type(samples.info)) where {T}
+function decode(samples::Samples, ::Type{T}=decoded_sample_type(samples.info)) where {T}
     samples.encoded || return samples
     return Samples(decode(convert(T, samples.info.sample_resolution_in_unit),
                           convert(T, samples.info.sample_offset_in_unit),
@@ -465,7 +465,7 @@ end
 
 function load(file_path, file_format::AbstractLPCMFormat, info; encoded::Bool=false)
     samples = Samples(read_lpcm(file_path, file_format), info, true)
-    return encoded ? samples : decode(samples, Float64)
+    return encoded ? samples : decode(samples)
 end
 
 function load(file_path, file_format::AbstractLPCMFormat, info,
@@ -484,7 +484,7 @@ function load(file_path, file_format::AbstractLPCMFormat, info,
                             before indexing, which might induce a more informative `BoundsError`.
                             """))
     end
-    return encoded ? samples : decode(samples, Float64)
+    return encoded ? samples : decode(samples)
 end
 
 """

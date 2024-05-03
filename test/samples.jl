@@ -49,16 +49,16 @@
             tmp = similar(s.data)
             tmp_dither_storage = zeros(size(s.data))
             encode!(tmp, s.info.sample_resolution_in_unit,
-                    s.info.sample_offset_in_unit, decode(s, Float64).data,
+                    s.info.sample_offset_in_unit, decode(s).data,
                     tmp_dither_storage)
             @test tmp == encode(sample_type(s.info), s.info.sample_resolution_in_unit,
-                                s.info.sample_offset_in_unit, decode(s, Float64).data + tmp_dither_storage,
+                                s.info.sample_offset_in_unit, decode(s).data + tmp_dither_storage,
                                 nothing)
             tmp = similar(s.data)
             encode!(tmp, s)
             @test tmp == s.data
-            d = decode(s, Float64)
-            @test decode(d, Float64) === d
+            d = decode(s)
+            @test decode(d) === d
             tmp = similar(d.data)
             decode!(tmp, d)
             @test tmp == d.data
@@ -137,14 +137,25 @@ end
                          sample_offset_in_unit=0,
                          sample_type=Int16,
                          sample_rate=200)
-    samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, true)
+    samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, false)
 
     decoded = decode(samples)
     @test eltype(decoded.data) === Int16
     @test decoded.data === samples.data
 
-    decoded = decode(samples, Float64)
+    decoded = decode(samples, Float32)
+    @test eltype(decoded.data) === Int16
+    @test decoded.data === samples.data
+
+    encoded = Samples(samples.data, samples.info, true)
+    decoded = decode(encoded)
     @test eltype(decoded.data) === Float64
+    @test decoded.data !== samples.data
+    @test decoded.data == samples.data
+
+    encoded = Samples(samples.data, samples.info, true)
+    decoded = decode(encoded, Float32)
+    @test eltype(decoded.data) === Float32
     @test decoded.data !== samples.data
     @test decoded.data == samples.data
 end
