@@ -251,8 +251,8 @@ then this function will simply return `sample_data` directly without copying/dit
 function encode(::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
                 sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
     if (S === eltype(sample_data) &&
-        sample_resolution_in_unit == 1 &&
-        sample_offset_in_unit == 0)
+        isone(sample_resolution_in_unit) &&
+        iszero(sample_offset_in_unit))
         return sample_data
     end
     return encode!(similar(sample_data, S), S,
@@ -288,8 +288,8 @@ end
 function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
                  sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
     if (S === eltype(sample_data) &&
-        sample_resolution_in_unit == 1 &&
-        sample_offset_in_unit == 0)
+        isone(sample_resolution_in_unit) &&
+        iszero(sample_offset_in_unit))
         copyto!(result_storage, sample_data)
     else
         if dither_storage isa Nothing
