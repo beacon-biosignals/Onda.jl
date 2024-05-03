@@ -120,6 +120,31 @@
     end
 end
 
+@testset "`decode` identity" begin
+    data = [1,2,3]
+    @test decode(1, 0, data) === data
+
+    data = [1,2,3]
+    result = decode(1.0, 0.0, data)
+    @test eltype(result) === Float64
+    @test result !== data
+    @test result == data
+
+    info = SamplesInfoV2(; sensor_type="eeg",
+                         channels=["a", "b"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=1,
+                         sample_offset_in_unit=0,
+                         sample_type=Int16,
+                         sample_rate=200)
+    samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, true)
+
+    decoded = decode(samples, Float64)
+    @test eltype(decoded.data) === Float64
+    @test decoded.data !== samples.data
+    @test decoded.data == samples.data
+end
+
 @testset "`Samples` indexing errors" begin
     info = SamplesInfoV2(sensor_type="eeg",
                          channels=["a", "b", "c-d"],

@@ -371,13 +371,15 @@ If:
 
     sample_data isa AbstractArray &&
     sample_resolution_in_unit == 1 &&
-    sample_offset_in_unit == 0
+    sample_offset_in_unit == 0 &&
+    eltype(sample_data) == typeof(sample_resolution_in_unit) == typeof(sample_offset_in_unit)
 
 then this function is the identity and will return `sample_data` directly without copying.
 """
 function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
-    if sample_data isa AbstractArray
-        isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit) && return sample_data
+    if sample_data isa AbstractArray && isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit)
+        T = promote_type(typeof(sample_resolution_in_unit), typeof(sample_offset_in_unit), eltype(sample_data))
+        return convert(AbstractArray{T}, sample_data)
     end
     return fma.(sample_resolution_in_unit, sample_data, sample_offset_in_unit)
 end
