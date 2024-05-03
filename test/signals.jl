@@ -23,22 +23,6 @@
     @test_throws ArgumentError Onda.onda_sample_type_from_julia_type(String)
 end
 
-@testset "`decoded_type`" begin
-    # `::Type{<:AbstractFloat}`
-    @test Onda.decoded_type(Float64) === Float64
-    @test Onda.decoded_type(Float32) === Float32
-
-    # `::Type`
-    @test Onda.decoded_type(Int8) === Float64
-    @test Onda.decoded_type(Int16) === Float64
-    @test Onda.decoded_type(Int32) === Float64
-    @test Onda.decoded_type(Int64) === Float64
-    @test Onda.decoded_type(UInt8) === Float64
-    @test Onda.decoded_type(UInt16) === Float64
-    @test Onda.decoded_type(UInt32) === Float64
-    @test Onda.decoded_type(UInt64) === Float64
-end
-
 @testset "`onda.samples-info` Legolas configuration" begin
     @test Legolas.declared(SamplesInfoV2SchemaVersion())
     @test Legolas.required_fields(SamplesInfoV2SchemaVersion()) == (sensor_type=String,

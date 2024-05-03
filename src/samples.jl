@@ -396,7 +396,7 @@ function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_uni
 end
 
 """
-    decode(samples::Samples, ::Type{T}=decoded_sample_type(samples.info))
+    decode(samples::Samples, ::Type{T})
 
 If `samples.encoded` is `true`, return a `Samples` instance that wraps
 
@@ -406,12 +406,24 @@ If `samples.encoded` is `true`, return a `Samples` instance that wraps
 
 If `samples.encoded` is `false`, this function is the identity.
 """
-function decode(samples::Samples, ::Type{T}=decoded_sample_type(samples.info)) where {T}
+function decode(samples::Samples, ::Type{T}) where {T}
     samples.encoded || return samples
     return Samples(decode(convert(T, samples.info.sample_resolution_in_unit),
                           convert(T, samples.info.sample_offset_in_unit),
                           samples.data),
                    samples.info, false; validate=false)
+end
+
+function decode(samples::Samples)
+    samples.encoded || return samples
+
+    sample_resolution_in_unit = samples.info.sample_resolution_in_unit
+    sample_offset_in_unit = samples.info.sample_offset_in_unit
+    if isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit)
+        return Samples(samples.data, samples.info, false; validate=false)
+    else
+        return decode(samples, Float64)
+    end
 end
 
 """
