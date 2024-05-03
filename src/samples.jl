@@ -398,13 +398,8 @@ end
 """
     decode(samples::Samples, ::Type{T})
 
-If `samples.encoded` is `true`, return a `Samples` instance that wraps
-
-    decode(convert(T, samples.info.sample_resolution_in_unit),
-           convert(T, samples.info.sample_offset_in_unit),
-           samples.data)
-
-If `samples.encoded` is `false`, this function is the identity.
+Decode `samples`, if they are encoded, and return sample data with the specified element
+type `T`. If `samples` have already been decoded then this function is the identity.
 """
 function decode(samples::Samples, ::Type{T}) where {T}
     samples.encoded || return samples
@@ -414,6 +409,15 @@ function decode(samples::Samples, ::Type{T}) where {T}
                    samples.info, false; validate=false)
 end
 
+"""
+    decode(samples::Samples)
+
+Decode `samples`, if they are encoded. Typically returns sample data of the element type
+`Float64`. In the special case where the sample resolution is one and the sample offset is
+zero the sample data will be returned as-is and retain its original element type.
+
+If `samples` have already been decoded then this function is the identity.
+"""
 function decode(samples::Samples)
     samples.encoded || return samples
 
