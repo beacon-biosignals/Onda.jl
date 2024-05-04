@@ -372,7 +372,7 @@ If:
     sample_data isa AbstractArray &&
     sample_resolution_in_unit == 1 &&
     sample_offset_in_unit == 0 &&
-    eltype(sample_data) == typeof(sample_resolution_in_unit) == typeof(sample_offset_in_unit)
+    eltype(sample_data) == promote_type(eltype(sample_data), typeof(sample_resolution_in_unit), typeof(sample_offset_in_unit))
 
 then this function is the identity and will return `sample_data` directly without copying.
 """
