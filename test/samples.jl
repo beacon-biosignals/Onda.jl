@@ -1,3 +1,87 @@
+@testset "`decode`" begin
+    @testset "promotion" begin
+        data = [1,2,3]
+        @test decode(1, 0, data) === data
+
+        result = decode(1.0, 0.0, data)
+        @test eltype(result) === Float64
+        @test result !== data
+        @test result == data
+    end
+
+    @testset "samples" begin
+        # Signal must use a non-one resolution and a non-zero offset
+        info = SamplesInfoV2(; sensor_type="eeg",
+                             channels=["a", "b"],
+                             sample_unit="unit",
+                             sample_resolution_in_unit=1,
+                             sample_offset_in_unit=1,
+                             sample_type=Int16,
+                             sample_rate=200)
+        samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, false)
+
+        # Already decoded
+        decoded = decode(samples)
+        @test eltype(decoded.data) === Int16
+        @test decoded.data === samples.data
+
+        decoded = decode(samples, Int16)
+        @test eltype(decoded.data) === Int16
+        @test decoded.data === samples.data
+
+        decoded = decode(samples, Float32)
+        @test eltype(decoded.data) === Float32
+        @test decoded.data !== samples.data
+        @test decoded.data == samples.data
+
+        # Requires decoding
+        expected_data = samples.data .+ 1
+        encoded = Samples(samples.data, samples.info, true)
+        decoded = decode(encoded)
+        @test eltype(decoded.data) === Float64
+        @test decoded.data !== samples.data
+        @test decoded.data == expected_data
+        decoded′ = decode(decoded, Float32)
+        @test eltype(decoded′.data) === Float32
+        @test decoded′.data !== decoded.data
+
+        encoded = Samples(samples.data, samples.info, true)
+        decoded = decode(encoded, Float32)
+        @test eltype(decoded.data) === Float32
+        @test decoded.data !== samples.data
+        @test decoded.data == expected_data
+        decoded′ = decode(decoded, Float64)
+        @test eltype(decoded′.data) === Float64
+        @test decoded′.data !== decoded.data
+    end
+
+    # Emulate a downstream dependency which uses "categorical signals" which must be decoded
+    # without modifying the data's `eltype`.
+    @testset "categorical samples" begin
+        # Signal must use a resolution of one and a offset of zero
+        info = SamplesInfoV2(; sensor_type="eeg",
+                             channels=["a", "b"],
+                             sample_unit="unit",
+                             sample_resolution_in_unit=1,
+                             sample_offset_in_unit=0,
+                             sample_type=Int16,
+                             sample_rate=200)
+        samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, false)
+
+        # Requires decoding
+        encoded = Samples(samples.data, samples.info, true)
+        decoded = decode(encoded)
+        @test eltype(decoded.data) === Int16
+        @test decoded.data === samples.data
+
+        encoded = Samples(samples.data, samples.info, true)
+        decoded = decode(encoded, Float32)
+        @test eltype(decoded.data) === Float32
+        @test decoded.data !== samples.data
+        @test decoded.data == samples.data
+    end
+end
+
 @testset "`Samples` API" begin
     root = mktempdir()
     signals = SignalV2[]
@@ -117,86 +201,6 @@
             end
             @test s[:, TimeSpan(0, TimeSpans.duration(s))].data == s.data
         end
-    end
-end
-
-@testset "`decode` promote" begin
-    data = [1,2,3]
-    @test decode(1, 0, data) === data
-
-    data = [1,2,3]
-    result = decode(1.0, 0.0, data)
-    @test eltype(result) === Float64
-    @test result !== data
-    @test result == data
-
-    @testset "normal signals" begin
-        # Signal must use a non-one resolution and a non-zero offset
-        info = SamplesInfoV2(; sensor_type="eeg",
-                             channels=["a", "b"],
-                             sample_unit="unit",
-                             sample_resolution_in_unit=1,
-                             sample_offset_in_unit=1,
-                             sample_type=Int16,
-                             sample_rate=200)
-        samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, false)
-
-        decoded = decode(samples)
-        @test eltype(decoded.data) === Int16
-        @test decoded.data === samples.data
-
-        decoded = decode(samples, Int16)
-        @test eltype(decoded.data) === Int16
-        @test decoded.data === samples.data
-
-        decoded = decode(samples, Float32)
-        @test eltype(decoded.data) === Float32
-        @test decoded.data !== samples.data
-        @test decoded.data == samples.data
-
-        expected_data = samples.data .+ 1
-        encoded = Samples(samples.data, samples.info, true)
-        decoded = decode(encoded)
-        @test eltype(decoded.data) === Float64
-        @test decoded.data !== samples.data
-        @test decoded.data == expected_data
-        decoded′ = decode(decoded, Float32)
-        @test eltype(decoded′.data) === Float32
-        @test decoded′.data !== decoded.data
-
-        encoded = Samples(samples.data, samples.info, true)
-        decoded = decode(encoded, Float32)
-        @test eltype(decoded.data) === Float32
-        @test decoded.data !== samples.data
-        @test decoded.data == expected_data
-        decoded′ = decode(decoded, Float64)
-        @test eltype(decoded′.data) === Float64
-        @test decoded′.data !== decoded.data
-    end
-
-    # Emulate downstream dependency which uses "categorical signals" which must be decoded
-    # without modifying the data's `eltype`.
-    @testset "categorical signals" begin
-        # Signal must use a resolution of one and a offset of zero
-        info = SamplesInfoV2(; sensor_type="eeg",
-                             channels=["a", "b"],
-                             sample_unit="unit",
-                             sample_resolution_in_unit=1,
-                             sample_offset_in_unit=0,
-                             sample_type=Int16,
-                             sample_rate=200)
-        samples = Samples(rand(-Int16(20):Int16(20), 2, 5), info, false)
-
-        encoded = Samples(samples.data, samples.info, true)
-        decoded = decode(encoded)
-        @test eltype(decoded.data) === Int16
-        @test decoded.data === samples.data
-
-        encoded = Samples(samples.data, samples.info, true)
-        decoded = decode(encoded, Float32)
-        @test eltype(decoded.data) === Float32
-        @test decoded.data !== samples.data
-        @test decoded.data == samples.data
     end
 end
 
