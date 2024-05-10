@@ -35,7 +35,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
       - name: "install specific Arrow version"
         if: ${{ matrix.arrow != 'current' }}
         shell: julia --color=yes --project {0}
