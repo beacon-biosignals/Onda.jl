@@ -195,7 +195,7 @@ function encode_sample(::Type{S}, resolution_in_unit, offset_in_unit, sample_in_
     sample_in_unit += noise
     isnan(sample_in_unit) && S <: Integer && return typemax(S)
     from_unit = clamp((sample_in_unit - offset_in_unit) / resolution_in_unit, typemin(S), typemax(S))
-    return S <: Integer ? round(S, from_unit) : from_unit
+    return S <: Integer ? round(S, from_unit) : convert(S, from_unit)
 end
 
 function dither_noise!(rng::AbstractRNG, storage, step)
