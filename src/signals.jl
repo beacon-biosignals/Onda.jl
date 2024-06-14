@@ -73,6 +73,29 @@ end
 
 @schema "onda.samples-info" SamplesInfo
 
+"""
+    SamplesInfoV2
+
+A [Legolas](https://github.com/beacon-biosignals/Legolas.jl)-generated record type
+representing the bundle of [`onda.signal@2`](https://github.com/beacon-biosignals/Onda.jl#ondasignal2)
+fields that are intrinsic to a signal's sample data, leaving out extrinsic file or recording
+information. This is useful when the latter information is irrelevant or does not yet exist
+(e.g. if sample data is being constructed/manipulated in-memory without yet having been
+serialized).
+
+# Required Fields
+
+- `sensor_type::String`
+- `sensor_type::String`
+- `channels::Vector{String}`
+- `sample_unit::String`
+- `sample_resolution_in_unit::Float64`
+- `sample_offset_in_unit::Float64`
+- `sample_type::String`
+- `sample_rate::Float64`
+"""
+SamplesInfoV2
+
 @version SamplesInfoV2 begin
     sensor_type::String
     channels::Vector{String}
@@ -86,26 +109,6 @@ end
 Legolas.accepted_field_type(::SamplesInfoV2SchemaVersion, ::Type{String}) = AbstractString
 Legolas.accepted_field_type(::SamplesInfoV2SchemaVersion, ::Type{Vector{String}}) = AbstractVector{<:AbstractString}
 
-"""
-    @version SamplesInfoV2 begin
-        sensor_type::String
-        channels::Vector{String}
-        sample_unit::String
-        sample_resolution_in_unit::Float64
-        sample_offset_in_unit::Float64
-        sample_type::String = onda_sample_type_from_julia_type(sample_type)
-        sample_rate::Float64
-    end
-
-A Legolas-generated record type representing the bundle of `onda.signal` fields that are intrinsic to a
-signal's sample data, leaving out extrinsic file or recording information. This is useful when the latter
-information is irrelevant or does not yet exist (e.g. if sample data is being constructed/manipulated in-memory
-without yet having been serialized).
-
-See https://github.com/beacon-biosignals/Legolas.jl for details regarding Legolas record types.
-"""
-SamplesInfoV2
-
 # xref https://github.com/beacon-biosignals/Legolas.jl/issues/61
 Base.copy(info::SamplesInfoV2) = SamplesInfoV2(; info.sensor_type, channels=copy(info.channels),
                                                info.sample_unit, info.sample_resolution_in_unit,
@@ -117,6 +120,28 @@ Base.copy(info::SamplesInfoV2) = SamplesInfoV2(; info.sensor_type, channels=copy
 #####
 
 @schema "onda.signal" Signal
+
+"""
+    SignalV2 > SamplesInfoV2
+
+A [Legolas](https://github.com/beacon-biosignals/Legolas.jl)-generated record type
+implementing the [`onda.signal@2`](https://github.com/beacon-biosignals/Onda.jl##ondasignal2)
+specification as described by the [Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl#the-onda-format-specification).
+
+# Required Fields
+
+All fields required by [`SamplesInfoV2`](@ref), and:
+
+- `recording::UUID`
+- `file_path::(<:Any)`
+- `file_format::String`
+- `span::TimeSpan`
+- `sensor_label::String`
+- `sensor_type::String`
+- `channels::Vector{String}`
+- `sample_unit::String`
+"""
+SignalV2
 
 @version SignalV2 > SamplesInfoV2 begin
     recording::UUID = UUID(recording)
@@ -132,27 +157,6 @@ end
 Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{TimeSpan}) = Union{NamedTupleTimeSpan,TimeSpan}
 Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{String}) = AbstractString
 Legolas.accepted_field_type(::SignalV2SchemaVersion, ::Type{Vector{String}}) = AbstractVector{<:AbstractString}
-
-"""
-    @version SignalV2 > SamplesInfoV2 begin
-        recording::UUID
-        file_path::(<:Any)
-        file_format::String
-        span::TimeSpan
-        sensor_label::String
-        sensor_type::String
-        channels::Vector{String}
-        sample_unit::String
-    end
-
-A Legolas-generated record type representing an [`onda.signal` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondasignal2).
-
-Note that some fields documented as required fields of `onda.signal@2` in the Onda Format Specification
-are captured via this schema version's extension of `SamplesInfoV2`.
-
-See https://github.com/beacon-biosignals/Legolas.jl for details regarding Legolas record types.
-"""
-SignalV2
 
 """
     validate_signals(signals)
