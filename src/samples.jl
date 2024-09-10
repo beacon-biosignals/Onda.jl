@@ -81,8 +81,7 @@ function Base.hash(a::Samples, h::UInt)
 end
 
 function Base.convert(::Type{Samples{T}}, samples::Samples) where {T}
-    (; data, info, encoded) = samples
-    return Samples(convert(T, data), info, encoded)
+    return Samples(convert(T, samples.data), samples.info, samples.encoded)
 end
 
 """
