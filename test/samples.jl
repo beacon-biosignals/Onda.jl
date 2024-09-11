@@ -268,6 +268,9 @@ end
         @test samples12.info.channels == map(string, 'a':'f')
     end
 
+    samples1 = Samples(rand(sample_type(info), 3, 100), info, true)
+    info2 = Legolas.record_merge(info; channels = ["d", "e", "f"])
+
     err = ArgumentError("""Cannot `vcat` samples objects which do not have unique channel names. Got channel names: ["a", "b", "c", "a", "b", "c"]""")
     @test_throws err vcat(samples1, samples1)
 
