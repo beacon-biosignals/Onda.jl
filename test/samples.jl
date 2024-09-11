@@ -259,7 +259,9 @@ end
     for encoded in (true, false)
         samples1 = Samples(rand(sample_type(info), 3, 100), info, encoded)
 
-        info2 = Legolas.record_merge(info; channels = ["d", "e", "f"])
+        # Note: `record_merge` is defined in Legolas, but for the purposes of backwards compatibility
+        # with old Arrow versions
+        info2 = Onda.record_merge(info; channels = ["d", "e", "f"])
         samples2 = Samples(rand(sample_type(info2), 3, 100), info2, encoded)
 
         samples12 = vcat(samples1, samples2)
@@ -269,32 +271,32 @@ end
     end
 
     samples1 = Samples(rand(sample_type(info), 3, 100), info, true)
-    info2 = Legolas.record_merge(info; channels = ["d", "e", "f"])
+    info2 = Onda.record_merge(info; channels = ["d", "e", "f"])
 
     err = ArgumentError("""Cannot `vcat` samples objects which do not have unique channel names. Got channel names: ["a", "b", "c", "a", "b", "c"]""")
     @test_throws err vcat(samples1, samples1)
 
-    samples2 = Samples(rand(sample_type(info), 3, 100), Legolas.record_merge(info2; sample_rate = 10), true)
+    samples2 = Samples(rand(sample_type(info), 3, 100), Onda.record_merge(info2; sample_rate = 10), true)
     err = ArgumentError("Cannot `vcat` samples objects which do not all have the same `sample_rate`. Got values: [100.0, 10.0]")
     @test_throws err vcat(samples1, samples2)
 
-    samples2 = Samples(rand(Float64, 3, 100), Legolas.record_merge(info2; sample_type = Float64), true)
+    samples2 = Samples(rand(Float64, 3, 100), Onda.record_merge(info2; sample_type = Float64), true)
     err = ArgumentError("""Cannot `vcat` samples objects which do not all have the same `sample_type`. Got values: ["float32", "float64"]""")
     @test_throws err vcat(samples1, samples2)
 
-    samples2 = Samples(rand(sample_type(info), 3, 100), Legolas.record_merge(info2; sensor_type = "eeg2"), true)
+    samples2 = Samples(rand(sample_type(info), 3, 100), Onda.record_merge(info2; sensor_type = "eeg2"), true)
     err = ArgumentError("""Cannot `vcat` samples objects which do not all have the same `sensor_type`. Got values: ["eeg", "eeg2"]""")
     @test_throws err vcat(samples1, samples2)
 
-    samples2 = Samples(rand(sample_type(info), 3, 100), Legolas.record_merge(info2; sample_unit = "unit2"), true)
+    samples2 = Samples(rand(sample_type(info), 3, 100), Onda.record_merge(info2; sample_unit = "unit2"), true)
     err = ArgumentError("""Cannot `vcat` samples objects which do not all have the same `sample_unit`. Got values: ["unit", "unit2"]""")
     @test_throws err vcat(samples1, samples2)
 
-    samples2 = Samples(rand(sample_type(info), 3, 100), Legolas.record_merge(info2; sample_resolution_in_unit = 5), true)
+    samples2 = Samples(rand(sample_type(info), 3, 100), Onda.record_merge(info2; sample_resolution_in_unit = 5), true)
     err = ArgumentError("""Cannot `vcat` samples objects which do not all have the same `sample_resolution_in_unit`. Got values: [1.0, 5.0]""")
     @test_throws err vcat(samples1, samples2)
 
-    samples2 = Samples(rand(sample_type(info), 3, 100), Legolas.record_merge(info2; sample_offset_in_unit = 5), true)
+    samples2 = Samples(rand(sample_type(info), 3, 100), Onda.record_merge(info2; sample_offset_in_unit = 5), true)
     err = ArgumentError("""Cannot `vcat` samples objects which do not all have the same `sample_offset_in_unit`. Got values: [0.0, 5.0]""")
     @test_throws err vcat(samples1, samples2)
 
