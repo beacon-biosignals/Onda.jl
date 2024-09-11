@@ -94,3 +94,15 @@ function upgrade(from::SignalV1, ::SignalV2SchemaVersion)
                     from.channels, from.sample_unit, from.sample_resolution_in_unit,
                     from.sample_offset_in_unit, from.sample_type, from.sample_rate)
 end
+
+# Not quite a deprecation, but we will backport `record_merge` for our own purposes
+if pkgversion(Legolas) < v"0.5.18"
+    function record_merge(record::Legolas.AbstractRecord; fields_to_merge...)
+        # Avoid using `typeof(record)` as can cause constructor failures with parameterized 
+        # record types.
+        R = Legolas.record_type(Legolas.schema_version_from_record(record))
+        return R(Tables.rowmerge(record; fields_to_merge...))
+    end
+else
+    using Legolas: record_merge
+end
