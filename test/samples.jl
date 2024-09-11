@@ -242,7 +242,6 @@ end
     # For encoded samples, in generally we cannot `convert`.
     # We choose to not update encoding parameter in `convert`, since `convert` can be implied
     # implicitly, and changing the encoding parameters seems like too big of a change.
-    # Therefore, validation errors.
     samples = Samples(rand(sample_type(info), 3, 100), info, true)
     err = ArgumentError("can't `convert` encoded samples; use `decode` first")
     @test_throws err convert(Samples{Matrix{Int32}}, samples)
