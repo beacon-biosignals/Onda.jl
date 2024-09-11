@@ -80,6 +80,11 @@ function Base.hash(a::Samples, h::UInt)
     return hash(Samples, hash(a.encoded, hash(a.info, hash(a.data, h))))
 end
 
+function Base.convert(::Type{Samples{T}}, samples::Samples) where {T}
+    samples.encoded && throw(ArgumentError("can't `convert` encoded samples; use `decode` first"))
+    return Samples(convert(T, samples.data), samples.info, samples.encoded)
+end
+
 """
     copy(s::Samples)
 

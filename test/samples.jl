@@ -212,6 +212,41 @@ Base.read(p::BufferPath) = take!(p.io)
     @test samples == loaded_samples
 end
 
+@testset "Base.convert" begin
+    info = SamplesInfoV2(sensor_type="eeg",
+                         channels=["a", "b", "c"],
+                         sample_unit="unit",
+                         sample_resolution_in_unit=1.0,
+                         sample_offset_in_unit=0.0,
+                         sample_type=Int16,
+                         sample_rate=100.0)
+    # We can convert unencoded samples, since there is no constraint between the eltype of the
+    # data and the sample type
+    samples = Samples(rand(Float32, 3, 100), info, false)
+
+    s2 = convert(Samples{Matrix{Float64}}, samples)
+    @test s2.data ≈ samples.data
+    @test s2.info == samples.info
+    @test eltype(s2.data) == Float64
+    @test s2.data isa Matrix{Float64}
+
+    # In particular, this fixes an arrow deserialization issue
+    # (https://github.com/beacon-biosignals/Onda.jl/issues/156)
+    table = [(; col = samples), (; col = samples)]
+    # Here, materializing this table in this way threw an error before `convert` was defined
+    rt_table = DataFrame(Arrow.Table(Arrow.tobuffer(table)); copycols=true)
+    rt = rt_table[1, "col"]
+    @test rt.data isa AbstractMatrix{Float32}
+    @test rt == samples
+
+    # For encoded samples, in generally we cannot `convert`.
+    # We choose to not update encoding parameter in `convert`, since `convert` can be implied
+    # implicitly, and changing the encoding parameters seems like too big of a change.
+    samples = Samples(rand(sample_type(info), 3, 100), info, true)
+    err = ArgumentError("can't `convert` encoded samples; use `decode` first")
+    @test_throws err convert(Samples{Matrix{Int32}}, samples)
+end
+
 @testset "Base.copy" begin
     info = SamplesInfoV2(sensor_type="eeg",
                          channels=["a", "b", "c"],
