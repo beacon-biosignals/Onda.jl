@@ -244,7 +244,7 @@ end
     # implicitly, and changing the encoding parameters seems like too big of a change.
     # Therefore, validation errors.
     samples = Samples(rand(sample_type(info), 3, 100), info, true)
-    err = ArgumentError("encoded `data` matrix eltype does not match `sample_type(info)`")
+    err = ArgumentError("can't `convert` encoded samples; use `decode` first")
     @test_throws err convert(Samples{Matrix{Int32}}, samples)
 end
 
