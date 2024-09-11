@@ -187,6 +187,35 @@ function _column_arguments(samples::Samples, x)
 end
 
 #####
+##### operations
+#####
+
+# Ensure we don't match `vcat()` since that would be piracy
+function Base.vcat(first_samples::Samples, more_samples::Samples...)
+    samples = (first_samples, more_samples...)
+    for field in setdiff(fieldnames(SamplesInfoV2), [:channels])
+        if !allequal(getfield(s.info, field) for s in samples)
+            throw(ArgumentError("Cannot `vcat` samples objects which do not all have the same `$field`. Got values: $([getfield(s.info, field) for s in samples])"))
+        end
+    end
+    if !allequal(duration(s) for s in samples)
+        throw(ArgumentError("Cannot `vcat` samples objects which do not all have the same duration. Got values: $([duration(s) for s in samples])"))
+    end
+    if !allequal((s.encoded for s in samples))
+        throw(ArgumentError("Cannot `vcat` samples objects which are not all encoded or all decoded. Got encoding values: $([s.encoded for s in samples])"))
+    end
+    all_channels = collect(Iterators.flatten(s.info.channels for s in samples))
+    if !allunique(all_channels)
+        throw(ArgumentError("Cannot `vcat` samples objects which do not have unique channel names. Got channel names: $(all_channels)"))
+    end
+    # We checked all fields match except `channels`, so we can start with the first one and update the channels
+    # (we also know `samples` is non-empty by the signature)
+    info = Legolas.record_merge(first(samples).info; channels=all_channels)
+    data = vcat((s.data for s in samples)...)
+    return Samples(data, info, first(samples).encoded)
+end
+
+#####
 ##### encoding utilities
 #####
 

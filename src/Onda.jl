@@ -1,6 +1,6 @@
 module Onda
 
-using Compat: @compat
+using Compat: @compat, allequal
 using UUIDs, Dates, Random, Mmap
 using Compat, Legolas, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
 using Legolas: @schema, @version, write_full_path
