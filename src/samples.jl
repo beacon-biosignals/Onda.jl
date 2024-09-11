@@ -210,7 +210,7 @@ function Base.vcat(first_samples::Samples, more_samples::Samples...)
     end
     # We checked all fields match except `channels`, so we can start with the first one and update the channels
     # (we also know `samples` is non-empty by the signature)
-    info = Legolas.record_merge(first(samples).info; channels=all_channels)
+    info = record_merge(first(samples).info; channels=all_channels)
     data = vcat((s.data for s in samples)...)
     return Samples(data, info, first(samples).encoded)
 end
