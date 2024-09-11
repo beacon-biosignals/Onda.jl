@@ -259,8 +259,8 @@ end
     for encoded in (true, false)
         samples1 = Samples(rand(sample_type(info), 3, 100), info, encoded)
 
-        # Note: `record_merge` is defined in Legolas, but for the purposes of backwards compatibility
-        # with old Arrow versions
+        # Note: `record_merge` is defined in newer Legolas versions, but for the purposes of backwards compatibility
+        # with old Arrow versions, we've backported for internal use in Onda.
         info2 = Onda.record_merge(info; channels = ["d", "e", "f"])
         samples2 = Samples(rand(sample_type(info2), 3, 100), info2, encoded)
 
