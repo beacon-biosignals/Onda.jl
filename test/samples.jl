@@ -232,19 +232,29 @@ end
 
     # In particular, this fixes an arrow deserialization issue
     # (https://github.com/beacon-biosignals/Onda.jl/issues/156)
-    table = [(; col = samples), (; col = samples)]
+    table = [(; col=samples), (; col=samples)]
     # Here, materializing this table in this way threw an error before `convert` was defined
     rt_table = DataFrame(Arrow.Table(Arrow.tobuffer(table)); copycols=true)
     rt = rt_table[1, "col"]
     @test rt.data isa AbstractMatrix{Float32}
     @test rt == samples
 
-    # For encoded samples, in generally we cannot `convert`.
+    # For encoded samples, in general we cannot `convert` between element types, as this
+    # could affect downstream decoding.
     # We choose to not update encoding parameter in `convert`, since `convert` can be implied
     # implicitly, and changing the encoding parameters seems like too big of a change.
     samples = Samples(rand(sample_type(info), 3, 100), info, true)
-    err = ArgumentError("can't `convert` encoded samples; use `decode` first")
+    err = ArgumentError("can't `convert` encoded samples to a different element type; use `decode` first")
     @test_throws err convert(Samples{Matrix{Int32}}, samples)
+
+    # If the element type remains the same, we can `convert` between container types, as
+    # this is unlikely to affect decoding (unless a truly deranged method has been defined)
+    T = sample_type(info)
+    samples = Samples(view(rand(T, 3, 100), 1:2, :), info, true)
+    @test samples.data isa SubArray{T}
+    s2 = convert(Samples{Matrix{sample_type(info)}}, samples)
+    @test s2.data isa Matrix{T}
+    @test samples == s2
 end
 
 @testset "Base.copy" begin
