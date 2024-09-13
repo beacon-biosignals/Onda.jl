@@ -348,17 +348,17 @@ function deserializing_lpcm_stream(format::LPCMZstFormat, io)
 end
 
 function serializing_lpcm_stream(format::LPCMZstFormat, io)
-    stream = LPCMStream(format.lpcm, ZstdCompressorStream(io; level=format.level))
+    stream = LPCMStream(format.lpcm, ZstdCompressorStream(io; level=format.level, stop_on_end=true))
     return LPCMZstStream(stream)
 end
 
 function finalize_lpcm_stream(stream::LPCMZstStream)
     if stream.stream.io isa ZstdCompressorStream
-        # write `TranscodingStreams.TOKEN_END` and change the `ZstdCompressorStream`'s
-        # mode to `:close`, which flushes any remaining buffered data and finalizes the
-        # underlying codec to free its resources without closing the underlying I/O object.
+        # write `TranscodingStreams.TOKEN_END` and close.
+        # Since `stop_on_end=true` was set when constructing `ZstdCompressorStream`
+        # this frees the compressor memory resources without closing the underlying I/O object.
         write(stream.stream.io, TranscodingStreams.TOKEN_END)
-        TranscodingStreams.changemode!(stream.stream.io, :close)
+        close(stream.stream.io)
         return true
     else
         close(stream.stream.io)
