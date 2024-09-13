@@ -81,7 +81,11 @@ function Base.hash(a::Samples, h::UInt)
 end
 
 function Base.convert(::Type{Samples{T}}, samples::Samples) where {T}
-    samples.encoded && throw(ArgumentError("can't `convert` encoded samples; use `decode` first"))
+    # For encoded samples, allow converting between container types so long as the element
+    # type remains the same
+    if samples.encoded && eltype(T) != eltype(samples.data)
+        throw(ArgumentError("can't `convert` encoded samples to a different element type; use `decode` first"))
+    end
     return Samples(convert(T, samples.data), samples.info, samples.encoded)
 end
 
