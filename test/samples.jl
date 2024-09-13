@@ -250,9 +250,9 @@ end
     # If the element type remains the same, we can `convert` between container types, as
     # this is unlikely to affect decoding (unless a truly deranged method has been defined)
     T = sample_type(info)
-    samples = Samples(view(rand(T, 3, 100), 1:2, :), info, true)
+    samples = Samples(view(rand(T, 3, 100), :, :), info, true)
     @test samples.data isa SubArray{T}
-    s2 = convert(Samples{Matrix{sample_type(info)}}, samples)
+    s2 = convert(Samples{Matrix{T}}, samples)
     @test s2.data isa Matrix{T}
     @test samples == s2
 end
