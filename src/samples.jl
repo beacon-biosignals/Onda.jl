@@ -285,8 +285,8 @@ then this function will simply return `sample_data` directly without copying/dit
 function encode(::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
                 sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
     if (S === eltype(sample_data) &&
-        sample_resolution_in_unit == 1 &&
-        sample_offset_in_unit == 0)
+        isone(sample_resolution_in_unit) &&
+        iszero(sample_offset_in_unit))
         return sample_data
     end
     return encode!(similar(sample_data, S), S,
@@ -322,8 +322,8 @@ end
 function encode!(result_storage, ::Type{S}, sample_resolution_in_unit, sample_offset_in_unit,
                  sample_data, dither_storage=nothing) where {S<:LPCM_SAMPLE_TYPE_UNION}
     if (S === eltype(sample_data) &&
-        sample_resolution_in_unit == 1 &&
-        sample_offset_in_unit == 0)
+        isone(sample_resolution_in_unit) &&
+        iszero(sample_offset_in_unit))
         copyto!(result_storage, sample_data)
     else
         if dither_storage isa Nothing
@@ -405,13 +405,15 @@ If:
 
     sample_data isa AbstractArray &&
     sample_resolution_in_unit == 1 &&
-    sample_offset_in_unit == 0
+    sample_offset_in_unit == 0 &&
+    eltype(sample_data) == promote_type(eltype(sample_data), typeof(sample_resolution_in_unit), typeof(sample_offset_in_unit))
 
 then this function is the identity and will return `sample_data` directly without copying.
 """
 function decode(sample_resolution_in_unit, sample_offset_in_unit, sample_data)
-    if sample_data isa AbstractArray
-        isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit) && return sample_data
+    if sample_data isa AbstractArray && isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit)
+        T = promote_type(typeof(sample_resolution_in_unit), typeof(sample_offset_in_unit), eltype(sample_data))
+        return convert(AbstractArray{T}, sample_data)
     end
     return fma.(sample_resolution_in_unit, sample_data, sample_offset_in_unit)
 end
@@ -428,22 +430,46 @@ function decode!(result_storage, sample_resolution_in_unit, sample_offset_in_uni
 end
 
 """
-    decode(samples::Samples, ::Type{T}=Float64)
+    decode(samples::Samples, ::Type{T})
 
-If `samples.encoded` is `true`, return a `Samples` instance that wraps
+Decode `samples`, if they are encoded, and return sample data with the specified element
+type `T`.
 
-    decode(convert(T, samples.info.sample_resolution_in_unit),
-           convert(T, samples.info.sample_offset_in_unit),
-           samples.data)
-
-If `samples.encoded` is `false`, this function is the identity.
+If `samples` has already been decoded and the sample data matches specified element type
+then this function is the identity.
 """
-function decode(samples::Samples, ::Type{T}=Float64) where {T}
-    samples.encoded || return samples
-    return Samples(decode(convert(T, samples.info.sample_resolution_in_unit),
-                          convert(T, samples.info.sample_offset_in_unit),
-                          samples.data),
-                   samples.info, false; validate=false)
+function decode(samples::Samples, ::Type{T}) where {T}
+    !samples.encoded && eltype(samples.data) <: T && return samples
+
+    decoded_data = if samples.encoded
+        decode(convert(T, samples.info.sample_resolution_in_unit),
+               convert(T, samples.info.sample_offset_in_unit),
+               samples.data)
+    else
+        collect(T, samples.data)
+    end
+    return Samples(decoded_data, samples.info, false; validate=false)
+end
+
+"""
+    decode(samples::Samples)
+
+Decode `samples`, if they are encoded. Typically returns sample data of the element type
+`Float64`. In the special case where the sample resolution is one and the sample offset is
+zero the sample data will be returned as-is and retain its original element type.
+
+If `samples` has already been decoded then this function is the identity.
+"""
+function decode(samples::Samples)
+    !samples.encoded && return samples
+
+    sample_resolution_in_unit = samples.info.sample_resolution_in_unit
+    sample_offset_in_unit = samples.info.sample_offset_in_unit
+    if isone(sample_resolution_in_unit) && iszero(sample_offset_in_unit)
+        return Samples(samples.data, samples.info, false; validate=false)
+    else
+        return decode(samples, Float64)
+    end
 end
 
 """
