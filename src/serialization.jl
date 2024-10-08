@@ -291,7 +291,7 @@ function serialize_lpcm(format::LPCMFormat, samples::AbstractMatrix)
     samples isa Matrix && return reinterpret(UInt8, vec(samples))
     io = IOBuffer()
     write(io, samples)
-    return resize!(io.data, io.size)
+    return take!(seekstart(io))
 end
 
 function serialize_lpcm(stream::LPCMStream, samples::AbstractMatrix)
