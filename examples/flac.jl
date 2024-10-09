@@ -38,7 +38,7 @@ FLACFormat(info; kwargs...) = FLACFormat(LPCMFormat(info); sample_rate=info.samp
 
 Onda.register_lpcm_format!(file_format -> file_format == "flac" ? FLACFormat : nothing)
 
-file_format_string(::FLACFormat) = "flac"
+Onda.file_format_string(::FLACFormat) = "flac"
 
 function flac_raw_specification_flags(format::FLACFormat{S}) where {S}
     return (level="--compression-level-$(format.level)",
