@@ -56,7 +56,8 @@ end
 function Onda.deserializing_lpcm_stream(format::FLACFormat, io)
     flags = flac_raw_specification_flags(format)
     cmd = flac() do flac_path
-        return open(`$flac_path - --totally-silent -d --force-raw-format $(flags.endian) $(flags.is_signed)`, io)
+        return open(`$flac_path --decode --totally-silent --force-raw-format $(flags.level) $(flags.endian) $(flags.is_signed) -`,
+                    io; read=true)
     end
     return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
@@ -64,7 +65,7 @@ end
 function Onda.serializing_lpcm_stream(format::FLACFormat, io)
     flags = flac_raw_specification_flags(format)
     cmd = flac() do flac_path
-        return open(`$flac_path --totally-silent $(flags) -`, io; write=true)
+        return open(`$flac_path --totally-silent --force-raw-format $(flags) -`, io; write=true)
     end
     return FLACStream(Onda.LPCMStream(format.lpcm, cmd))
 end
@@ -91,7 +92,7 @@ function Onda.serialize_lpcm(format::FLACFormat, samples::AbstractMatrix)
     stream = serializing_lpcm_stream(format, io)
     serialize_lpcm(stream, samples)
     finalize_lpcm_stream(stream)
-    return take!(io)
+    return take!(seekstart(io))
 end
 
 #####
