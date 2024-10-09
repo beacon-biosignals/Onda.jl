@@ -286,12 +286,12 @@ function deserialize_lpcm(stream::LPCMStream, sample_offset::Integer=0,
     return deserialize_lpcm(stream.format, read(stream.io, byte_count))
 end
 
+_matrix(samples::Matrix) = samples
+_matrix(samples::AbstractMatrix) = Matrix(samples)
+
 function serialize_lpcm(format::LPCMFormat, samples::AbstractMatrix)
     _validate_lpcm_samples(format, samples)
-    samples isa Matrix && return reinterpret(UInt8, vec(samples))
-    io = IOBuffer()
-    write(io, samples)
-    return take!(seekstart(io))
+    return reinterpret(UInt8, vec(_matrix(samples)))
 end
 
 function serialize_lpcm(stream::LPCMStream, samples::AbstractMatrix)
