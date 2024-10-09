@@ -282,16 +282,16 @@ function deserialize_lpcm(stream::LPCMStream, sample_offset::Integer=0,
     bytes_per_sample = _bytes_per_sample(stream.format)
     jump(stream.io, bytes_per_sample * sample_offset)
     byte_count = bytes_per_sample * sample_count
-    byte_count = byte_count >= 0 ? byte_count : typemax(Int) # handle overflow
-    return deserialize_lpcm(stream.format, read(stream.io, byte_count))
+    # XXX on Julia 1.11.0, setting byte_count to the sentinal value typemax(Int)
+    # doesn't work: the correct number of bytes is returned from `read`, but the
+    # values change every time. By using a different method, we avoid that problem
+    bytes = byte_count >= 0 ? read(stream.io, byte_count) : read(stream.io) # handle overflow
+    return deserialize_lpcm(stream.format, bytes)
 end
 
 function serialize_lpcm(format::LPCMFormat, samples::AbstractMatrix)
     _validate_lpcm_samples(format, samples)
-    samples isa Matrix && return reinterpret(UInt8, vec(samples))
-    io = IOBuffer()
-    write(io, samples)
-    return resize!(io.data, io.size)
+    return reinterpret(UInt8, vec(samples))
 end
 
 function serialize_lpcm(stream::LPCMStream, samples::AbstractMatrix)

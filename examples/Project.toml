@@ -1,6 +1,10 @@
 [deps]
 Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+FLAC_jll = "1d38b3a6-207b-531b-80e8-c83f48dafa73"
 Legolas = "741b9549-f6ed-4911-9fbf-4a1c0c97f0cd"
 Onda = "e853f5be-6863-11e9-128d-476edb89bfb5"
 TimeSpans = "bb34ddd2-327f-4c4a-bfb0-c98fc494ece1"
+
+[compat]
+FLAC_jll = "1.3.3"

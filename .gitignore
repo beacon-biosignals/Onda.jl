@@ -129,6 +129,7 @@ dmypy.json
 docs/build/
 docs/site/
 Manifest.toml
+Manifest-v*.toml
 
 # misc
 *.DS_Store
