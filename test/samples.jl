@@ -142,9 +142,9 @@ end
                          sample_offset_in_unit=-0.5,
                          sample_type=Int16,
                          sample_rate=50.2)
-     data = Int16[20032  4760  27427  -20758   24287
-                  14240  5037   5598   -5888   21784
-                  16885   600  20880  -32493  -19305]
+    data = Int16[20032  4760  27427  -20758   24287
+                 14240  5037   5598   -5888   21784
+                 16885   600  20880  -32493  -19305]
     samples = Samples(data, info, true)
     M = VERSION >= v"1.6" ? "Matrix{Int16}" : "Array{Int16,2}"
     @test sprint(show, samples, context=(:compact => true)) == "Samples(3×5 $M)"
