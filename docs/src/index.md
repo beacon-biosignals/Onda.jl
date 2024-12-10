@@ -25,6 +25,7 @@ Onda.read_byte_range
 AnnotationV1
 MergedAnnotationV1
 merge_overlapping_annotations
+validate_annotations
 ```
 
 ## `onda.signal`
@@ -38,6 +39,7 @@ channel_count(x)
 sample_count(x, duration::Period)
 sizeof_samples(x, duration::Period)
 sample_type(x)
+validate_signals
 ```
 
 ## `Samples`
@@ -45,6 +47,8 @@ sample_type(x)
 ```@docs
 Samples
 ==(::Samples, ::Samples)
+isequal(::Samples, ::Samples)
+copy(::Samples)
 channel
 channel_count
 sample_count
@@ -59,6 +63,7 @@ channel(samples::Samples, name)
 channel(samples::Samples, i::Integer)
 channel_count(samples::Samples)
 sample_count(samples::Samples)
+Onda.validate_samples
 ```
 
 ## LPCM (De)serialization API
