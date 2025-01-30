@@ -4,6 +4,22 @@
 
 @schema "onda.annotation" Annotation
 
+"""
+    AnnotationV1
+
+A [Legolas](https://github.com/beacon-biosignals/Legolas.jl)-generated record type
+implementing the [`onda.annotation@1`](https://github.com/beacon-biosignals/Onda.jl##ondaannotation1)
+specification as described by the [Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl#the-onda-format-specification).
+
+# Required Fields
+
+- `recording::UUID`: The UUID identifying the recording with which the annotation is
+  associated.
+- `id::UUID`: The UUID identifying the annotation.
+- `span::TimeSpan`: The annotation's time span within the recording.
+"""
+AnnotationV1
+
 @version AnnotationV1 begin
     recording::UUID = UUID(recording)
     id::UUID = UUID(id)
@@ -11,19 +27,6 @@
 end
 
 Legolas.accepted_field_type(::AnnotationV1SchemaVersion, ::Type{TimeSpan}) = Union{NamedTupleTimeSpan,TimeSpan}
-
-"""
-    @version AnnotationV1 begin
-        recording::UUID
-        id::UUID
-        span::TimeSpan
-    end
-
-A Legolas-generated record type representing an [`onda.annotation` as described by the Onda Format Specification](https://github.com/beacon-biosignals/Onda.jl##ondaannotation1).
-
-See https://github.com/beacon-biosignals/Legolas.jl for details regarding Legolas record types.
-"""
-AnnotationV1
 
 """
     validate_annotations(annotations)
@@ -45,23 +48,23 @@ validate_annotations(annotations) = _fully_validate_legolas_table(:validate_anno
 
 @schema "onda.merged-annotation" MergedAnnotation
 
+"""
+    MergedAnnotationV1 > AnnotationV1
+
+A [Legolas](https://github.com/beacon-biosignals/Legolas.jl)-generated record type
+representing an annotation derived from "merging" one or more existing annotations.
+
+# Required Fields
+
+All fields required by [`AnnotationV1`](@ref), and:
+
+- `from::Vector{UUID}`: The `id`s of the annotation's source annotation(s).
+"""
+MergedAnnotationV1
+
 @version MergedAnnotationV1 > AnnotationV1 begin
     from::Vector{UUID}
 end
-
-"""
-    @version MergedAnnotationV1 > AnnotationV1 begin
-        from::Vector{UUID}
-    end
-
-A Legolas-generated record type representing an annotation derived from "merging" one or more existing annotations.
-
-This record type extends `AnnotationV1` with a single additional required field, `from::Vector{UUID}`, whose entries
-are the `id`s of the annotation's source annotation(s).
-
-See https://github.com/beacon-biosignals/Legolas.jl for details regarding Legolas record types.
-"""
-MergedAnnotationV1
 
 """
     merge_overlapping_annotations([predicate=TimeSpans.overlaps,] annotations)
