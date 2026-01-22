@@ -6,6 +6,11 @@ using Compat, Legolas, TimeSpans, Arrow, Tables, TranscodingStreams, CodecZstd
 using Legolas: @schema, @version, write_full_path
 using Tables: rowmerge
 
+if VERSION >= v"1.11.0-DEV.469"
+    eval(Meta.parse("""public read_byte_range, mmap, validate_samples, register_lpcm_format!,
+                       file_format_string, VALIDATE_SAMPLES_DEFAULT, upgrade"""))
+end
+
 include("utilities.jl")
 
 include("annotations.jl")
