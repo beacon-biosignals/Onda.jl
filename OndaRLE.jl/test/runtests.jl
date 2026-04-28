@@ -145,6 +145,42 @@ end
         end
     end
 
+    @testset "non-default sample_resolution / sample_offset" begin
+        # RLE operates on already-encoded ints, so resolution/offset are
+        # purely metadata for the encode/decode step that Onda.store and
+        # Onda.load apply on either side of (de)serialization. Verify that
+        # a non-default resolution and offset round-trip cleanly through the
+        # full Onda.store -> Onda.load pipeline.
+        info_scaled = SamplesInfoV2(sensor_type="hypnogram",
+                                    channels=["a", "b", "c"],
+                                    sample_unit="microvolt",
+                                    sample_resolution_in_unit=0.25,
+                                    sample_offset_in_unit=-1.5,
+                                    sample_type=Int8,
+                                    sample_rate=1/30)
+        rng = MersenneTwister(13)
+        encoded = _hypnogram_sample(rng, 3, Int8)
+        encoded_samples = Samples(encoded, info_scaled, true)
+
+        # Direct format API still round-trips the encoded ints losslessly.
+        fmt = RLEFormat(info_scaled)
+        @test deserialize_lpcm(fmt, serialize_lpcm(fmt, encoded)) == encoded
+
+        # End-to-end: starting from a *decoded* Samples (floats in physical
+        # units), Onda.store will encode -> serialize, Onda.load will
+        # deserialize -> decode, and the decoded values must match.
+        decoded_samples = decode(encoded_samples)
+        @test eltype(decoded_samples.data) <: AbstractFloat
+        mktempdir() do dir
+            path = joinpath(dir, "scaled.lpcm.rle")
+            Onda.store(path, "lpcm.rle", decoded_samples)
+            loaded = Onda.load(path, "lpcm.rle", info_scaled)
+            @test loaded.data == decoded_samples.data
+            loaded_encoded = Onda.load(path, "lpcm.rle", info_scaled; encoded=true)
+            @test loaded_encoded.data == encoded
+        end
+    end
+
     @testset "compression ratio vs LPCMFormat" begin
         rng = MersenneTwister(7)
         data = _hypnogram_sample(rng, 3, Int8; n=900, runs_per_channel=30)

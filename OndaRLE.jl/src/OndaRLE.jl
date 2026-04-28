@@ -54,9 +54,20 @@ _read_count(io::IO, ::Type{T}) where {T<:Unsigned} = UInt64(read(io, T))
     RLEFormat(info; count_encoding=Varint())
 
 Run-length encoded `AbstractLPCMFormat`. Each channel is RLE-encoded
-independently (so a long run on one channel is preserved even when other
-channels change in the same timestep), and channel byte lengths are written
-in a header so each channel can be decoded without depending on the others.
+independently — so a long run on one channel is preserved even when other
+channels change in the same timestep — and a single timestep count in the
+header lets every channel decode to the same shared length without needing
+per-channel byte-length prefixes (Onda `Samples` are rectangular).
+
+Like every `AbstractLPCMFormat`, `RLEFormat` operates on the *already
+integer-encoded* sample matrix: `Onda.store` calls `encode(samples).data`
+before handing bytes to `serialize_lpcm`, and `Onda.load` invokes `decode` on
+the matrix returned by `deserialize_lpcm`. This format therefore performs no
+quantization itself, and `info.sample_resolution_in_unit` /
+`info.sample_offset_in_unit` are irrelevant to (de)serialization — RLE is
+purely a byte-level transform on the encoded ints. Compression quality
+depends only on how long the runs are in that integer matrix, which for
+hypnograms (categorical `Int8` stages) is typically very high.
 
 `count_encoding` controls how run lengths are encoded:
 
@@ -123,36 +134,36 @@ function _encode_channel(io::IO, count_encoding, channel::AbstractVector{S}) whe
     return nothing
 end
 
-function _decode_channel!(out::Vector{S}, io::IO, count_encoding, byte_count::Integer) where {S}
-    target = position(io) + byte_count
-    while position(io) < target
+function _decode_channel_into!(data::AbstractMatrix{S}, ch::Integer, io::IO,
+                               count_encoding) where {S}
+    n = size(data, 2)
+    t = 1
+    while t <= n
         count = _read_count(io, count_encoding)
         value = read(io, S)
-        for _ in 1:count
-            push!(out, value)
+        stop = t + Int(count) - 1
+        stop > n && throw(ArgumentError("RLE channel decoded past timestep count"))
+        @inbounds for j in t:stop
+            data[ch, j] = value
         end
+        t = stop + 1
     end
-    position(io) == target ||
-        throw(ArgumentError("RLE channel ran past its declared byte length"))
-    return out
+    return nothing
 end
 
 function Onda.serialize_lpcm(format::RLEFormat{S}, samples::AbstractMatrix) where {S}
+    # `samples` here is the encoded integer matrix (eltype `S`), not the
+    # decoded floating-point view. `_validate_lpcm_samples` enforces that —
+    # it errors if `eltype(samples) !<: S`. We deliberately do *not* check
+    # `info.sample_resolution_in_unit` / `info.sample_offset_in_unit`; those
+    # only affect Onda's encode/decode step, and have no bearing on RLE.
     _validate_lpcm_samples(format.lpcm, samples)
-    nch = size(samples, 1)
-    channel_bufs = Vector{Vector{UInt8}}(undef, nch)
-    for ch in 1:nch
-        buf = IOBuffer()
-        _encode_channel(buf, format.count_encoding, view(samples, ch, :))
-        channel_bufs[ch] = take!(buf)
-    end
+    nch, n = size(samples)
     out = IOBuffer()
     write(out, UInt32(nch))
-    for buf in channel_bufs
-        write(out, UInt32(length(buf)))
-    end
-    for buf in channel_bufs
-        write(out, buf)
+    write(out, UInt32(n))
+    for ch in 1:nch
+        _encode_channel(out, format.count_encoding, view(samples, ch, :))
     end
     return take!(out)
 end
@@ -164,19 +175,10 @@ function Onda.deserialize_lpcm(format::RLEFormat{S}, bytes,
     nch = Int(read(io, UInt32))
     nch == format.lpcm.channel_count ||
         throw(ArgumentError("RLE header channel_count ($nch) does not match format ($(format.lpcm.channel_count))"))
-    channel_byte_lengths = [Int(read(io, UInt32)) for _ in 1:nch]
-    channels = Vector{Vector{S}}(undef, nch)
-    for ch in 1:nch
-        channels[ch] = _decode_channel!(S[], io, format.count_encoding, channel_byte_lengths[ch])
-    end
-    timestep_count = isempty(channels) ? 0 : length(channels[1])
-    for ch in 2:nch
-        length(channels[ch]) == timestep_count ||
-            throw(ArgumentError("RLE channels decoded to inconsistent lengths"))
-    end
+    timestep_count = Int(read(io, UInt32))
     data = Matrix{S}(undef, nch, timestep_count)
-    @inbounds for ch in 1:nch, t in 1:timestep_count
-        data[ch, t] = channels[ch][t]
+    for ch in 1:nch
+        _decode_channel_into!(data, ch, io, format.count_encoding)
     end
     sample_start = min(sample_offset + 1, timestep_count + 1)
     sample_end = sample_offset + sample_count
