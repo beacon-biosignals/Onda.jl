@@ -1,0 +1,23 @@
+name = "OndaRLE"
+uuid = "8b7e2c4d-1f3a-4d6e-9c5b-7f2e8a1c4d6e"
+authors = ["Beacon Biosignals, Inc."]
+version = "0.1.0"
+
+[deps]
+Onda = "e853f5be-6863-11e9-128d-476edb89bfb5"
+
+[sources]
+Onda = {path = ".."}
+
+[compat]
+Onda = "0.15"
+julia = "1.6"
+
+[extras]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+TimeSpans = "bb34ddd2-327f-4c4a-bfb0-c98fc494ece1"
+
+[targets]
+test = ["Dates", "Random", "Test", "TimeSpans"]

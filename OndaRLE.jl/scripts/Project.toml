@@ -1,0 +1,10 @@
+[deps]
+BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+Onda = "e853f5be-6863-11e9-128d-476edb89bfb5"
+OndaRLE = "8b7e2c4d-1f3a-4d6e-9c5b-7f2e8a1c4d6e"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[sources]
+Onda = {path = "../.."}
+OndaRLE = {path = ".."}
